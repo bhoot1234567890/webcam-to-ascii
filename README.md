@@ -91,14 +91,14 @@ The renderer is a four-stage pipeline. Per frame:
 
 ```mermaid
 flowchart LR
-    A[Webcam frame] --> B[Resize to ≤150×200\nwidth ×2 for aspect]
+    A[Webcam frame] --> B["Resize to ≤150×200<br/>width ×2 for aspect"]
     B --> C[Grayscale]
-    C --> D[Difference of Gaussians\nsharpen edges]
-    D --> E[Sobel: magnitude +\ngradient angle]
+    C --> D["Difference of Gaussians<br/>sharpen edges"]
+    D --> E["Sobel: magnitude +<br/>gradient angle"]
     E --> F{Edge?}
-    F -->|strong| G[Glyph from angle\n/ - \ |]
-    F -->|weak| H[Glyph from luminance\n95-char ink ramp]
-    G --> I[Combine\nedge over shading]
+    F -->|strong| G["Glyph from angle<br/>/ - \ |"]
+    F -->|weak| H["Glyph from luminance<br/>95-char ink ramp"]
+    G --> I["Combine<br/>edge over shading"]
     H --> I
     I --> J[Print to terminal]
     I --> K[Preview window]
