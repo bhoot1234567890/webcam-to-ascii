@@ -1,0 +1,22 @@
+{
+  "name": "webcam-to-ascii",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "scripts": {
+    "dev": "bunx --bun vite --host 127.0.0.1 --port 4173 --strictPort",
+    "build": "bunx --bun vite build",
+    "preview": "bunx --bun vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "test:unit": "bun test tests/unit",
+    "test:browser": "node node_modules/@playwright/test/cli.js test",
+    "test:production": "bun run build && QA_PRODUCTION=1 node node_modules/@playwright/test/cli.js test"
+  },
+  "dependencies": {
+    "@fontsource/roboto-mono": "5.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "vite": "8.3.5"
+  }
+}

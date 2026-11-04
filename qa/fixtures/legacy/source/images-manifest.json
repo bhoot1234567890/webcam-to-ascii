@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "seed": 20261104,
+  "fixtures": [
+    {
+      "id": "black",
+      "path": "black.png",
+      "sha256": "e4388dd653695f1f8d2bf8054ea3eefbce8bd712c03ce96521aae2bf4e6bf2e3",
+      "bytes": 75,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "midgray",
+      "path": "midgray.png",
+      "sha256": "cfd30c14aab2759036dba64d75b63e8b007bdafafa64d24e55f61177d3d17210",
+      "bytes": 82,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "white",
+      "path": "white.png",
+      "sha256": "c3785bc63448b5b65f3418fbdb465d86759ecb70dfe5ccfbe1c1b95ea186df19",
+      "bytes": 82,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "ramp",
+      "path": "ramp.png",
+      "sha256": "eaa849c5b584095b4553effd79ad67301f6609a5cefa6350166a60ce53560fef",
+      "bytes": 117,
+      "width": 256,
+      "height": 32,
+      "mode": "L"
+    },
+    {
+      "id": "step-horizontal",
+      "path": "step-horizontal.png",
+      "sha256": "68850e5274bdfadba50be27aaabf278f9f143a9a5cc641dde7aced308e92216c",
+      "bytes": 84,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "step-vertical",
+      "path": "step-vertical.png",
+      "sha256": "1e215c446080fca0dcb51315003029a71d68a81f63f3d8b4a56495431497b44b",
+      "bytes": 84,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "step-diagonal-down",
+      "path": "step-diagonal-down.png",
+      "sha256": "359758297a2ce374137d7167263cbf063062365faff91f2b09c4a80b58106d9a",
+      "bytes": 158,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "step-diagonal-up",
+      "path": "step-diagonal-up.png",
+      "sha256": "80cd913df91b8b92d0f89a26954082ab92c5e3e7750bf1a832d48fe279fd433f",
+      "bytes": 169,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "impulse-center",
+      "path": "impulse-center.png",
+      "sha256": "95d6d8317f8511d0047f1f6621f1f89cc14faa02209ae7ad269d05a5433a338c",
+      "bytes": 79,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "impulse-corner",
+      "path": "impulse-corner.png",
+      "sha256": "9f295126a866df77e9d0a85f37906a37aa83e12dbee0c04689a49ee66e9527f0",
+      "bytes": 76,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "checker4",
+      "path": "checker4.png",
+      "sha256": "ac6303f60ad00c209403c067b99eff5c4a25a64eaeaf90929e29b75321611ff9",
+      "bytes": 103,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "noise",
+      "path": "noise.png",
+      "sha256": "18db90e7fd8e46e3e4ec3c5082f72ca22bb4ec0f7162e085b5d870abce9cf7ad",
+      "bytes": 1170,
+      "width": 37,
+      "height": 29,
+      "mode": "L"
+    },
+    {
+      "id": "rgb-patches",
+      "path": "rgb-patches.png",
+      "sha256": "514b3466f473094b9172d03881642a7b923c67dd9908e15042c77a13a392d499",
+      "bytes": 113,
+      "width": 36,
+      "height": 24,
+      "mode": "RGB"
+    },
+    {
+      "id": "astronaut",
+      "path": "astronaut.png",
+      "sha256": "8fd448a8b79ed8728880d7b9a8afe0dc05527aba7703ef538df9cd9d3edde032",
+      "bytes": 424036,
+      "width": 512,
+      "height": 512,
+      "mode": "RGB"
+    },
+    {
+      "id": "astronaut-portrait",
+      "path": "astronaut-portrait.png",
+      "sha256": "24fd7aefb7709fefee9703bcfd2418d75c9ce8c2cc537c573c3f4d6636dc382f",
+      "bytes": 230016,
+      "width": 256,
+      "height": 512,
+      "mode": "RGB"
+    },
+    {
+      "id": "astronaut-landscape",
+      "path": "astronaut-landscape.png",
+      "sha256": "c61e4e8f0bc1ee6cd7b9e00178430a572bcfaa2946b97b0d97c4b4c2d09e1c20",
+      "bytes": 215433,
+      "width": 512,
+      "height": 256,
+      "mode": "RGB"
+    }
+  ],
+  "componentInputs": [
+    {
+      "id": "tiny-1x1",
+      "input": {
+        "path": "arrays/76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71.u8",
+        "sha256": "76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71",
+        "bytes": 1,
+        "dtype": "u8",
+        "shape": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "tiny-1x17",
+      "input": {
+        "path": "arrays/d3da7d23ba70af964774519762dd0fc02758cd57e1934dc436b6add2eb2f778c.u8",
+        "sha256": "d3da7d23ba70af964774519762dd0fc02758cd57e1934dc436b6add2eb2f778c",
+        "bytes": 17,
+        "dtype": "u8",
+        "shape": [
+          1,
+          17
+        ]
+      }
+    },
+    {
+      "id": "tiny-17x1",
+      "input": {
+        "path": "arrays/d3da7d23ba70af964774519762dd0fc02758cd57e1934dc436b6add2eb2f778c.u8",
+        "sha256": "d3da7d23ba70af964774519762dd0fc02758cd57e1934dc436b6add2eb2f778c",
+        "bytes": 17,
+        "dtype": "u8",
+        "shape": [
+          17,
+          1
+        ]
+      }
+    }
+  ],
+  "attribution": {
+    "path": "ATTRIBUTION.txt",
+    "sha256": "6e41b3eec9de2914cbe6facc45dcac9ad92f17d31c2ff394a12c18ee63f10334",
+    "bytes": 561
+  }
+}

@@ -4,22 +4,130 @@
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)
 
-**A real-time webcam viewer that renders live video as ASCII art in your terminal** — for terminal-art hobbyists, retro-computing tinkerers, and anyone who wants their face drawn in 95 printable characters.
+**A private browser and terminal renderer for live webcam video and local images.** The static browser app processes pixels in one JavaScript worker; the original Python webcam viewer remains available.
 
 Most webcam-to-ASCII converters map each pixel's brightness to a short ramp (` .:-=+*#%@`). This project does more: it runs Sobel edge detection on a Difference-of-Gaussians-enhanced frame, then picks each glyph from the gradient *direction* (`/ - \ |`) for edges and from a 95-character luminance ramp for shading. The result reads like a hand-drawn line sketch instead of a blocky heat map.
 
 ## ✨ Features
 
 - **Live, real-time rendering** — every captured frame is converted and printed to the terminal in a tight loop; quit with `q`.
-- **Directional edge glyphs** — strong edges are drawn with `/ - \ |` chosen from the Sobel gradient angle, so strokes follow the actual contours of the scene.
+- **Directional edge glyphs** — the original ordered angle-selection rule chooses `/ - \ |`, including its historical negative-angle quirks.
 - **95-character luminance ramp** — shading is mapped through the full printable ASCII set, giving far more dynamic range than a typical 10-step ramp.
 - **Ink-weighted character ramp** — glyphs are ranked by their real rendered "ink" (dark-pixel count in a font), not by a hand-tuned guess, so brightness maps perceptually.
 - **Difference-of-Gaussians preprocessing** — sharpens edges before detection, keeping thin features (hair, glasses, text) visible at low resolution.
-- **Aspect-ratio-corrected sizing** — output is clamped to 150 columns × 200 rows with width doubled to compensate for the ~2:1 height/width ratio of a terminal cell.
+- **Character-proportioned sizing** — the original orientation policy selects a width or height setting, then doubles columns. These settings are not strict output bounds; a square at the defaults is 400 columns × 200 rows.
 - **Live preview window** — the raw webcam frame is shown alongside the terminal output via an OpenCV window.
 - **Helper utilities included** — scripts to enumerate cameras, regenerate the ink-usage ramp, and render a still image offline for tuning.
 
-## 📦 Installation
+## Browser application
+
+Prerequisites: **Bun 1.4.4**. The reproducible QA setup currently targets Linux x64, downloads a checksum-verified local **Node 22.23.4** for Playwright, and installs a separate locked Python 3.12 oracle. Neither Node nor Python is a deployed backend.
+
+```sh
+bash qa/setup.sh
+bun run --cwd frontend dev
+```
+
+Open **http://127.0.0.1:4173**. The default is an iOS-inspired **Camera view**, with the actual ASCII output as its viewfinder—not a raw camera feed or a prerecorded effect. Tap the white **shutter** to request camera access. Tap it again, or choose **Still**, to freeze a real frame; capture releases the camera and renders that frame through the same image pipeline. Tap the shutter or **Live** to return to live capture. During a pending permission request, the shutter cancels the request and releases any stream that resolves late.
+
+The **library** button opens the local photo picker without needing camera permission. **Flip** switches the Front/Back preference; the rear-facing preference is the initial choice, with browser fallback when no matching camera exists. The small **Stop** button releases capture without taking a still. The **grid** button toggles composition guides only; it never changes the rendered text.
+
+Use the top-right **Studio controls** button for the existing source selector, numeric tuning, original preview and diagnostics. **Camera view** returns to the viewfinder without restarting the source. Both views share one source, worker and ASCII node. Frozen shots remain in page memory; they are not automatically saved to Photos or uploaded.
+
+Both camera and photo inputs use the main live renderer's algorithm. **Tune the detail** applies the numeric controls; invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The source preview in Studio stays unmodified.
+
+**Fit** initially shows the complete proportional grid. The camera's **1×** button (Studio: **1:1 detail**) restores readable glyphs with two-dimensional scrolling. Fit changes presentation only—not text, resolution, or aspect ratio. The camera view fills the phone viewport, with side-mounted controls in landscape; primary controls have at least 44 CSS-pixel touch targets and respect safe areas. Studio retains the more detailed scrolling layout.
+
+Camera access requires HTTPS or localhost. Camera options in Studio offers Front / selfie, Back / scene and specific browser device IDs; a facing preference does not guarantee a particular lens. Backgrounding the page stops capture, including pending permission requests; returning requires an explicit restart. Cached navigation returns leave Start usable.
+
+Images and camera frames stay on the device: no upload endpoints, external fonts, analytics, recordings, or frame-processing services. Roboto Mono is bundled locally; its measured cell geometry preserves image proportions.
+
+**Testing on an iPhone:** deploy the static build to a trusted HTTPS origin and open it in Safari. `http://<computer-LAN-IP>:4173` is not the phone's localhost and cannot provide secure-context camera access. The automated iPhone 14 Plus profile uses a 428×926 CSS screen, 428×746 portrait content viewport, DPR 3 and touch-enabled WebKit; this is emulation, not physical iOS/Safari hardware proof. QA also checks landscape, the full-height 428×926 viewport and narrower screens.
+
+The mobile layout follows [WebKit safe-area guidance](https://webkit.org/blog/7929/designing-websites-for-iphone-x/), [small/dynamic viewport units](https://webkit.org/blog/12445/new-webkit-features-in-safari-15-4/), and [W3C guidance on contained scrolling for ASCII art](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html). The background-stop policy uses [`visibilitychange`](https://developer.mozilla.org/en-US/docs/Web/API/Document/visibilitychange_event), because unload/pagehide alone are unreliable on mobile.
+
+### Static deployment
+
+```sh
+bun run --cwd frontend build
+bun run --cwd frontend preview
+```
+
+Deploy **`frontend/dist/`** to a static HTTPS host. No Python service is needed. QA pages, source fixtures, and generated artifacts are not production build inputs.
+
+### Reproducible parity and browser QA
+
+```sh
+bash qa/setup.sh
+# Explicit fixture generation; ordinary tests do not fetch sample data:
+.venv-qa/bin/python -m qa.make_fixtures
+bash qa/run-tests.sh
+```
+
+The committed `qa/fixtures/legacy/` answers were captured from the **unmodified** main Python script through finite real-image acquisition, before extraction. **Do not regenerate them to fix failures.** `qa.capture_legacy` is a one-time provenance tool and refuses an existing output directory. The independent Python/OpenCV-only and offline scripts are not alternate oracles.
+
+The QA command fails on missing or corrupt fixtures, dependency failures, numerical failures, browser errors, and missing A/B evidence. It runs frozen Python regressions, a gated binary reference export, Bun component parity, Playwright image/camera/controller/A/B projects, evidence aggregation, then a fresh static-production build and smoke. Playwright uses the local Node explicitly; there is no global PATH or shell-profile modification.
+
+Generated results are ignored under `qa/artifacts/`: numerical reports and diagnostic heatmaps, Playwright HTML/JSON reports and retained failure traces, normal UI screenshots, camera measurements, and a physically permuted Left/Right visual matrix. Numerical comparisons use identical Python stage inputs. Full-image comparisons independently use Pillow and a source-verified JavaScript port of the locked Pillow Lanczos sampler, with RGB channels checked to within one byte. Raw text differences are reported, not assumed zero. Image review is a separate required gate.
+
+```sh
+.venv-qa/bin/python -m http.server 4174 --bind 127.0.0.1 --directory qa/artifacts
+# Open http://127.0.0.1:4174/ab/index.html ; Ctrl-C to stop.
+```
+
+The photographic fixture is NASA's public-domain Eileen Collins image distributed by scikit-image; attribution is in `qa/fixtures/images/ATTRIBUTION.txt`. Ordinary tests are offline once setup and generation have completed.
+
+**Host libraries:** setup names missing Playwright shared libraries and fails; it never uses sudo or disables the Chromium sandbox. On this Ubuntu 26.04 host, `libmanette-0.2-0` and `libhidapi-hidraw0` were needed. An unprivileged alternative to administrator installation is:
+
+```sh
+mkdir -p .tools/downloads .tools/host-libs
+(cd .tools/downloads && apt-get download libmanette-0.2-0 libhidapi-hidraw0)
+for package in .tools/downloads/libmanette-0.2-0_*.deb .tools/downloads/libhidapi-hidraw0_*.deb; do
+    dpkg-deb -x "$package" .tools/host-libs
+done
+bash qa/setup.sh
+```
+
+The scripts recognize those local libraries. WebKit's bundled wrapper replaces `LD_LIBRARY_PATH`, so the QA config preloads only those optional local libraries for WebKit. No browser cache or system library is modified.
+
+
+### Verified execution (2026-11-04)
+
+`bash qa/run-tests.sh` passed on Linux x64 with the committed locks:
+
+| Gate | Observed result |
+|---|---|
+| Frozen Python regressions | 13 passed; all 16 original full-image outputs and 114 component cases unchanged |
+| Bun numerical and resize tests | 387 passed; common-gray text exact; maximum Gaussian error `6.67e-16`; zero quantization exceptions |
+| Pillow RGB resize oracle | 51 cases, maximum channel difference `0` |
+| Browser acceptance | 70 passed; Chromium, Firefox, WebKit, iPhone emulation, shutter/capture/retake, cancellation, camera switching, privacy, and A/B evidence |
+| Fresh static-production smoke | 4 passed; desktop/mobile Studio plus iPhone camera-library import, Fit/Detail, unobstructed controls, rotation and delayed-CSS startup |
+| Visual inspection | 10 native-camera iPhone screenshots directly reviewed and image-judged; final camera/layout judgments all pass, with two artwork flags directly adjudicated |
+
+The initial independent image review caught a real native-Canvas impulse-contour difference; the verified Lanczos sampler fixed it. Final independent judgments and direct adjudication are preserved in `qa/artifacts/ab/vision-review.json` and `review.md`. One contradictory judge flag was resolved by identical full-resolution corner-image pixels and identical text; the raw judgments were not rewritten. All synthetic cases and comparison-profile photographs are text-exact. Default astronaut/portrait cases differ at five/four cells, with grayscale-rounding propagation recorded in `residual-provenance.json`.
+
+Evidence entry points after the command completes:
+
+- `qa/artifacts/unit/numerical-report.json` and `resize-report.json`
+- `qa/artifacts/playwright/html/index.html` and `production-html/index.html`
+- `qa/artifacts/ab/index.html`, `review.md`, `vision-raw.json`, and `vision-review.json`
+- `qa/artifacts/performance.json` (settings, browser and machine included)
+- `qa/artifacts/camera-ui/production-iphone-webkit/` (native-DPR camera screenshots and committed grid/geometry metadata)
+- `qa/artifacts/camera-ui/vision-raw.json`, `vision-review.json`, `presentation-proof.json`, and `artwork-crops/`
+- `qa/artifacts/camera-ui/physical-camera.json`, `physical-live.png`, and `physical-captured.png`
+- `qa/artifacts/camera-ui/desktop-camera.png` and `final-surface-smoke.json`
+- `qa/artifacts/camera-ui-before-detail-fix/` preserves the initial vision evidence that exposed the overlapping Detail controls
+- Earlier Studio/mobile/font diagnostics remain under `qa/artifacts/mobile/`
+
+The five-second fake-camera gate records delivered frame rate, warm worker p50/p95, machine/browser details, Stop response, and outstanding-request count in `performance.json`. These measurements are host-specific, not an iPhone FPS promise.
+
+**Physical webcam verified:** the production camera shell acquired real 640×480 Logitech C930e video without fake-capture flags or microphone tracks. Shutter capture ended the live stream and accepted a real PNG snapshot as a retunable still. Retake reacquired the camera; Flip ended the prior stream; Stop ended all retained video tracks, detached the video and prevented further commits. The hardware report records source generations 1 → 2 → 3 → 4 for live → captured still → retake → flip. This is desktop Chromium camera evidence at emulated phone dimensions, **not physical iPhone/Safari validation**.
+
+Vision review caught glyphs scrolling under the Detail controls; the controls now sit outside the scrollport, with a production regression check for nonoverlap. A fractional CSS-height edge case in Fit is also corrected rather than hidden by relaxed assertions. Final independent judgments recognize all ten views as camera-like and usable. Two comparisons against the raw wide photograph still flag artwork; native-pixel inspection, complete-row/uniform-scale checks and unchanged Camera/Studio text are recorded in the direct adjudication. The renderer and reference answers were not changed to satisfy a visual judge.
+
+The camera shell fits the tested 320×568 viewport; Studio remains a vertically scrolling interface. Earlier WebKit production testing also found and fixed a stylesheet/font-registration race; the delayed-CSS gate remains active, and the prior cold-start/missing-font evidence is retained under `qa/artifacts/mobile/`.
+
+## Python terminal viewer installation
 
 **Prerequisites:** Python 3.9+, a working webcam, and (on macOS) Terminal granted camera access in *System Settings → Privacy & Security → Camera*.
 
@@ -71,18 +179,23 @@ cap = cv2.VideoCapture(0)   # ← 0 is the default webcam
 
 ### What you'll see
 
-Each frame is printed as a block of glyphs up to ~150 characters wide. Edges appear as directed strokes (`/ \ | -`); flat regions fill with progressively denser characters from space (dark) toward `@` (bright). The terminal scrolls continuously — for the cleanest look, run it in a tall, narrow terminal with a small monospace font.
+Each frame is printed as a complete block of glyphs. Landscape sources use twice the width setting; portrait and square sources use the height setting and derive doubled columns from their aspect ratio. Flat regions range from space (dark) toward `@` (bright). The terminal scrolls continuously.
 
 ## ⚙️ Configuration
 
-There is no CLI flag parser; behavior is tuned by editing constants at the top of each script.
+The Python scripts are tuned in source. The browser exposes the main renderer's existing tunables as numeric controls:
 
 | Constant | Default | Where | Description |
 |---|---|---|---|
-| `MAX_WIDTH_CHARS` | `150` | all render scripts | Maximum output columns. Width is doubled internally to correct terminal-cell aspect ratio. |
-| `MAX_HEIGHT_LINES` | `200` (`63` in still-image script) | all render scripts | Maximum output rows. |
-| `cv2.VideoCapture(0)` | `0` | `webcam ascii.py`, `web ascii cv2.py` | Camera device index. |
-| `apply_dog(image, sigma1=1, sigma2=2)` | `1`, `2` | render scripts | Difference-of-Gaussians sigmas; widening the gap sharpens more aggressively. |
+| `MAX_WIDTH_CHARS` / Max width | `150` | Python scripts; browser `20–150` | Landscape width before column doubling; not a strict grid limit. |
+| `MAX_HEIGHT_LINES` / Max height | `200` (`63` in old offline script) | Python scripts; browser `20–200` | Portrait/square grid height. |
+| `cv2.VideoCapture(0)` / Camera | `0` / browser default device | Python viewers / browser selector | Python device index or browser video-input device ID. |
+| Camera view | `Back / scene` preference | Camera Flip button; Studio Camera options | Requests the rear camera when available; a specific device selection overrides the preference. |
+| Interface | `Camera` | Camera Studio-controls button / Studio Camera-view button | Switch presentation without changing or restarting the source. |
+| Composition guides | `Off` | Camera grid button | Viewfinder overlay only; no effect on ASCII or captured source pixels. |
+| ASCII display size | `Fit` | Camera Fit / 1×; Studio Fit / 1:1 detail | Presentation-only scale; unchanged grid, characters and aspect ratio. The selected mode persists through resizing and layout changes until changed. |
+| `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; browser `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. |
+| `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; browser integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. |
 | `ord('q')` | `q` | `webcam ascii.py`, `web ascii cv2.py` | Key that stops the loop and releases the camera. |
 
 ## 🧱 How it works
@@ -91,7 +204,7 @@ The renderer is a four-stage pipeline. Per frame:
 
 ```mermaid
 flowchart LR
-    A[Webcam frame] --> B["Resize to ≤150×200<br/>width ×2 for aspect"]
+    A[Webcam frame or local image] --> B["Orientation-based resize<br/>columns ×2 for aspect"]
     B --> C[Grayscale]
     C --> D["Difference of Gaussians<br/>sharpen edges"]
     D --> E["Sobel: magnitude +<br/>gradient angle"]
@@ -104,15 +217,19 @@ flowchart LR
     I --> K[Preview window]
 ```
 
-**1. Capture & resize.** Each frame is clamped to fit 150 columns or 200 rows, then its width is doubled because terminal cells are roughly twice as tall as they are wide.
+**1. Capture & resize.** Landscape sources use the width setting; portrait/square sources use the height setting. Columns are doubled for cells with height twice their advance. The browser acquires unscaled, black-backed Canvas pixels, then applies the verified Pillow 13.0.0-compatible JavaScript Lanczos sampler. This preserves faint contours that native Canvas downsampling lost in the impulse A/B case.
 
 **2. Edge enhancement.** A Difference-of-Gaussians (DoG) pass subtracts a heavily blurred copy from a lightly blurred one, suppressing flat regions and amplifying edges.
 
 **3. Sobel detection with direction.** Sobel operators in X and Y yield a gradient *magnitude* (how strong the edge is) and *angle* (which way it points).
 
-**4. Glyph selection.** For every cell: if the gradient magnitude ranks in the denser end of the ramp, the cell is an edge and gets a direction glyph (`/ - \ |`) chosen from the rounded angle. Otherwise it is a shading cell, mapped to the nearest of 95 characters by luminance. Edge glyphs override shading so line work stays crisp.
+**4. Glyph selection.** Each byte maps to the nearest normalized ink value, preserving the original order and first-index ties. An edge is selected by its magnitude-ramp index, then the original ordered angle helper supplies a glyph. Non-space edge glyphs override luminance shading.
 
-The 95-character ramp is itself the interesting detail: each printable ASCII character was rendered in a font and its dark-pixel count ("ink") measured, then normalized to 0–255. Brighter pixels map to denser glyphs (`@`, `M`, `W`) and darker pixels to lighter ones (`` ` ``, `.`, space). Regenerate it with `sort characters on whitespace.py`.
+Compatibility deliberately preserves OpenCV's uint8 magnitude wrap and the historical angle-distance expression: for example, `-90`, `22.5`, and `67.5` map to `/`, while `180` maps to `|`. This port is not an orientation-map correction.
+
+The 95-character ramp is stored once in **`ink-usage.json`**, shared by `ascii_core.py` and the frontend. Its measured character order and ink values are unchanged; the unbundled Arial font is not a runtime dependency. The font utility remains an independent measurement tool.
+
+The Lanczos port retains Pillow's MIT-CMU notice in `frontend/public/Pillow-LICENSE.txt`; the bundled Roboto Mono font retains its SIL Open Font License in `frontend/public/Roboto-Mono-LICENSE.txt`. Both notices are copied into the static distribution.
 
 ## 📁 Repository scripts
 
@@ -123,6 +240,10 @@ The 95-character ramp is itself the interesting detail: each printable ASCII cha
 | `just print the final ascii art.py` | Offline renderer for a still image (hardcoded `WIN_20240711_04_17_55_Pro.jpg`) — used to tune the pipeline without a camera. |
 | `list webcams.py` | Enumerates available camera indices (Windows `CAP_DSHOW` / DirectShow). |
 | `sort characters on whitespace.py` | Builds the ink-usage character ramp by rendering each ASCII glyph in `arial.ttf` and counting dark pixels. |
+| `ascii_core.py` | Import-safe callable main renderer, dimensions, and diagnostic planes; no camera or GUI side effects. |
+| `ink-usage.json` | Original measured luminance ramp, shared by Python and JavaScript. |
+| `frontend/` | Static vanilla-JS app, reusable CPU stages, one rendering worker, and Playwright/Bun tests. |
+| `qa/` | Reproducible tooling, immutable pre-extraction answers, Python oracle/regressions, and A/B evidence generation. |
 
 ## 🤝 Contributing
 

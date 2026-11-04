@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050506" />
+    <meta name="description" content="Turn a live camera or local image into ASCII art, privately in your browser. No uploads, no account." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2310171d'/%3E%3Ctext x='32' y='45' text-anchor='middle' font-family='monospace' font-size='44' fill='%23a7e8ce'%3E%40%3C/text%3E%3C/svg%3E" />
+    <title>ASCII Camera — A camera with character</title>
+  </head>
+  <body data-layout="camera" data-guides="off">
+    <div class="app-shell">
+      <header class="camera-toolbar camera-only" aria-label="Camera controls">
+        <button id="toggle-guides" class="camera-icon" type="button" aria-label="Composition grid" aria-pressed="false" title="Composition grid"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M9 3v18M15 3v18M3 9h18M3 15h18" /></svg></button>
+        <div class="camera-brand">CAMERA<span>WITH CHARACTER</span></div>
+        <div class="camera-toolbar-actions">
+          <button id="camera-stop" class="camera-icon" type="button" aria-label="Stop camera" title="Stop camera" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" /></svg></button>
+          <button id="open-studio" class="camera-icon" type="button" aria-label="Open Studio controls" title="Studio controls"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="3" /><circle cx="15" cy="17" r="3" /></svg></button>
+        </div>
+      </header>
+      <header class="site-header">
+        <a class="wordmark" href="./" aria-label="ASCII Studio home"><span class="wordmark-icon" aria-hidden="true">@</span> ASCII <span class="wordmark-secondary">STUDIO</span></a>
+        <span class="privacy-badge"><span aria-hidden="true" class="privacy-dot"></span> On-device processing</span>
+        <button id="open-camera" class="button button-secondary" type="button">Camera view</button>
+      </header>
+
+      <main>
+        <section class="intro" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">Camera & image to characters</p>
+            <h1 id="page-title" tabindex="-1">A different way to see.</h1>
+            <p class="intro-copy">Turn your camera or a photo into ASCII art. Nothing leaves your device.</p>
+          </div>
+          <p class="privacy-note">Your camera and images stay in this browser.<br />Nothing is uploaded or recorded.</p>
+        </section>
+
+        <div class="workspace">
+          <section class="card source-card" aria-labelledby="source-heading">
+            <div class="card-heading"><h2 id="source-heading">Choose a source</h2></div>
+            <div class="camera-actions">
+              <button id="start-camera" class="button button-primary" type="button">Start camera</button>
+              <button id="stop-camera" class="button button-secondary" type="button" disabled>Stop</button>
+              <label class="button button-secondary image-action" for="image-input">Choose photo<input id="image-input" type="file" accept="image/*" aria-describedby="image-help" /></label>
+            </div>
+            <p class="field-help" id="image-help">Camera access starts only when you tap Start. Photos stay local.</p>
+            <details class="camera-options" id="camera-options">
+              <summary>Camera options</summary>
+              <div class="camera-fields">
+                <div><label for="camera-facing">Camera view</label><select id="camera-facing"><option value="">Automatic</option><option value="user">Front / selfie</option><option value="environment" selected>Back / scene</option></select></div>
+                <div><label for="camera-select">Camera device</label><select id="camera-select"><option value="">Automatic camera</option></select></div>
+              </div>
+              <p class="field-help">Front / Back is a preference. Select a specific device to override it.</p>
+            </details>
+          </section>
+
+          <section class="card output-card" id="output-card" aria-labelledby="output-heading">
+            <div class="output-header">
+              <div class="card-heading"><h2 id="output-heading">The ASCII view</h2></div>
+              <div class="view-controls" role="group" aria-label="ASCII display size">
+                <button id="fit-output" type="button" aria-pressed="false" aria-controls="ascii-output">Fit</button>
+                <button id="detail-output" type="button" aria-pressed="false" aria-label="1:1 detail" aria-controls="ascii-output"><span class="studio-only">1:1 detail</span><span class="camera-only">1×</span></button>
+              </div>
+            </div>
+            <div class="output-status"><span class="status-indicator" aria-hidden="true"></span><p id="status" role="status" aria-live="polite">Choose a source to get started</p></div>
+            <p id="error" class="error-message" role="alert" hidden></p>
+            <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output; Fit shows the whole image, detail scrolls the complete grid"><div class="ascii-stage"><pre id="ascii-output" aria-label="Rendered ASCII art"></pre></div></div>
+            <div class="composition-grid camera-only" aria-hidden="true"></div>
+            <div class="output-footer"><span id="grid-label">No grid yet</span><span id="performance-label">Waiting for a source</span></div>
+          </section>
+
+          <details class="card settings-card" id="settings-panel">
+            <summary><h2 id="settings-heading">Tune the detail</h2><span class="small-tag">Resolution & edges</span></summary>
+            <form id="settings-form" novalidate aria-labelledby="settings-heading">
+              <div class="settings-grid">
+                <div class="setting-field"><label for="max-width">Max width <span class="field-unit">chars</span></label><input id="max-width" data-field="maxWidthChars" type="number" inputmode="numeric" min="20" max="150" step="1" value="150" required /></div>
+                <div class="setting-field"><label for="max-height">Max height <span class="field-unit">lines</span></label><input id="max-height" data-field="maxHeightLines" type="number" inputmode="numeric" min="20" max="200" step="1" value="200" required /></div>
+                <div class="setting-field"><label for="sigma1">Sigma 1</label><input id="sigma1" data-field="sigma1" type="number" inputmode="decimal" min="0.5" max="3" step="0.5" value="1" required /></div>
+                <div class="setting-field"><label for="sigma2">Sigma 2</label><input id="sigma2" data-field="sigma2" type="number" inputmode="decimal" min="0.5" max="5" step="0.5" value="2" required /></div>
+                <div class="setting-field setting-wide"><label for="edge-threshold">Edge threshold <span class="field-unit">0–95</span></label><input id="edge-threshold" data-field="edgeIndexThreshold" type="number" inputmode="numeric" min="0" max="95" step="1" value="90" required /></div>
+              </div>
+              <p class="field-help settings-help">Resolution controls the grid. Sigma and threshold shape the edge detail. Changes apply automatically.</p>
+            </form>
+          </details>
+
+          <section class="card preview-card" id="preview-card" aria-labelledby="preview-heading">
+            <div class="card-heading"><h2 id="preview-heading">Source preview</h2><span class="small-tag">Original · unmodified</span></div>
+            <div class="preview-media">
+              <video id="camera-preview" muted playsinline hidden aria-label="Live camera source preview"></video>
+              <img id="image-preview" alt="Selected local image source preview" hidden />
+              <div class="preview-placeholder"><span class="preview-mark" aria-hidden="true">[ &nbsp; ]</span><p>Your source appears here</p></div>
+            </div>
+            <p class="source-caption" id="source-label">No source selected</p>
+          </section>
+        </div>
+      </main>
+      <section class="camera-dock camera-only" aria-label="Camera shooting controls">
+        <div class="camera-modes" role="group" aria-label="Capture mode">
+          <button id="live-mode" type="button" aria-pressed="true" disabled>Live</button>
+          <button id="still-mode" type="button" aria-pressed="false" disabled>Still</button>
+        </div>
+        <div class="shutter-row">
+          <button id="camera-import" class="camera-icon library-button" type="button" aria-label="Choose photo from library" title="Choose photo" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.5" /><path d="m4 18 5-5 4 4 3-3 4 4" /></svg></button>
+          <button id="camera-shutter" class="camera-shutter" type="button" aria-label="Start camera" aria-describedby="shutter-help" disabled><span></span></button>
+          <button id="flip-camera" class="camera-icon flip-button" type="button" aria-label="Switch front and back camera" title="Switch camera" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8a8 8 0 0 0-13-3L3 8m0-5v5h5M5 16a8 8 0 0 0 13 3l3-3m0 5v-5h-5" /></svg></button>
+        </div>
+        <p id="shutter-help" class="shutter-help">Loading the viewfinder…</p>
+        <p class="camera-privacy">ON DEVICE. JUST YOU AND YOUR VIEW.</p>
+      </section>
+
+      <footer class="site-footer"><span>Made of light. Rendered in characters.</span><span>Local input · Local processing · No uploads</span></footer>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

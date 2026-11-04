@@ -1,0 +1,7 @@
+.tools/
+.venv-qa/
+__pycache__/
+*.py[cod]
+frontend/node_modules/
+frontend/dist/
+qa/artifacts/
