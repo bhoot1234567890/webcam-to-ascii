@@ -69,16 +69,165 @@
           </section>
 
           <details class="card settings-card" id="settings-panel">
-            <summary><h2 id="settings-heading">Tune the detail</h2><span class="small-tag">Resolution & edges</span></summary>
+            <summary><h2 id="settings-heading">Tune the detail</h2><span class="small-tag">Styles & detail</span></summary>
             <form id="settings-form" novalidate aria-labelledby="settings-heading">
+              <div class="presets-section" role="group" aria-label="Visual style presets">
+                <div class="preset-heading"><span>Style presets</span><span class="field-unit">One-tap looks</span></div>
+                <div class="preset-pills">
+                  <button type="button" class="preset-pill active" data-preset="crisp">⭐ Crisp Portrait</button>
+                  <button type="button" class="preset-pill" data-preset="burnt">🔥 Color Burnt</button>
+                  <button type="button" class="preset-pill" data-preset="neon">🌟 Neon Glow</button>
+                  <button type="button" class="preset-pill" data-preset="smooth">🌊 Smooth Photo</button>
+                  <button type="button" class="preset-pill" data-preset="bayer">📰 Retro Halftone</button>
+                  <button type="button" class="preset-pill" data-preset="sketch">✏️ Line Sketch</button>
+                  <button type="button" class="preset-pill" data-preset="comic">💥 High Contrast</button>
+                  <button type="button" class="preset-pill" data-preset="classic">💻 Classic Raw</button>
+                </div>
+                <p id="preset-desc" class="preset-desc">Atkinson dithering + inverted + auto-contrast. Crisp facial contours and quiet background.</p>
+              </div>
+
+              <div class="settings-divider"></div>
+
               <div class="settings-grid">
+                <div class="setting-field setting-wide">
+                  <label for="aspect-ratio-select">Crop to fit ratio <span class="field-unit">Framing</span></label>
+                  <div class="pill-group" data-for="aspect-ratio-select">
+                    <button type="button" class="pill-btn active" data-val="original">Full (Original)</button>
+                    <button type="button" class="pill-btn" data-val="1:1">⬛ Square (1:1)</button>
+                    <button type="button" class="pill-btn" data-val="3:4">📱 Portrait (3:4)</button>
+                    <button type="button" class="pill-btn" data-val="9:16">📱 Story (9:16)</button>
+                    <button type="button" class="pill-btn" data-val="4:3">🖥️ Classic (4:3)</button>
+                    <button type="button" class="pill-btn" data-val="16:9">🎬 Cinema (16:9)</button>
+                  </div>
+                  <select id="aspect-ratio-select" data-field="aspectRatio" hidden>
+                    <option value="original" selected>Full (Original)</option>
+                    <option value="1:1">Square (1:1)</option>
+                    <option value="3:4">Portrait (3:4)</option>
+                    <option value="9:16">Story (9:16)</option>
+                    <option value="4:3">Classic (4:3)</option>
+                    <option value="16:9">Cinema (16:9)</option>
+                  </select>
+                </div>
+                <div class="setting-field setting-wide">
+                  <label for="dither-select">Dithering</label>
+                  <div class="pill-group" data-for="dither-select">
+                    <button type="button" class="pill-btn active" data-val="atkinson">Atkinson (Crisp)</button>
+                    <button type="button" class="pill-btn" data-val="floyd-steinberg">Floyd-Steinberg (Smooth)</button>
+                    <button type="button" class="pill-btn" data-val="bayer">Bayer 4×4</button>
+                    <button type="button" class="pill-btn" data-val="none">None</button>
+                  </div>
+                  <select id="dither-select" data-field="dither" hidden>
+                    <option value="atkinson" selected>Atkinson (Crisp)</option>
+                    <option value="floyd-steinberg">Floyd-Steinberg (Smooth)</option>
+                    <option value="bayer">Bayer 4×4 (Halftone grid)</option>
+                    <option value="none">None (Banded)</option>
+                  </select>
+                </div>
+                <div class="setting-field setting-wide">
+                  <label for="ramp-select">Character ramp</label>
+                  <div class="pill-group" data-for="ramp-select">
+                    <button type="button" class="pill-btn active" data-val="clean">Clean (10 chars)</button>
+                    <button type="button" class="pill-btn" data-val="detailed">Detailed (16)</button>
+                    <button type="button" class="pill-btn" data-val="classic">Classic (70)</button>
+                    <button type="button" class="pill-btn" data-val="full">Full (382)</button>
+                  </div>
+                  <select id="ramp-select" data-field="ramp" hidden>
+                    <option value="clean" selected>Clean (10 chars)</option>
+                    <option value="detailed">Detailed (16 chars)</option>
+                    <option value="classic">Classic (70 chars)</option>
+                    <option value="full">Full (382 font-ink chars)</option>
+                  </select>
+                </div>
+
+                <div class="setting-toggle">
+                  <label for="invert-toggle" class="toggle-label">
+                    <span>Invert for dark screen</span>
+                    <span class="field-unit">Light wall → clean space</span>
+                  </label>
+                  <label class="toggle-switch">
+                    <input id="invert-toggle" data-field="invert" type="checkbox" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-toggle">
+                  <label for="autolevels-toggle" class="toggle-label">
+                    <span>Auto-levels contrast</span>
+                    <span class="field-unit">Stretch dynamic range</span>
+                  </label>
+                  <label class="toggle-switch">
+                    <input id="autolevels-toggle" data-field="autoLevels" type="checkbox" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-field">
+                  <label for="gamma-slider">Gamma / Midtone <span id="gamma-val" class="field-unit">1.0</span></label>
+                  <input id="gamma-slider" data-field="gamma" type="range" min="0.5" max="2.5" step="0.1" value="1.0" />
+                </div>
+                <div class="setting-field">
+                  <label for="sharpen-slider">Sharpen <span id="sharpen-val" class="field-unit">0.6</span></label>
+                  <input id="sharpen-slider" data-field="sharpen" type="range" min="0" max="2" step="0.1" value="0.6" />
+                </div>
+
+                <div class="setting-field">
+                  <label for="bloom-slider">ASCII Bloom / Glow <span id="bloom-val" class="field-unit">0.0</span></label>
+                  <input id="bloom-slider" data-field="bloom" type="range" min="0" max="1.5" step="0.1" value="0.0" />
+                </div>
+
+                <div class="setting-field setting-wide">
+                  <label for="glow-color-select">Glow phosphor color</label>
+                  <div class="pill-group color-pills" data-for="glow-color-select">
+                    <button type="button" class="pill-btn color-pill active" data-val="white" style="--c: #ffffff;">⚪ White</button>
+                    <button type="button" class="pill-btn color-pill" data-val="green" style="--c: #a7e8ce;">🟢 Green</button>
+                    <button type="button" class="pill-btn color-pill" data-val="amber" style="--c: #ffc83b;">🟡 Amber</button>
+                    <button type="button" class="pill-btn color-pill" data-val="cyan" style="--c: #4deeea;">🔵 Cyan</button>
+                    <button type="button" class="pill-btn color-pill" data-val="magenta" style="--c: #ff007f;">🟣 Magenta</button>
+                    <label class="pill-btn color-pill custom-color-wrapper" id="custom-color-pill" data-val="custom" style="--c: #ff7700;">
+                      <span class="custom-color-swatch" id="custom-color-swatch"></span>
+                      <span>🎨 Custom</span>
+                      <input type="color" id="custom-color-picker" data-field="customColor" value="#ff7700" title="Choose custom phosphor color" />
+                    </label>
+                  </div>
+                  <select id="glow-color-select" data-field="glowColor" hidden>
+                    <option value="white" selected>⚪ Phosphor White</option>
+                    <option value="green">🟢 Matrix Green</option>
+                    <option value="amber">🟡 Amber CRT</option>
+                    <option value="cyan">🔵 Cyber Cyan</option>
+                    <option value="magenta">🟣 Neon Magenta</option>
+                    <option value="custom">🎨 Custom</option>
+                  </select>
+                </div>
+                <div class="setting-field">
+                  <label for="colorburn-slider">Color Burn <span id="colorburn-val" class="field-unit">0.00</span></label>
+                  <input id="colorburn-slider" data-field="colorBurn" type="range" min="0" max="0.8" step="0.05" value="0.0" />
+                </div>
+
+                <div class="setting-field setting-wide">
+                  <label for="edge-blend-select">Edge blend</label>
+                  <div class="pill-group" data-for="edge-blend-select">
+                    <button type="button" class="pill-btn active" data-val="overlay">Overlay (Edges + Shading)</button>
+                    <button type="button" class="pill-btn" data-val="luminance-only">Shading only</button>
+                    <button type="button" class="pill-btn" data-val="edges-only">Edges only</button>
+                  </div>
+                  <select id="edge-blend-select" data-field="edgeBlend" hidden>
+                    <option value="overlay" selected>Overlay (/ - \ | on shading)</option>
+                    <option value="luminance-only">Shading only (no lines)</option>
+                    <option value="edges-only">Edges only (pure line sketch)</option>
+                  </select>
+                </div>
+
+                <div class="setting-field setting-wide">
+                  <label for="edge-threshold">Edge threshold <span class="field-unit">0–95</span></label>
+                  <input id="edge-threshold" data-field="edgeIndexThreshold" type="number" inputmode="numeric" min="0" max="95" step="1" value="60" required />
+                </div>
+
                 <div class="setting-field"><label for="max-width">Max width <span class="field-unit">chars</span></label><input id="max-width" data-field="maxWidthChars" type="number" inputmode="numeric" min="20" max="150" step="1" value="150" required /></div>
                 <div class="setting-field"><label for="max-height">Max height <span class="field-unit">lines</span></label><input id="max-height" data-field="maxHeightLines" type="number" inputmode="numeric" min="20" max="200" step="1" value="200" required /></div>
                 <div class="setting-field"><label for="sigma1">Sigma 1</label><input id="sigma1" data-field="sigma1" type="number" inputmode="decimal" min="0.5" max="3" step="0.5" value="1" required /></div>
                 <div class="setting-field"><label for="sigma2">Sigma 2</label><input id="sigma2" data-field="sigma2" type="number" inputmode="decimal" min="0.5" max="5" step="0.5" value="2" required /></div>
-                <div class="setting-field setting-wide"><label for="edge-threshold">Edge threshold <span class="field-unit">0–95</span></label><input id="edge-threshold" data-field="edgeIndexThreshold" type="number" inputmode="numeric" min="0" max="95" step="1" value="90" required /></div>
               </div>
-              <p class="field-help settings-help">Resolution controls the grid. Sigma and threshold shape the edge detail. Changes apply automatically.</p>
+              <p class="field-help settings-help">Select a preset look or fine-tune. Changes apply instantly to camera or photo.</p>
             </form>
           </details>
 

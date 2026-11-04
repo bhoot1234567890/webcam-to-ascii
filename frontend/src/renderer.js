@@ -49,22 +49,130 @@ export function normalizeSettings(settings = {}) {
       || normalized.edgeIndexThreshold < 0 || normalized.edgeIndexThreshold > 95) {
     throw new RangeError('Edge index threshold must be an integer from 0 to 95');
   }
+  if (Object.hasOwn(settings, 'dither')) {
+    const validDithers = ['none', 'atkinson', 'floyd-steinberg', 'bayer'];
+    if (!validDithers.includes(settings.dither)) {
+      throw new RangeError(`Dither must be one of: ${validDithers.join(', ')}`);
+    }
+    normalized.dither = settings.dither;
+  }
+  if (Object.hasOwn(settings, 'ramp')) {
+    const validRamps = ['clean', 'detailed', 'classic', 'full'];
+    if (!validRamps.includes(settings.ramp)) {
+      throw new RangeError(`Ramp must be one of: ${validRamps.join(', ')}`);
+    }
+    normalized.ramp = settings.ramp;
+  }
+  if (Object.hasOwn(settings, 'invert')) {
+    normalized.invert = Boolean(settings.invert);
+  }
+  if (Object.hasOwn(settings, 'autoLevels')) {
+    normalized.autoLevels = Boolean(settings.autoLevels);
+  }
+  if (Object.hasOwn(settings, 'gamma')) {
+    const gamma = Number(settings.gamma);
+    if (!Number.isFinite(gamma) || gamma < 0.2 || gamma > 3.0) {
+      throw new RangeError('Gamma must be a number between 0.2 and 3.0');
+    }
+    normalized.gamma = gamma;
+  }
+  if (Object.hasOwn(settings, 'edgeBlend')) {
+    const validBlends = ['overlay', 'luminance-only', 'edges-only'];
+    if (!validBlends.includes(settings.edgeBlend)) {
+      throw new RangeError(`Edge blend must be one of: ${validBlends.join(', ')}`);
+    }
+    normalized.edgeBlend = settings.edgeBlend;
+  }
+  if (Object.hasOwn(settings, 'sharpen')) {
+    const sharpen = Number(settings.sharpen);
+    if (!Number.isFinite(sharpen) || sharpen < 0 || sharpen > 3) {
+      throw new RangeError('Sharpen must be between 0 and 3');
+    }
+    normalized.sharpen = sharpen;
+  }
+  if (Object.hasOwn(settings, 'bloom')) {
+    const bloom = Number(settings.bloom);
+    if (!Number.isFinite(bloom) || bloom < 0 || bloom > 3) {
+      throw new RangeError('Bloom must be between 0 and 3');
+    }
+    normalized.bloom = bloom;
+  }
+  if (Object.hasOwn(settings, 'colorBurn')) {
+    const colorBurn = Number(settings.colorBurn);
+    if (!Number.isFinite(colorBurn) || colorBurn < 0 || colorBurn > 1) {
+      throw new RangeError('Color burn must be between 0 and 1');
+    }
+    normalized.colorBurn = colorBurn;
+  }
+  if (Object.hasOwn(settings, 'glowColor')) {
+    const validColors = ['white', 'green', 'amber', 'cyan', 'magenta', 'custom'];
+    if (!validColors.includes(settings.glowColor)) {
+      throw new RangeError(`Glow color must be one of: ${validColors.join(', ')}`);
+    }
+    normalized.glowColor = settings.glowColor;
+  }
+  if (Object.hasOwn(settings, 'customColor')) {
+    normalized.customColor = String(settings.customColor);
+  }
+  if (Object.hasOwn(settings, 'aspectRatio')) {
+    const validRatios = ['original', '1:1', '3:4', '9:16', '4:3', '16:9'];
+    if (!validRatios.includes(settings.aspectRatio)) {
+      throw new RangeError(`Aspect ratio must be one of: ${validRatios.join(', ')}`);
+    }
+    normalized.aspectRatio = settings.aspectRatio;
+  }
   return normalized;
 }
 
+export const ASPECT_RATIOS = Object.freeze({
+  original: null,
+  '1:1': 1,
+  '3:4': 3 / 4,
+  '9:16': 9 / 16,
+  '4:3': 4 / 3,
+  '16:9': 16 / 9,
+});
+
+export function computeCropRect(srcW, srcH, aspectRatioKey = 'original') {
+  const targetRatio = ASPECT_RATIOS[aspectRatioKey];
+  if (!targetRatio || !Number.isFinite(targetRatio) || targetRatio <= 0) {
+    return { x: 0, y: 0, width: srcW, height: srcH };
+  }
+  const currentRatio = srcW / srcH;
+  let cropW, cropH;
+  if (currentRatio > targetRatio) {
+    cropH = srcH;
+    cropW = Math.max(1, Math.round(srcH * targetRatio));
+  } else {
+    cropW = srcW;
+    cropH = Math.max(1, Math.round(srcW / targetRatio));
+  }
+  const x = Math.max(0, Math.floor((srcW - cropW) / 2));
+  const y = Math.max(0, Math.floor((srcH - cropH) / 2));
+  return { x, y, width: cropW, height: cropH };
+}
+
 export function computeGrid(width, height, settings = {}) {
-  const { maxWidthChars, maxHeightLines } = normalizeSettings(settings);
+  const normalized = normalizeSettings(settings);
+  const { maxWidthChars, maxHeightLines, aspectRatio } = normalized;
+  let targetW = width;
+  let targetH = height;
+  if (aspectRatio && aspectRatio !== 'original') {
+    const crop = computeCropRect(width, height, aspectRatio);
+    targetW = crop.width;
+    targetH = crop.height;
+  }
   const error = 'Image aspect ratio is too extreme for this resolution';
-  if (!Number.isSafeInteger(width) || width <= 0
-      || !Number.isSafeInteger(height) || height <= 0) throw new RangeError(error);
+  if (!Number.isSafeInteger(targetW) || targetW <= 0
+      || !Number.isSafeInteger(targetH) || targetH <= 0) throw new RangeError(error);
   let columns;
   let rows;
-  if (width > height) {
+  if (targetW > targetH) {
     columns = maxWidthChars;
-    rows = Math.trunc(columns * (height / width));
+    rows = Math.trunc(columns * (targetH / targetW));
   } else {
     rows = maxHeightLines;
-    columns = Math.trunc(rows * (width / height));
+    columns = Math.trunc(rows * (targetW / targetH));
   }
   columns *= 2;
   if (!Number.isSafeInteger(columns) || columns <= 0 || rows <= 0
@@ -240,6 +348,25 @@ export function createRenderer(width, height, settings = {}) {
   const edgeCodes = new Uint8Array(length);
   const sobel = { gx, gy, magnitude, angles };
   const rows = new Array(height);
+  const autoLevelsBuf = new Uint8Array(length);
+  const sharpBuf = new Uint8Array(length);
+  const bloomBuf = new Uint8Array(length);
+  const bloomScratch = new Float32Array(length);
+  const blurBuf = new Float32Array(length);
+  const burnBuf = new Uint8Array(length);
+  const toneBuf = new Uint8Array(length);
+  const ditherScratch = new Float64Array(length);
+  const scratchBuffers = {
+    autoLevels: autoLevelsBuf,
+    sharpen: sharpBuf,
+    bloom: bloomBuf,
+    bloomScratch,
+    blurBuf,
+    colorBurn: burnBuf,
+    tone: toneBuf,
+    dither: ditherScratch,
+  };
+  const fillOptions = { ...normalizedSettings, width, height };
   let text = '';
 
   function render() {
@@ -248,7 +375,7 @@ export function createRenderer(width, height, settings = {}) {
     blurNormalized(normalized, width, height, kernel2, blur2, scratch);
     dogFromBlurs(blur1, blur2, dog);
     sobelWithAngle(dog, width, height, sobel);
-    fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, normalizedSettings.edgeIndexThreshold);
+    fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, normalizedSettings.edgeIndexThreshold, fillOptions, scratchBuffers);
     text = codesToText(shadeCodes, edgeCodes, width, height, rows);
     return text;
   }
