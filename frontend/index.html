@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <title>clack — A camera with character.</title>
   </head>
-  <body data-layout="camera" data-guides="off">
+  <body data-layout="camera" data-guides="off" data-glow="off">
     <div class="app-shell">
       <header class="camera-toolbar camera-only" aria-label="Camera controls">
         <button id="toggle-guides" class="camera-icon" type="button" aria-label="Composition grid" aria-pressed="false" title="Composition grid"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M9 3v18M15 3v18M3 9h18M3 15h18" /></svg></button>
@@ -63,15 +63,16 @@
           <section class="card output-card" id="output-card" aria-labelledby="output-heading">
             <div class="output-header">
               <div class="card-heading"><h2 id="output-heading">The ASCII view</h2></div>
+              <button id="open-framing" class="output-shortcut" type="button" aria-haspopup="dialog" aria-controls="look-sheet">Frame <span id="framing-label">Full</span></button>
               <div class="view-controls" role="group" aria-label="ASCII display size">
                 <button id="fit-output" type="button" aria-pressed="false" aria-controls="ascii-output">Fit</button>
                 <button id="detail-output" type="button" aria-pressed="false" aria-label="1:1 detail" aria-controls="ascii-output"><span class="studio-only">1:1 detail</span><span class="camera-only">1×</span></button>
               </div>
+              <button id="open-looks" class="output-shortcut" type="button" aria-haspopup="dialog" aria-controls="look-sheet">Looks <span id="look-label">Original</span></button>
             </div>
             <div class="output-status"><span class="status-indicator" aria-hidden="true"></span><p id="status" role="status" aria-live="polite">Choose a source to get started</p></div>
             <p id="error" class="error-message" role="alert" hidden></p>
-            <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output; Fit shows the whole image, detail scrolls the complete grid"><div class="ascii-stage"><pre id="ascii-output" aria-label="Rendered ASCII art"></pre></div></div>
-            <div class="composition-grid camera-only" aria-hidden="true"></div>
+            <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output; Fit shows the whole image, detail scrolls the complete grid"><div class="ascii-stage"><pre id="ascii-output" aria-label="Rendered ASCII art"></pre><div class="composition-grid camera-only" aria-hidden="true"></div></div></div>
             <div class="output-footer"><span id="grid-label">No grid yet</span><span id="performance-label">Waiting for a source</span></div>
           </section>
 
@@ -86,6 +87,7 @@
                 <div class="setting-field setting-wide"><label for="edge-threshold">Edge threshold <span class="field-unit">0–95</span></label><input id="edge-threshold" data-field="edgeIndexThreshold" type="number" inputmode="numeric" min="0" max="95" step="1" value="90" required /></div>
               </div>
               <p class="field-help settings-help">Resolution controls the grid. Sigma and threshold shape the edge detail. Changes apply automatically.</p>
+              <p class="field-help" id="edge-controls-help" hidden>This look uses shading only. Sigma and threshold are retained for Original and Outline.</p>
             </form>
           </details>
 
@@ -116,6 +118,32 @@
 
       <footer class="site-footer"><span>clack — Your world, made of characters.</span><span>Local input · Local processing · No uploads</span></footer>
     </div>
+    <dialog id="look-sheet" aria-labelledby="look-sheet-title">
+      <div class="look-sheet-header"><h2 id="look-sheet-title">Make it yours</h2><button id="close-look-sheet" class="button button-secondary" type="button" autofocus>Done</button></div>
+      <div class="look-sheet-body">
+        <fieldset id="look-choices" class="sheet-choices"><legend>Looks <span id="look-adjusted" class="small-tag" hidden>Adjusted</span></legend></fieldset>
+        <fieldset id="framing-choices" class="sheet-choices"><legend>Frame</legend></fieldset>
+        <details id="look-adjustments">
+          <summary>Adjust <span class="small-tag">Tone, text color & glow</span></summary>
+          <div class="adjustment-fields">
+            <label class="check-control" for="look-auto-contrast"><input id="look-auto-contrast" type="checkbox" aria-describedby="contrast-help" />Auto contrast</label>
+            <p id="contrast-help" class="field-help">Useful for flat photos. Adapts every frame; moving highlights can cause live brightness flicker.</p>
+            <div><label for="look-midtone">Midtones <output id="midtone-value" for="look-midtone">1.00 · Neutral</output></label><input id="look-midtone" type="range" min="0.5" max="2" step="0.05" value="1" /><p class="field-help">Lower is lighter. Higher is darker.</p></div>
+            <div><label for="look-sharpness">Sharpness <output id="sharpness-value" for="look-sharpness">0.00</output></label><input id="look-sharpness" type="range" min="0" max="1.5" step="0.05" value="0" /></div>
+            <label class="check-control" for="look-invert"><input id="look-invert" type="checkbox" />Invert tones</label>
+            <fieldset id="tint-choices" class="sheet-choices tint-choices"><legend>Text color</legend>
+              <label class="sheet-choice"><input type="radio" name="text-tint" value="default" checked /><span>Default</span></label>
+              <label class="sheet-choice"><input type="radio" name="text-tint" value="#ffffff" /><span>White</span></label>
+              <label class="sheet-choice"><input type="radio" name="text-tint" value="#ffd663" /><span>Amber</span></label>
+              <label class="sheet-choice"><input type="radio" name="text-tint" value="#9be5a2" /><span>Green</span></label>
+            </fieldset>
+            <div class="custom-tint"><label for="text-color">Custom text color</label><input id="text-color" type="color" value="#ffffff" /></div>
+            <label class="check-control" for="soft-glow"><input id="soft-glow" type="checkbox" />Soft text glow</label>
+            <p class="field-help">A subtle halo around the characters. Off by default.</p>
+          </div>
+        </details>
+      </div>
+    </dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

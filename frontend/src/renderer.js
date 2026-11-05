@@ -1,4 +1,8 @@
 import { fillCodes, codesToText } from './ascii.js';
+import { normalizeLook } from './looks.js';
+import {
+  applyTone, unsharpMask, getCompactRamp, floydSteinberg, bayerOrdered,
+} from './effects.js';
 
 export const DEFAULT_SETTINGS = Object.freeze({
   maxWidthChars: 150,
@@ -221,34 +225,51 @@ export function sobelWithAngle(dog, width, height, out) {
   return out;
 }
 
-export function createRenderer(width, height, settings = {}) {
+export function createRenderer(width, height, settings = {}, look = {}) {
   const length = gridLength(width, height);
   const normalizedSettings = normalizeSettings(settings);
-  const kernel1 = makeGaussianKernel(normalizedSettings.sigma1);
-  const kernel2 = makeGaussianKernel(normalizedSettings.sigma2);
+  const processing = normalizeLook(look);
+  const edges = processing.id === 'original' || processing.id === 'outline';
+  const tone = processing.autoContrast || processing.midtone !== 1 || processing.invert;
+  const kernel1 = edges ? makeGaussianKernel(normalizedSettings.sigma1) : null;
+  const kernel2 = edges ? makeGaussianKernel(normalizedSettings.sigma2) : null;
   const gray = new Uint8Array(length);
-  const normalized = new Float64Array(length);
-  const scratch = new Float64Array(length);
-  const blur1 = new Float64Array(length);
-  const blur2 = new Float64Array(length);
-  const dog = new Uint8Array(length);
-  const gx = new Float64Array(length);
-  const gy = new Float64Array(length);
-  const magnitude = new Uint8Array(length);
-  const angles = new Float64Array(length);
+  const normalized = edges ? new Float64Array(length) : null;
+  const scratch = edges ? new Float64Array(length) : null;
+  const blur1 = edges ? new Float64Array(length) : null;
+  const blur2 = edges ? new Float64Array(length) : null;
+  const dog = edges ? new Uint8Array(length) : null;
+  const gx = edges ? new Float64Array(length) : null;
+  const gy = edges ? new Float64Array(length) : null;
+  const magnitude = edges ? new Uint8Array(length) : null;
+  const angles = edges ? new Float64Array(length) : null;
   const shadeCodes = new Uint8Array(length);
   const edgeCodes = new Uint8Array(length);
-  const sobel = { gx, gy, magnitude, angles };
+  if (!edges) edgeCodes.fill(32);
+  const sobel = edges ? { gx, gy, magnitude, angles } : null;
+  const toneLut = tone ? new Uint8Array(256) : null;
+  const sharpnessScratch = processing.sharpness > 0 ? (scratch ?? new Float64Array(length)) : null;
+  const ramp = edges ? null : getCompactRamp();
+  const errors = processing.id === 'photo' ? new Float64Array(2 * (width + 2)) : null;
   const rows = new Array(height);
   let text = '';
 
   function render() {
-    for (let i = 0; i < length; i++) normalized[i] = gray[i] / 255;
-    blurNormalized(normalized, width, height, kernel1, blur1, scratch);
-    blurNormalized(normalized, width, height, kernel2, blur2, scratch);
-    dogFromBlurs(blur1, blur2, dog);
-    sobelWithAngle(dog, width, height, sobel);
-    fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, normalizedSettings.edgeIndexThreshold);
+    if (tone) applyTone(gray, processing, toneLut);
+    if (sharpnessScratch) unsharpMask(gray, width, height, processing.sharpness, sharpnessScratch);
+    if (edges) {
+      for (let i = 0; i < length; i++) normalized[i] = gray[i] / 255;
+      blurNormalized(normalized, width, height, kernel1, blur1, scratch);
+      blurNormalized(normalized, width, height, kernel2, blur2, scratch);
+      dogFromBlurs(blur1, blur2, dog);
+      sobelWithAngle(dog, width, height, sobel);
+      fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, normalizedSettings.edgeIndexThreshold);
+      if (processing.id === 'outline') shadeCodes.fill(32);
+    } else if (processing.id === 'photo') {
+      floydSteinberg(gray, width, height, ramp, shadeCodes, errors);
+    } else {
+      bayerOrdered(gray, width, height, ramp, shadeCodes);
+    }
     text = codesToText(shadeCodes, edgeCodes, width, height, rows);
     return text;
   }
@@ -270,8 +291,9 @@ export function createRenderer(width, height, settings = {}) {
     snapshot() {
       return {
         width, height, text,
-        gray: gray.slice(), blur1: blur1.slice(), blur2: blur2.slice(), dog: dog.slice(),
-        gx: gx.slice(), gy: gy.slice(), magnitude: magnitude.slice(), angles: angles.slice(),
+        gray: gray.slice(), blur1: blur1?.slice() ?? null, blur2: blur2?.slice() ?? null,
+        dog: dog?.slice() ?? null, gx: gx?.slice() ?? null, gy: gy?.slice() ?? null,
+        magnitude: magnitude?.slice() ?? null, angles: angles?.slice() ?? null,
         shadeCodes: shadeCodes.slice(), edgeCodes: edgeCodes.slice(),
       };
     },

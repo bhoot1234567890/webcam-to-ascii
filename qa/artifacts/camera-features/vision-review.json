@@ -1,0 +1,40 @@
+{
+  "scope": "Public NASA Eileen Collins fixture only; no physical-camera pixels supplied to image review",
+  "independentRaw": "vision-raw.json",
+  "independentCases": 15,
+  "independentUsabilityPasses": 15,
+  "independentPurposeFlagsRetained": ["look-original", "look-photo", "frame-square", "frame-portrait", "frame-story", "frame-classic", "frame-wide", "frame-full", "amber-glow", "custom-tint"],
+  "directReview": [
+    {
+      "cases": ["look-photo", "look-print", "look-outline"],
+      "evidence": ["look-photo.png", "look-print.png", "look-outline.png", "native-face-comparison.png"],
+      "observation": "All preserve the face, suit and helmet silhouette. Photo removes Original's contour texture from the face and suit for continuous photographic shading; its difference from Print is subtle in a full Fit view but visible in the native glyph crop. Print has a regular ordered pattern rather than Photo's diffused pattern. Outline intentionally empties interiors and retains identifiable directional contours.",
+      "decision": "Retain the four curated choices. Photo is a contour-free alternative, not a universal improvement. The independent weak-purpose Photo judgment is not rewritten."
+    },
+    {
+      "cases": ["look-original", "frame-square", "frame-full"],
+      "evidence": ["baseline.json", "production-runtime.json"],
+      "observation": "The source is square, so square framing is expected to match Full. Returning to neutral Original and Full exactly restores all 80199 characters; baseline and final SHA256 d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d. Novelty is not the acceptance criterion for a mandatory unchanged baseline or a restore action.",
+      "decision": "Retain exact baseline/restoration semantics."
+    },
+    {
+      "cases": ["frame-portrait", "frame-story", "frame-classic", "frame-wide"],
+      "evidence": ["framing-presentation-contact.png", "production-runtime.json", "production-iphone-webkit/looks-glow-landscape.png"],
+      "observation": "Center cropping removes the expected outer bands without stretching. Wide crops intentionally cut the top/bottom of a portrait; tall crops remove side background. Guides follow artwork rather than black letterboxing. Fit keeps the complete selected crop visible and controls remain outside the scrollport. Cropping is not content-aware and does not promise to preserve the entire subject.",
+      "decision": "Retain nondestructive ratios, document center-crop tradeoff, keep Full as the unchanged default."
+    },
+    {
+      "cases": ["amber-glow", "green-tint", "custom-tint", "studio-custom-tint"],
+      "evidence": ["framing-presentation-contact.png", "production-runtime.json", "performance-comparison.json", "production-iphone-webkit/looks-glow-minimum.png"],
+      "observation": "Tint is consistent between Camera and Studio, leaving source/text identity unchanged. Optional glow adds visible warm character illumination without control overlap. The 8px gutter contains the halo in Fit and Detail. Same-host 15fps delivery, animation interval and Stop observations show no material interaction regression; this is not mobile hardware validation.",
+      "decision": "Retain tint and optional bounded glow off by default; no GPU or universal FPS claim."
+    },
+    {
+      "cases": ["low-contrast-original", "low-contrast-photo", "low-contrast-photo-auto", "dark-original", "dark-photo-midtone", "outline-sharp", "outline-inverted"],
+      "evidence": ["tone-contact.png", "contrast-pumping.json"],
+      "observation": "Auto contrast restores useful separation in the public low-contrast photograph. Midtone 0.65 lightens the dark source. Sharpness changes Outline contour structure before edge selection; inversion changes processed luminance rather than tint. A toggling highlight causes about 50 luminance units of global auto-contrast pumping in an unchanged region.",
+      "decision": "Keep tone adjustments opt-in. Warn explicitly that auto contrast adapts every frame and moving highlights can flicker; no hidden stabilization or fallback added."
+    }
+  ],
+  "hardwareLimitations": ["iPhone screenshots are Chromium/WebKit desktop emulation, not physical iPhone Safari", "The single C930e can verify stream replacement for Flip but not distinct front/back lenses", "Native color input events were exercised; the OS color-picker panel was not automated"]
+}

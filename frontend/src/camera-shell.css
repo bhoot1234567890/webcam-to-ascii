@@ -37,19 +37,21 @@ body[data-layout="camera"] main { display: flex; flex: 1; min-width: 0; min-heig
 body[data-layout="camera"] .workspace { display: flex; flex: 1; align-items: stretch; min-width: 0; min-height: 0; padding: 0 8px; gap: 0; }
 body[data-layout="camera"] .output-card { position: relative; flex: 1; min-height: 0; margin: 0; padding: 0; border: 1px solid #242426; border-radius: 24px; background: #0b0b0d; }
 body[data-layout="camera"] .ascii-viewport { flex: 1; height: auto; min-height: 0; margin: 40px 0 64px; padding: 0 14px; border: 0; border-radius: 0; background: transparent; scrollbar-color: #4b4b4e #0b0b0d; }
-body[data-layout="camera"] #ascii-output { color: #f1f0eb; }
-body[data-layout="camera"] .output-header { position: absolute; z-index: 2; left: 50%; bottom: 12px; transform: translateX(-50%); margin: 0; padding: 0; border: 1px solid #38383b; border-radius: 28px; background: #131315ee; }
+body[data-layout="camera"] #ascii-output { color: var(--ascii-tint, #f1f0eb); }
+body[data-layout="camera"] .output-header { position: absolute; z-index: 2; left: 8px; right: 8px; bottom: 12px; flex-wrap: nowrap; gap: 2px; margin: 0; padding: 0; }
 body[data-layout="camera"] .output-header .card-heading,
 body[data-layout="camera"] .output-footer { display: none; }
-body[data-layout="camera"] .view-controls { gap: 2px; padding: 2px; }
+body[data-layout="camera"] .view-controls { flex-shrink: 0; gap: 2px; padding: 2px; border: 1px solid #38383b; border-radius: 28px; background: #131315ee; }
 body[data-layout="camera"] .view-controls button { min-width: 44px; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 50%; color: #d1d1d4; font-size: 11px; }
 body[data-layout="camera"] .view-controls button[aria-pressed="true"] { background: #353535; color: var(--accent); }
+body[data-layout="camera"] .output-shortcut { width: 64px; min-width: 44px; padding: 4px; font-size: 11px; }
+body[data-layout="camera"] .output-shortcut span { max-width: 64px; font-size: 9px; }
 body[data-layout="camera"] .output-status { position: absolute; z-index: 2; top: 11px; left: 16px; right: 16px; justify-content: center; min-height: 24px; padding: 0; pointer-events: none; }
 body[data-layout="camera"] #status { padding: 3px 0; color: #c4c4c8; font-size: 10px; text-align: center; }
 body[data-layout="camera"] .status-indicator { background: var(--accent); }
 body[data-layout="camera"] .error-message { position: absolute; z-index: 3; top: 40px; left: 12px; right: 12px; margin: 0; background: #352620f5; }
 body[data-layout="camera"] .ascii-viewport:has(#ascii-output:empty)::before { content: "A camera with\A character."; color: #c4c4c8; font-size: 28px; font-weight: 450; letter-spacing: -0.045em; line-height: 1.4; }
-.composition-grid { position: absolute; inset: 40px 0 64px; visibility: hidden; pointer-events: none; background-image: linear-gradient(to right, #ffffff24 1px, transparent 1px), linear-gradient(to bottom, #ffffff24 1px, transparent 1px); background-size: calc(100% / 3) calc(100% / 3); }
+.composition-grid { position: absolute; visibility: hidden; pointer-events: none; background-image: linear-gradient(#ffffff30, #ffffff30), linear-gradient(#ffffff30, #ffffff30), linear-gradient(#ffffff30, #ffffff30), linear-gradient(#ffffff30, #ffffff30); background-size: 1px 100%, 1px 100%, 100% 1px, 100% 1px; background-position: 33.333% 0, 66.667% 0, 0 33.333%, 0 66.667%; background-repeat: no-repeat; }
 body[data-layout="camera"][data-guides="on"] .composition-grid { visibility: visible; }
 
 @media (min-width: 1001px) {
