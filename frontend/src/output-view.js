@@ -1,9 +1,12 @@
 /** Fit presentation only; the renderer's grid, text, and cell proportions stay intact. */
 export function createOutputView(viewport, output, fitButton, detailButton) {
   const stage = output.parentElement;
+  const guides = stage.querySelector('.composition-grid');
   let mode = matchMedia('(max-width: 1000px)').matches ? 'fit' : 'detail';
   let width = 0;
   let height = 0;
+  let artworkWidth = 0;
+  let artworkHeight = 0;
 
   function layout() {
     const style = getComputedStyle(viewport);
@@ -12,11 +15,21 @@ export function createOutputView(viewport, output, fitButton, detailButton) {
     const innerHeight = parseFloat(style.height) - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth);
     const availableWidth = Math.min(viewport.clientWidth, innerWidth) - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
     const availableHeight = Math.min(viewport.clientHeight, innerHeight) - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+    // The halo is presentation-only and occupies screen pixels, not extra ASCII cells.
+    const gutter = document.body.dataset.glow === 'on' && width && height ? 8 : 0;
     const scale = mode === 'fit' && width && height
-      ? Math.min(1, availableWidth / width, availableHeight / height) : 1;
-    stage.style.width = `${width * scale}px`;
-    stage.style.height = `${height * scale}px`;
+      ? Math.max(0, Math.min(1, (availableWidth - gutter * 2) / width, (availableHeight - gutter * 2) / height)) : 1;
+    stage.style.width = `${width * scale + gutter * 2}px`;
+    stage.style.height = `${height * scale + gutter * 2}px`;
+    output.style.left = `${gutter}px`;
+    output.style.top = `${gutter}px`;
     output.style.transform = `scale(${scale})`;
+    if (guides) {
+      guides.style.left = `${gutter}px`;
+      guides.style.top = `${gutter}px`;
+      guides.style.width = `${artworkWidth * scale}px`;
+      guides.style.height = `${artworkHeight * scale}px`;
+    }
   }
 
   function select(next) {
@@ -41,8 +54,10 @@ export function createOutputView(viewport, output, fitButton, detailButton) {
     update() {
       // Layout dimensions exclude the transform; measure only when the grid changes.
       const style = getComputedStyle(output);
-      width = Math.ceil(parseFloat(style.width));
-      height = Math.ceil(parseFloat(style.height)) + 2; // Preserve bottom ink overhang.
+      artworkWidth = parseFloat(style.width);
+      artworkHeight = parseFloat(style.height);
+      width = Math.ceil(artworkWidth);
+      height = Math.ceil(artworkHeight) + 2; // Preserve bottom ink overhang.
       layout();
     },
     dispose() {

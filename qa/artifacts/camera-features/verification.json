@@ -1,0 +1,1043 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-11-05T10:10:48.521Z",
+  "baselineCommit": "fb573e9a79dce25fa5fba5d2601e4a8d9d0d563c",
+  "branch": "feat/clack-camera-looks",
+  "command": "bash qa/run-tests.sh",
+  "checks": {
+    "python": 13,
+    "bun": 417,
+    "browser": {
+      "startTime": "2026-11-05T10:04:40.887Z",
+      "duration": 61348.515,
+      "expected": 82,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "production": {
+      "startTime": "2026-11-05T10:05:44.368Z",
+      "duration": 16627.038,
+      "expected": 6,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "legacyAbCases": 20
+  },
+  "productionAssets": {
+    "application": "index-D2mzVSGg.js",
+    "worker": "render-worker-BDFdtWZN.js",
+    "styles": "index-BH81gTHM.css"
+  },
+  "original": {
+    "settings": {
+      "maxWidthChars": 150,
+      "maxHeightLines": 200,
+      "sigma1": 1,
+      "sigma2": 2,
+      "edgeIndexThreshold": 90
+    },
+    "framing": "full",
+    "look": {
+      "id": "original",
+      "autoContrast": false,
+      "midtone": 1,
+      "sharpness": 0,
+      "invert": false
+    },
+    "characters": 80199,
+    "baselineTextSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+    "productionRestorationExact": true
+  },
+  "fixture": {
+    "file": "qa/fixtures/images/astronaut.png",
+    "attribution": "NASA public-domain Eileen Collins photograph distributed by scikit-image; see qa/fixtures/images/ATTRIBUTION.txt"
+  },
+  "screenshots": {
+    "contact": "review-contact.png",
+    "glyphDetail": "native-face-comparison.png",
+    "sourceViewports": "Session Chromium iPhone14Plus428x745DPR3; productionWebKit428x746/926,320x568,280x568,832x378; desktop1440x1000",
+    "sessionCases": [
+      {
+        "name": "look-original",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "1",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "look-photo",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "2",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"photo\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "10f0ba84b15a6245b70192890942e2336eecdfcc2e36fad7dff40e4cc89fddf7",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "look-print",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "3",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"print\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "52f3ceaaefbeef5eb8f651e7bfbc32ecb5afeb6fcb2fc4af1095efe354e272e9",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "look-outline",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "4",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"outline\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "0d5962a0627ce675cd67975cf07af59efc76d3113a97c7326c5c4f28c2eba61e",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "frame-square",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "6",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "square",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "frame-portrait",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "7",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "300",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "portrait",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "3b5bb5d8c992e0bfae6efe9e550749a28c6db3284fbcf573154814ee43989cee",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "frame-story",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "8",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "224",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "story",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "f6068ac7ede474a2ccdb46bee1227f0f2498d9f72372bfa84761ade60fa6b01b",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "frame-classic",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "9",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "300",
+          "rows": "112",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "classic",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "e449582c7185741282a584050d84f8336fa7f7a93926009a660f231b60bc9bbd",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "frame-wide",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "10",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "300",
+          "rows": "84",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "wide",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d9dfe7d8e91f4f3315bedf832ca56061d7e10d39f15b8635b7c51368d91d4c6d",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "frame-full",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "11",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "looks-sheet",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "11",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "amber-glow",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "11",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+        "color": "rgb(255, 214, 99)",
+        "shadow": "rgb(255, 214, 99) 0px 0px 3px, color(srgb 1 0.839216 0.388235 / 0.35) 0px 0px 6px"
+      },
+      {
+        "name": "green-tint",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "11",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+        "color": "rgb(155, 229, 162)",
+        "shadow": "none"
+      },
+      {
+        "name": "custom-tint",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "11",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+        "color": "rgb(135, 183, 255)",
+        "shadow": "none"
+      },
+      {
+        "name": "studio-custom-tint",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "11",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+        "color": "rgb(135, 183, 255)",
+        "shadow": "none"
+      },
+      {
+        "name": "low-contrast-original",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "12",
+          "sourceGeneration": "2",
+          "sourceKind": "image",
+          "sourceName": "low-contrast-source.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "8277909db63ddbe501503728289f06da67be1a0dd8ceda9ee27c343874c7f6be",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "low-contrast-photo",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "13",
+          "sourceGeneration": "2",
+          "sourceKind": "image",
+          "sourceName": "low-contrast-source.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"photo\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "1503361d51325d8c704312981046a4a22aef7f2c65625708ff7d80b1fbba87ec",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "low-contrast-photo-auto",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "14",
+          "sourceGeneration": "2",
+          "sourceKind": "image",
+          "sourceName": "low-contrast-source.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"photo\",\"autoContrast\":true,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "f9c4b13c86cceeca3f8431780ec49f197b97fb93bcb649d78e69634fec83c00c",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "dark-original",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "16",
+          "sourceGeneration": "3",
+          "sourceKind": "image",
+          "sourceName": "dark-source.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "518963bc63c57baa777c4450d8dc18dcb64bd66f2a441d174fd2eace0a509fff",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "dark-photo-midtone",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "19",
+          "sourceGeneration": "3",
+          "sourceKind": "image",
+          "sourceName": "dark-source.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"photo\",\"autoContrast\":false,\"midtone\":0.65,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "c7f26142fab657e2fd9cebeb93c513a1342cc7c4286e86837e4234c072bba212",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "outline-sharp",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "22",
+          "sourceGeneration": "4",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"outline\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":1.5,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "b7b60dc350f13e34217ade6173d6d04a5d28bc9c9833fd0c5d76252a25feaee6",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "outline-inverted",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "23",
+          "sourceGeneration": "4",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"outline\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":1.5,\"invert\":true}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "957ef7e09125ff10419224ee0ed1ecea5e0c1f3821e2fbd101672cce7e2ae9f9",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      },
+      {
+        "name": "adjust-sheet-warning",
+        "viewport": {
+          "width": 428,
+          "height": 745,
+          "dpr": 3
+        },
+        "metadata": {
+          "renderId": "1",
+          "sourceGeneration": "1",
+          "sourceKind": "image",
+          "sourceName": "astronaut.png",
+          "settingsKey": "{\"maxWidthChars\":150,\"maxHeightLines\":200,\"sigma1\":1,\"sigma2\":2,\"edgeIndexThreshold\":90}",
+          "columns": "400",
+          "rows": "200",
+          "lookKey": "{\"id\":\"original\",\"autoContrast\":false,\"midtone\":1,\"sharpness\":0,\"invert\":false}",
+          "framing": "full",
+          "sourceWidth": "512",
+          "sourceHeight": "512"
+        },
+        "textSha256": "d429e415b583fd3d39d060f5c350fbbfbb26cff82d5c164ad3245abf88bb942d",
+        "color": "rgb(241, 240, 235)",
+        "shadow": "none"
+      }
+    ]
+  },
+  "performance": {
+    "description": "Same-host Chromium. Deterministic getUserMedia 320x24015fps,300x112grid,428x745DPR3. Five seconds per case, six warmup frames excluded. Not iPhone hardware.",
+    "baseline": {
+      "fps": 15,
+      "p50": 3.2999999998137355,
+      "p95": 3.5
+    },
+    "cases": [
+      {
+        "name": "original-off",
+        "durationMs": 5000,
+        "frames": 75,
+        "fps": 15,
+        "processingMs": {
+          "p50": 3.400000000372529,
+          "p95": 3.6000000005587935
+        },
+        "rafMs": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "over50": 0,
+          "samples": 300
+        },
+        "stopMs": 31.28668799996376,
+        "stopped": {
+          "tracks": [
+            "ended"
+          ],
+          "audio": 0,
+          "detached": true,
+          "stable": true
+        }
+      },
+      {
+        "name": "original-glow",
+        "durationMs": 5000,
+        "frames": 75,
+        "fps": 15,
+        "processingMs": {
+          "p50": 3.2999999998137355,
+          "p95": 4.2999999998137355
+        },
+        "rafMs": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "over50": 0,
+          "samples": 300
+        },
+        "stopMs": 31.249830999411643,
+        "stopped": {
+          "tracks": [
+            "ended"
+          ],
+          "audio": 0,
+          "detached": true,
+          "stable": true
+        }
+      },
+      {
+        "name": "photo",
+        "durationMs": 5000.200000000186,
+        "frames": 75,
+        "fps": 14.999400023998481,
+        "processingMs": {
+          "p50": 1,
+          "p95": 1.2000000001862645
+        },
+        "rafMs": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "over50": 0,
+          "samples": 300
+        },
+        "stopMs": 32.406374000012875,
+        "stopped": {
+          "tracks": [
+            "ended"
+          ],
+          "audio": 0,
+          "detached": true,
+          "stable": true
+        }
+      },
+      {
+        "name": "print",
+        "durationMs": 5000.100000000559,
+        "frames": 75,
+        "fps": 14.999700005998204,
+        "processingMs": {
+          "p50": 0.900000000372529,
+          "p95": 1.1000000005587935
+        },
+        "rafMs": {
+          "p50": 16.699999999999818,
+          "p95": 16.799999999999727,
+          "over50": 0,
+          "samples": 300
+        },
+        "stopMs": 31.492805000394583,
+        "stopped": {
+          "tracks": [
+            "ended"
+          ],
+          "audio": 0,
+          "detached": true,
+          "stable": true
+        }
+      },
+      {
+        "name": "outline",
+        "durationMs": 5000.200000000186,
+        "frames": 75,
+        "fps": 14.999400023998481,
+        "processingMs": {
+          "p50": 3.400000000372529,
+          "p95": 3.6000000005587935
+        },
+        "rafMs": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "over50": 0,
+          "samples": 300
+        },
+        "stopMs": 31.57048000022769,
+        "stopped": {
+          "tracks": [
+            "ended"
+          ],
+          "audio": 0,
+          "detached": true,
+          "stable": true
+        }
+      },
+      {
+        "name": "auto-contrast",
+        "durationMs": 5000.4000000003725,
+        "frames": 75,
+        "fps": 14.998800095991204,
+        "processingMs": {
+          "p50": 3.2999999998137355,
+          "p95": 4
+        },
+        "rafMs": {
+          "p50": 16.699999999999818,
+          "p95": 16.799999999999727,
+          "over50": 0,
+          "samples": 300
+        },
+        "stopMs": 30.84118099976331,
+        "stopped": {
+          "tracks": [
+            "ended"
+          ],
+          "audio": 0,
+          "detached": true,
+          "stable": true
+        }
+      }
+    ],
+    "contrastPumping": [
+      {
+        "autoContrast": false,
+        "sourceMeanRange": 0,
+        "renderedInkMeanRange": 0.011849155663426814
+      },
+      {
+        "autoContrast": true,
+        "sourceMeanRange": 0,
+        "renderedInkMeanRange": 49.52152191688097
+      }
+    ]
+  },
+  "physical": {
+    "camera": "Logitech Webcam C930e640x480",
+    "permissionRevoked": true,
+    "privateImagesExternallyReviewed": false,
+    "phases": [
+      {
+        "name": "original-live",
+        "generation": "1",
+        "kind": "camera",
+        "grid": [
+          300,
+          112
+        ],
+        "look": {
+          "id": "original",
+          "autoContrast": false,
+          "midtone": 1,
+          "sharpness": 0,
+          "invert": false
+        },
+        "framing": "full",
+        "tracks": [
+          [
+            {
+              "kind": "video",
+              "state": "live"
+            }
+          ]
+        ],
+        "detached": false,
+        "measurement": {
+          "durationMs": 5000.0999999996275,
+          "frames": 151,
+          "fps": 30.19939601208201,
+          "p50": 3,
+          "p95": 3.2999999998137355,
+          "distinctTextHashes": 151
+        }
+      },
+      {
+        "name": "photo-story-live",
+        "generation": "1",
+        "kind": "camera",
+        "grid": [
+          224,
+          200
+        ],
+        "look": {
+          "id": "photo",
+          "autoContrast": false,
+          "midtone": 1,
+          "sharpness": 0,
+          "invert": false
+        },
+        "framing": "story",
+        "tracks": [
+          [
+            {
+              "kind": "video",
+              "state": "live"
+            }
+          ]
+        ],
+        "detached": false,
+        "measurement": {
+          "durationMs": 5000.0999999996275,
+          "frames": 150,
+          "fps": 29.999400012001995,
+          "p50": 1.2000000001862645,
+          "p95": 1.3999999994412065,
+          "distinctTextHashes": 150
+        }
+      },
+      {
+        "name": "captured",
+        "generation": "2",
+        "kind": "image",
+        "grid": [
+          224,
+          200
+        ],
+        "look": {
+          "id": "photo",
+          "autoContrast": false,
+          "midtone": 1,
+          "sharpness": 0,
+          "invert": false
+        },
+        "framing": "story",
+        "tracks": [
+          [
+            {
+              "kind": "video",
+              "state": "ended"
+            }
+          ]
+        ],
+        "detached": true,
+        "image": {
+          "width": 640,
+          "height": 480,
+          "name": "Original image: Captured frame.png"
+        }
+      },
+      {
+        "name": "retuned-full-source-shot",
+        "generation": "2",
+        "kind": "image",
+        "grid": [
+          300,
+          84
+        ],
+        "look": {
+          "id": "print",
+          "autoContrast": false,
+          "midtone": 1,
+          "sharpness": 0,
+          "invert": false
+        },
+        "framing": "wide",
+        "tracks": [
+          [
+            {
+              "kind": "video",
+              "state": "ended"
+            }
+          ]
+        ],
+        "detached": true
+      },
+      {
+        "name": "retake",
+        "generation": "3",
+        "kind": "camera",
+        "grid": [
+          300,
+          84
+        ],
+        "look": {
+          "id": "print",
+          "autoContrast": false,
+          "midtone": 1,
+          "sharpness": 0,
+          "invert": false
+        },
+        "framing": "wide",
+        "tracks": [
+          [
+            {
+              "kind": "video",
+              "state": "ended"
+            }
+          ],
+          [
+            {
+              "kind": "video",
+              "state": "live"
+            }
+          ]
+        ],
+        "detached": false
+      },
+      {
+        "name": "flip",
+        "generation": "4",
+        "kind": "camera",
+        "grid": [
+          300,
+          84
+        ],
+        "look": {
+          "id": "print",
+          "autoContrast": false,
+          "midtone": 1,
+          "sharpness": 0,
+          "invert": false
+        },
+        "framing": "wide",
+        "tracks": [
+          [
+            {
+              "kind": "video",
+              "state": "ended"
+            }
+          ],
+          [
+            {
+              "kind": "video",
+              "state": "ended"
+            }
+          ],
+          [
+            {
+              "kind": "video",
+              "state": "live"
+            }
+          ]
+        ],
+        "detached": false
+      },
+      {
+        "name": "stop",
+        "generation": "4",
+        "kind": "camera",
+        "grid": [
+          300,
+          84
+        ],
+        "look": {
+          "id": "print",
+          "autoContrast": false,
+          "midtone": 1,
+          "sharpness": 0,
+          "invert": false
+        },
+        "framing": "wide",
+        "tracks": [
+          [
+            {
+              "kind": "video",
+              "state": "ended"
+            }
+          ],
+          [
+            {
+              "kind": "video",
+              "state": "ended"
+            }
+          ],
+          [
+            {
+              "kind": "video",
+              "state": "ended"
+            }
+          ]
+        ],
+        "detached": true,
+        "stopMs": 17.24482100000023,
+        "stable": true
+      }
+    ]
+  },
+  "vision": {
+    "raw": "vision-raw.json",
+    "directAdjudication": "vision-review.json",
+    "allIndependentUsabilitySelections": "pass",
+    "purposeFlagsPreserved": true
+  },
+  "limitations": [
+    "No physical iPhone/Safari validation; emulated viewport and host-only performance",
+    "One physical camera proves stream replacement, not distinct front/back lenses",
+    "Native color input events exercised; OS picker panel not automated",
+    "Auto contrast can pump on moving highlights; off by default with an explicit warning",
+    "No changes to Python, frozen fixtures, runtime dependencies, lockfile, deployment, saving or sharing"
+  ]
+}

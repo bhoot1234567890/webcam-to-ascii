@@ -6,6 +6,9 @@ import { configureAsciiText } from './presentation.js';
 import { createLanczosResampler } from './resample.js';
 import { createOutputView } from './output-view.js';
 import { createCameraShell } from './camera-shell.js';
+import { computeCropRect, FRAMINGS } from './framing.js';
+import { normalizeLook } from './looks.js';
+import { createLookControls } from './look-controls.js';
 
 const byId = (id) => document.getElementById(id);
 const output = byId('ascii-output');
@@ -23,6 +26,12 @@ const canvas = document.createElement('canvas');
 const context = canvas.getContext('2d', { willReadFrequently: true });
 let settings = normalizeSettings();
 let settingsKey = JSON.stringify(settings);
+let look = normalizeLook();
+let lookKey = JSON.stringify(look);
+let framing = 'full';
+let tint = 'default';
+let glow = false;
+let lookControls = null;
 let source = null;
 let sourceGeneration = 0;
 let decodeToken = 0;
@@ -47,14 +56,29 @@ function showError(message) {
   errorText.hidden = !message;
 }
 
+function hasCurrentFrame() {
+  return source && output.dataset.sourceGeneration === String(source.generation) &&
+    output.dataset.settingsKey === settingsKey && output.dataset.lookKey === lookKey &&
+    output.dataset.framing === framing && output.dataset.sourceWidth === String(source.width) &&
+    output.dataset.sourceHeight === String(source.height);
+}
+
+function syncLookControls() {
+  lookControls?.sync({ look, framing, tint, glow });
+}
+
+function sourceGrid(width, height, proposedSettings = settings, proposedFraming = framing) {
+  const crop = computeCropRect(width, height, proposedFraming);
+  return { crop, ...computeGrid(crop.width, crop.height, proposedSettings) };
+}
+
 function updateControls() {
   startButton.disabled = cameraState !== 'idle' || disposed || captureBusy;
   stopButton.disabled = cameraState === 'idle';
   deviceSelect.disabled = cameraState === 'requesting' || captureBusy;
   facingSelect.disabled = cameraState === 'requesting' || captureBusy;
   imageInput.disabled = disposed || captureBusy;
-  const captureReady = cameraState === 'live' && source?.kind === 'camera' && source.active &&
-    output.dataset.sourceGeneration === String(source.generation);
+  const captureReady = cameraState === 'live' && source?.kind === 'camera' && source.active && hasCurrentFrame();
   cameraShell?.update({ cameraState, kind: source?.kind, captureReady, busy: captureBusy, disposed });
 }
 
@@ -108,6 +132,7 @@ function ensureWorker(explicitAction = false) {
       }
       const current = source && request.epoch === renderEpoch &&
         request.generation === source.generation && request.settingsKey === settingsKey &&
+        request.lookKey === lookKey && request.framing === framing &&
         request.source === source && (source.kind === 'image' || source.active);
       if (current) {
         if (data.width !== request.width || data.height !== request.height || typeof data.text !== 'string') {
@@ -117,11 +142,17 @@ function ensureWorker(explicitAction = false) {
         // One synchronous commit: identity describes precisely this text, not UI intent.
         const gridChanged = output.dataset.columns !== String(data.width) || output.dataset.rows !== String(data.height);
         const sourceChanged = output.dataset.sourceGeneration !== String(request.generation);
+        const configurationChanged = output.dataset.settingsKey !== request.settingsKey ||
+          output.dataset.lookKey !== request.lookKey || output.dataset.framing !== request.framing ||
+          output.dataset.sourceWidth !== String(request.sourceWidth) ||
+          output.dataset.sourceHeight !== String(request.sourceHeight);
         output.textContent = data.text;
         Object.assign(output.dataset, {
           renderId: String(request.id), sourceGeneration: String(request.generation),
           sourceKind: request.source.kind, sourceName: request.source.name,
           settingsKey: request.settingsKey, columns: String(data.width), rows: String(data.height),
+          lookKey: request.lookKey, framing: request.framing,
+          sourceWidth: String(request.sourceWidth), sourceHeight: String(request.sourceHeight),
         });
         if (gridChanged) outputView.update();
         byId('grid-label').textContent = `${data.width} columns × ${data.height} rows`;
@@ -131,7 +162,7 @@ function ensureWorker(explicitAction = false) {
         performanceLabel.dataset.deliveredFrames = String(deliveredFrames);
         performanceLabel.textContent = `${data.processingMs.toFixed(1)} ms / frame`;
         status.textContent = source.kind === 'image' ? (source.captured ? 'Frame captured' : 'Image ready') : 'Camera live';
-        if (sourceChanged) updateControls();
+        if (sourceChanged || configurationChanged) updateControls();
       }
       if (pendingStill) renderStill();
     };
@@ -146,25 +177,27 @@ function submitRender() {
   if (disposed || inFlight || !worker || workerFailed || !source) return;
   if (source.kind === 'camera' && !source.active) return;
   try {
-    const { width, height } = computeGrid(source.width, source.height, settings);
-    const key = `${source.width}:${source.height}:${width}:${height}`;
+    const { crop, width, height } = sourceGrid(source.width, source.height);
+    const key = `${crop.width}:${crop.height}:${width}:${height}`;
     if (key !== samplerKey) {
-      sampler = createLanczosResampler(source.width, source.height, width, height);
+      sampler = createLanczosResampler(crop.width, crop.height, width, height);
       samplerKey = key;
     }
-    if (canvas.width !== source.width || canvas.height !== source.height) {
-      canvas.width = source.width;
-      canvas.height = source.height;
+    if (canvas.width !== crop.width || canvas.height !== crop.height) {
+      canvas.width = crop.width;
+      canvas.height = crop.height;
     }
-    // Acquire unscaled opaque pixels; the verified Pillow-compatible sampler owns resizing.
+    // Acquire the selected native-pixel rectangle; Lanczos alone owns resizing.
     context.fillStyle = '#000';
-    context.fillRect(0, 0, source.width, source.height);
-    context.drawImage(source.kind === 'image' ? source.bitmap : video, 0, 0);
-    const original = context.getImageData(0, 0, source.width, source.height).data;
+    context.fillRect(0, 0, crop.width, crop.height);
+    context.drawImage(source.kind === 'image' ? source.bitmap : video,
+      crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
+    const original = context.getImageData(0, 0, crop.width, crop.height).data;
     const rgba = sampler.resize(original);
     const id = ++requestId;
-    inFlight = { id, width, height, source, generation: source.generation, settingsKey, epoch: renderEpoch };
-    worker.postMessage({ type: 'render', id, width, height, settings, rgba: rgba.buffer }, [rgba.buffer]);
+    inFlight = { id, width, height, source, generation: source.generation, settingsKey,
+      lookKey, framing, sourceWidth: source.width, sourceHeight: source.height, epoch: renderEpoch };
+    worker.postMessage({ type: 'render', id, width, height, settings, look, rgba: rgba.buffer }, [rgba.buffer]);
   } catch (error) {
     if (error instanceof RangeError) showError(error.message);
     else workerFailure();
@@ -187,8 +220,12 @@ const camera = createCameraController(video, {
   onFrame() {
     // Camera dimensions can change when a phone rotates.
     if (!inFlight && source?.kind === 'camera' && source.active && video.videoWidth && video.videoHeight) {
-      source.width = video.videoWidth;
-      source.height = video.videoHeight;
+      if (source.width !== video.videoWidth || source.height !== video.videoHeight) {
+        source.width = video.videoWidth;
+        source.height = video.videoHeight;
+        renderEpoch++;
+        updateControls();
+      }
       submitRender();
     }
   },
@@ -252,7 +289,7 @@ function stopCamera() {
 }
 
 async function freezeFrame() {
-  if (captureBusy || disposed || cameraState !== 'live' || source?.kind !== 'camera') return;
+  if (captureBusy || disposed || cameraState !== 'live' || source?.kind !== 'camera' || !hasCurrentFrame()) return;
   const token = ++decodeToken;
   captureBusy = true;
   updateControls();
@@ -307,7 +344,7 @@ async function acceptImage(file, captured = false) {
     return;
   }
   try {
-    computeGrid(bitmap.width, bitmap.height, settings);
+    sourceGrid(bitmap.width, bitmap.height);
   } catch (error) {
     bitmap.close();
     showError(error.message);
@@ -346,17 +383,69 @@ function changeSettings() {
   }
   try {
     const next = normalizeSettings(proposed);
-    if (source) computeGrid(source.width, source.height, next);
+    if (source) sourceGrid(source.width, source.height, next);
     const nextKey = JSON.stringify(next);
     showError(workerFailed ? 'Rendering failed' : '');
     if (nextKey === settingsKey) return;
     settings = next;
     settingsKey = nextKey;
     renderEpoch++;
+    updateControls();
     if (source?.kind === 'image') renderStill();
   } catch (error) {
     showError(error.message);
   }
+}
+
+function changeLook(proposed) {
+  try {
+    const next = normalizeLook(proposed);
+    const key = JSON.stringify(next);
+    showError(workerFailed ? 'Rendering failed' : '');
+    if (key !== lookKey) {
+      look = next;
+      lookKey = key;
+      renderEpoch++;
+      updateControls();
+      if (source?.kind === 'image') renderStill();
+    }
+  } catch (error) {
+    showError(error.message);
+  }
+  syncLookControls();
+}
+
+function changeFraming(proposed) {
+  try {
+    if (!FRAMINGS.some(({ id }) => id === proposed)) throw new RangeError('Choose a supported frame');
+    if (source) sourceGrid(source.width, source.height, settings, proposed);
+    showError(workerFailed ? 'Rendering failed' : '');
+    if (proposed !== framing) {
+      framing = proposed;
+      renderEpoch++;
+      updateControls();
+      if (source?.kind === 'image') renderStill();
+    }
+  } catch (error) {
+    showError(error.message);
+  }
+  syncLookControls();
+}
+
+function changePresentation(proposed) {
+  if ((proposed.tint !== 'default' && !/^#[0-9a-f]{6}$/i.test(proposed.tint)) ||
+      typeof proposed.glow !== 'boolean') {
+    showError('Choose a valid text color and glow setting');
+    syncLookControls();
+    return;
+  }
+  tint = proposed.tint;
+  glow = proposed.glow;
+  if (tint === 'default') document.body.style.removeProperty('--ascii-tint');
+  else document.body.style.setProperty('--ascii-tint', tint);
+  document.body.dataset.glow = glow ? 'on' : 'off';
+  outputView.update();
+  syncLookControls();
 }
 
 function dispose() {
@@ -367,6 +456,7 @@ function dispose() {
   renderEpoch++;
   camera.dispose();
   outputView?.dispose();
+  lookControls?.dispose();
   worker?.terminate();
   worker = null;
   inFlight = null;
@@ -380,6 +470,10 @@ try {
   outputView = createOutputView(document.querySelector('.ascii-viewport'), output, byId('fit-output'), byId('detail-output'));
   byId('fit-output').click();
   cameraShell = createCameraShell();
+  lookControls = createLookControls({
+    onLookChange: changeLook, onFramingChange: changeFraming, onPresentationChange: changePresentation,
+  });
+  syncLookControls();
   byId('camera-shutter').addEventListener('click', shutterAction);
   byId('camera-stop').addEventListener('click', stopCamera);
   byId('camera-import').addEventListener('click', () => imageInput.click());

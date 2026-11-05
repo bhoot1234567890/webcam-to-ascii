@@ -298,3 +298,94 @@ for (const viewport of viewports) {
     });
   });
 }
+
+test('curated looks preserve source identity and Original restores the exact prior text', async ({ page }) => {
+  await openApp(page);
+  const original = await uploadFixture(page, 'astronaut');
+  const preview = await page.locator('#image-preview').getAttribute('src');
+  for (const id of ['photo', 'print', 'outline', 'original']) {
+    const before = await readCommit(page);
+    await page.locator('#open-looks').click();
+    await page.locator(`input[name="look"][value="${id}"]`).check();
+    await page.locator('#close-look-sheet').click();
+    await page.waitForFunction(({ id, before }) => {
+      const data = document.querySelector('#ascii-output').dataset;
+      return Number(data.renderId) > before && JSON.parse(data.lookKey).id === id;
+    }, { id, before: before.renderId });
+    const commit = await readCommit(page);
+    expect(commit.sourceGeneration).toBe(original.sourceGeneration);
+    expect(commit.settingsKey).toBe(original.settingsKey);
+    expect([commit.columns, commit.rows]).toEqual([original.columns, original.rows]);
+    expect(await page.locator('#image-preview').getAttribute('src')).toBe(preview);
+    if (id === 'original') expect(commit.text).toBe(original.text);
+    else expect(commit.text).not.toBe(original.text);
+    if (id === 'outline') expect(commit.text.replace(/[ /\\|\n-]/g, '')).toBe('');
+  }
+  // Outline must remove a uniform interior, not quietly reuse photographic shading.
+  await uploadFixture(page, 'midgray');
+  await page.locator('#open-looks').click();
+  await page.locator('input[name="look"][value="outline"]').check();
+  await page.locator('#close-look-sheet').click();
+  await page.waitForFunction(() => JSON.parse(document.querySelector('#ascii-output').dataset.lookKey).id === 'outline');
+  expect((await readCommit(page)).text.replace(/[ \n]/g, '')).toBe('');
+});
+
+test('framing crops native center pixels once and Full restores the unmodified source', async ({ page }) => {
+  await openApp(page);
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 160;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, 320, 160);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(80, 0, 160, 160);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.locator('#image-input').setInputFiles({ name: 'center-landmark.png', mimeType: 'image/png', buffer: Buffer.from(image, 'base64') });
+  await page.waitForFunction(() => document.querySelector('#ascii-output').dataset.sourceName === 'center-landmark.png');
+  const original = await readCommit(page);
+  const preview = await page.locator('#image-preview').getAttribute('src');
+  expect(original.text.split('\n')[0].startsWith(' ')).toBe(true);
+  for (const frame of ['square', 'portrait', 'story', 'full']) {
+    const before = await readCommit(page);
+    await page.locator('#open-framing').click();
+    await page.locator(`input[name="framing"][value="${frame}"]`).check();
+    await page.locator('#close-look-sheet').click();
+    await page.waitForFunction(({ frame, before }) => {
+      const data = document.querySelector('#ascii-output').dataset;
+      return data.framing === frame && Number(data.renderId) > before;
+    }, { frame, before: before.renderId });
+    const cropped = await readCommit(page);
+    expect(cropped.sourceGeneration).toBe(original.sourceGeneration);
+    if (frame !== 'full') {
+      expect(cropped.text.split('\n').every((row) => /^@+$/.test(row))).toBe(true);
+    } else expect(cropped.text).toBe(original.text);
+    expect(await page.locator('#image-preview').getAttribute('src')).toBe(preview);
+    expect(await page.locator('#image-preview').evaluate((img) => [img.naturalWidth, img.naturalHeight])).toEqual([320, 160]);
+  }
+});
+
+test('a tiny source rejects unrepresentable framing and keeps its last valid configuration', async ({ page }) => {
+  await openApp(page);
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 2;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, 2, 2);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.locator('#image-input').setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: Buffer.from(image, 'base64') });
+  await page.waitForFunction(() => document.querySelector('#ascii-output').dataset.sourceName === 'tiny.png');
+  const before = await readCommit(page);
+  await page.locator('#open-framing').click();
+  await page.locator('input[name="framing"][value="story"]').click();
+  await expect(page.locator('input[name="framing"][value="full"]')).toBeChecked();
+  await page.locator('#close-look-sheet').click();
+  await expect(page.locator('#error')).toContainText('too small');
+  await renderingTurn(page);
+  expect(await readCommit(page)).toEqual(before);
+  await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', 'full');
+});

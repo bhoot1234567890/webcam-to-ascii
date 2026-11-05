@@ -75,6 +75,7 @@ async function installWorkerProbe(page) {
       postMessage(message, transfer) {
         const record = { worker: this.index, id: message.id, width: message.width,
           height: message.height, settings: { ...message.settings },
+          look: { ...message.look },
           bytes: message.rgba?.byteLength, transferred: transfer?.includes(message.rgba) === true };
         probe.requests.push(record);
         const outstanding = probe.requests.filter((request) => request.worker === this.index
@@ -114,6 +115,7 @@ async function installWorkerProbe(page) {
         probe.commits.push({ id: Number(output.dataset.renderId),
           generation: Number(output.dataset.sourceGeneration), kind: output.dataset.sourceKind,
           name: output.dataset.sourceName, settingsKey: output.dataset.settingsKey,
+          lookKey: output.dataset.lookKey, framing: output.dataset.framing,
           processingMs: Number(label.dataset.processingMs), time: performance.now() });
       }).observe(output, { attributes: true, attributeFilter: ['data-render-id'] });
     });
@@ -646,7 +648,7 @@ test('camera shutter freezes a real frame, rejects late replies, retunes the sho
   await page.locator('#camera-shutter').click();
   const initial = await waitCameraCommit(page);
   const retained = await retainCamera(page);
-  const directory = path.join(ROOT, 'qa/artifacts/clack', testInfo.project.name);
+  const directory = path.join(ROOT, 'qa/artifacts/camera-features', testInfo.project.name);
   await mkdir(directory, { recursive: true });
   await page.screenshot({ path: path.join(directory, 'live-camera.png') });
   const held = await holdRealReply(page);
@@ -684,4 +686,79 @@ test('camera shutter freezes a real frame, rejects late replies, retunes the sho
   const stopped = await readCommit(page);
   await renderingTurns(page);
   expect(await readCommit(page)).toEqual(stopped);
+});
+
+test('look and frame changes reject held replies, gate the shutter, and preserve full captured sources', async ({ page }) => {
+  await page.setViewportSize({ width: 428, height: 745 });
+  await openApp(page, { layout: 'camera' });
+  await page.locator('#camera-shutter').click();
+  const initial = await waitCameraCommit(page);
+  const firstStream = await retainCamera(page);
+  const held = await holdRealReply(page);
+  await page.locator('#open-looks').click();
+  await page.locator('input[name="look"][value="photo"]').check();
+  await page.locator('input[name="framing"][value="story"]').check();
+  await page.locator('#close-look-sheet').click();
+  await expect(page.locator('#camera-shutter')).toBeDisabled();
+  expect(await page.evaluate(() => window.__cameraQA.reads)).toBe(held.reads);
+  expect(await page.evaluate(() => window.__cameraQA.requests.length)).toBe(held.requests);
+  await releaseRealReply(page, held.id);
+  await page.waitForFunction(() => {
+    const data = document.querySelector('#ascii-output').dataset;
+    return data.framing === 'story' && JSON.parse(data.lookKey).id === 'photo';
+  });
+  await expect(page.locator('#camera-shutter')).toBeEnabled();
+  const framed = await readCommit(page);
+  expect(framed.sourceGeneration).toBe(initial.sourceGeneration);
+  expect([framed.columns, framed.rows]).toEqual([224, 200]);
+  expect(await page.evaluate((id) => window.__cameraQA.commits.some((commit) => commit.id === id), held.id)).toBe(false);
+
+  const pendingCapture = await holdRealReply(page);
+  await page.locator('#camera-shutter').click();
+  await expectRetainedEnded(page, firstStream.index);
+  await expect(page.locator('#source-label')).toHaveText('Captured frame.png');
+  await page.locator('#open-framing').click();
+  await page.locator('input[name="framing"][value="wide"]').check();
+  await page.locator('input[name="look"][value="print"]').check();
+  await page.locator('#close-look-sheet').click();
+  expect(await page.evaluate(() => window.__cameraQA.reads)).toBe(pendingCapture.reads);
+  await releaseRealReply(page, pendingCapture.id);
+  await page.waitForFunction(() => {
+    const data = document.querySelector('#ascii-output').dataset;
+    return data.sourceKind === 'image' && data.framing === 'wide' && JSON.parse(data.lookKey).id === 'print';
+  });
+  const shot = await readCommit(page);
+  expect(shot.sourceGeneration).toBe(initial.sourceGeneration + 1);
+  expect([shot.columns, shot.rows]).toEqual([300, 84]);
+  const probe = await page.evaluate(() => ({
+    maxOutstanding: window.__cameraQA.maxOutstanding,
+    commits: window.__cameraQA.commits,
+    request: window.__cameraQA.requests.at(-1),
+  }));
+  expect(probe.maxOutstanding).toBe(1);
+  expect(probe.commits.some((commit) => commit.id === pendingCapture.id)).toBe(false);
+  expect(probe.request.look.id).toBe('print');
+
+  await page.locator('#open-framing').click();
+  await page.locator('input[name="framing"][value="full"]').check();
+  await page.locator('#close-look-sheet').click();
+  await page.waitForFunction(() => document.querySelector('#ascii-output').dataset.framing === 'full');
+  const fullShot = await readCommit(page);
+  expect(fullShot.sourceGeneration).toBe(shot.sourceGeneration);
+  expect([fullShot.columns, fullShot.rows]).toEqual([300, 112]);
+  expect(await page.locator('#image-preview').evaluate((img) => [img.naturalWidth, img.naturalHeight])).toEqual([320, 240]);
+  await page.locator('#live-mode').click();
+  const resumed = await waitCameraCommit(page, fullShot);
+  const resumedStream = await retainCamera(page);
+  await page.locator('#flip-camera').click();
+  await waitCameraCommit(page, resumed);
+  await expectRetainedEnded(page, resumedStream.index, false);
+  const flipped = await retainCamera(page);
+  await page.locator('#camera-stop').click();
+  await expectRetainedEnded(page, flipped.index);
+  const stopped = await readCommit(page);
+  await renderingTurns(page);
+  expect(await readCommit(page)).toEqual(stopped);
+  await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', 'full');
+  expect(JSON.parse(await page.locator('#ascii-output').getAttribute('data-look-key')).id).toBe('print');
 });
