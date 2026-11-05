@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "webcam-to-ascii",
+      "name": "clack",
       "dependencies": {
         "@fontsource/roboto-mono": "5.3.0",
       },

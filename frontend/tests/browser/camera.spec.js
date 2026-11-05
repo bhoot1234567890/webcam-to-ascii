@@ -646,7 +646,7 @@ test('camera shutter freezes a real frame, rejects late replies, retunes the sho
   await page.locator('#camera-shutter').click();
   const initial = await waitCameraCommit(page);
   const retained = await retainCamera(page);
-  const directory = path.join(ROOT, 'qa/artifacts/camera-ui', testInfo.project.name);
+  const directory = path.join(ROOT, 'qa/artifacts/clack', testInfo.project.name);
   await mkdir(directory, { recursive: true });
   await page.screenshot({ path: path.join(directory, 'live-camera.png') });
   const held = await holdRealReply(page);

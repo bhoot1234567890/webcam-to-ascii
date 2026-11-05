@@ -1,22 +1,24 @@
-# webcam-to-ascii
+# clack
+
+**A camera with character.**
 
 ![License](https://img.shields.io/badge/License-AGPL_v3-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)
 
-**A private browser and terminal renderer for live webcam video and local images.** The static browser app processes pixels in one JavaScript worker; the original Python webcam viewer remains available.
+**A private, mobile-first ASCII camera.** clack looks like a familiar camera app, but your world appears in characters. Live frames and imported photos are processed on your device in one JavaScript worker, with no uploads or account. The original Python terminal viewer remains available.
 
 Most webcam-to-ASCII converters map each pixel's brightness to a short ramp (` .:-=+*#%@`). This project does more: it runs Sobel edge detection on a Difference-of-Gaussians-enhanced frame, then picks each glyph from the gradient *direction* (`/ - \ |`) for edges and from a 95-character luminance ramp for shading. The result reads like a hand-drawn line sketch instead of a blocky heat map.
 
 ## ✨ Features
 
-- **Live, real-time rendering** — every captured frame is converted and printed to the terminal in a tight loop; quit with `q`.
+- **Live ASCII viewfinder** — see the camera feed rendered in characters, freeze a frame, or import a local photo. The Python viewer prints frames to the terminal; quit it with `q`.
 - **Directional edge glyphs** — the original ordered angle-selection rule chooses `/ - \ |`, including its historical negative-angle quirks.
 - **95-character luminance ramp** — shading is mapped through the full printable ASCII set, giving far more dynamic range than a typical 10-step ramp.
 - **Ink-weighted character ramp** — glyphs are ranked by their real rendered "ink" (dark-pixel count in a font), not by a hand-tuned guess, so brightness maps perceptually.
 - **Difference-of-Gaussians preprocessing** — sharpens edges before detection, keeping thin features (hair, glasses, text) visible at low resolution.
 - **Character-proportioned sizing** — the original orientation policy selects a width or height setting, then doubles columns. These settings are not strict output bounds; a square at the defaults is 400 columns × 200 rows.
-- **Live preview window** — the raw webcam frame is shown alongside the terminal output via an OpenCV window.
+- **Original source preview** — Studio shows the unmodified source; the Python viewer opens the raw camera feed in an OpenCV window.
 - **Helper utilities included** — scripts to enumerate cameras, regenerate the ink-usage ramp, and render a still image offline for tuning.
 
 ## Browser application
@@ -54,6 +56,16 @@ bun run --cwd frontend preview
 ```
 
 Deploy **`frontend/dist/`** to a static HTTPS host. No Python service is needed. QA pages, source fixtures, and generated artifacts are not production build inputs.
+
+### Brand assets
+
+The name and wordmark are lowercase **clack**; the tagline is **“A camera with character.”** An amber cursor connects the camera identity to character art. Camera and Studio share an ink-black, warm-white and amber (`#ffd663`) palette, with the locally bundled Roboto Mono wordmark.
+
+- [`frontend/public/clack-icon.svg`](frontend/public/clack-icon.svg): vector `c_` viewfinder mark, also used in the Studio header.
+- `frontend/public/clack-icon-32.png`: browser favicon fallback.
+- `frontend/public/apple-touch-icon.png`: opaque 180×180 iPhone home-screen icon.
+
+The PNG icons are rasterized from the same SVG. Browser titles, share metadata and the iPhone home-screen label use the same identity. The repository URL and original Python script filenames remain unchanged.
 
 ### Reproducible parity and browser QA
 
@@ -93,7 +105,7 @@ The scripts recognize those local libraries. WebKit's bundled wrapper replaces `
 
 ### Verified execution (2026-11-04)
 
-`bash qa/run-tests.sh` passed on Linux x64 with the committed locks:
+**Renderer and lifecycle baseline, before the clack branding cutover:** `bash qa/run-tests.sh` passed on Linux x64 with the locked dependencies:
 
 | Gate | Observed result |
 |---|---|
@@ -104,15 +116,20 @@ The scripts recognize those local libraries. WebKit's bundled wrapper replaces `
 | Fresh static-production smoke | 4 passed; desktop/mobile Studio plus iPhone camera-library import, Fit/Detail, unobstructed controls, rotation and delayed-CSS startup |
 | Visual inspection | 10 native-camera iPhone screenshots directly reviewed and image-judged; final camera/layout judgments all pass, with two artwork flags directly adjudicated |
 
+**Branding verification:** a fresh `bun run --cwd frontend test:production` passed all four desktop/mobile production checks after the identity cutover. Direct browser interaction and screenshot inspection covered Camera and Studio, iPhone 14 Plus emulation, and the 280px minimum-width camera. Review caught a toolbar-label overlap at 280px; the corrected label now has a permanent geometry regression check. Layout switching retained identical source identity and ASCII text, all three icon URLs decoded successfully with HTTP 200, and no browser console errors were observed. These are emulated mobile checks, not physical iPhone testing.
+
 The initial independent image review caught a real native-Canvas impulse-contour difference; the verified Lanczos sampler fixed it. Final independent judgments and direct adjudication are preserved in `qa/artifacts/ab/vision-review.json` and `review.md`. One contradictory judge flag was resolved by identical full-resolution corner-image pixels and identical text; the raw judgments were not rewritten. All synthetic cases and comparison-profile photographs are text-exact. Default astronaut/portrait cases differ at five/four cells, with grayscale-rounding propagation recorded in `residual-provenance.json`.
 
-Evidence entry points after the command completes:
+Current outputs and retained historical evidence:
 
 - `qa/artifacts/unit/numerical-report.json` and `resize-report.json`
 - `qa/artifacts/playwright/html/index.html` and `production-html/index.html`
 - `qa/artifacts/ab/index.html`, `review.md`, `vision-raw.json`, and `vision-review.json`
 - `qa/artifacts/performance.json` (settings, browser and machine included)
-- `qa/artifacts/camera-ui/production-iphone-webkit/` (native-DPR camera screenshots and committed grid/geometry metadata)
+- `qa/artifacts/clack/production-iphone-webkit/` (current branded camera screenshots and geometry, including 280px)
+- `qa/artifacts/clack/brand-runtime.json`, `iphone-camera.png`, `iphone-studio.png`, `desktop-camera.png`, and `desktop-studio.png`
+- `qa/artifacts/clack/brand-overlap-before.json`, `minimum-width-before.png`, and `minimum-width.png` (observed header regression and correction)
+- `qa/artifacts/camera-ui/production-iphone-webkit/` (retained pre-branding camera screenshots and geometry)
 - `qa/artifacts/camera-ui/vision-raw.json`, `vision-review.json`, `presentation-proof.json`, and `artwork-crops/`
 - `qa/artifacts/camera-ui/physical-camera.json`, `physical-live.png`, and `physical-captured.png`
 - `qa/artifacts/camera-ui/desktop-camera.png` and `final-surface-smoke.json`
@@ -121,7 +138,7 @@ Evidence entry points after the command completes:
 
 The five-second fake-camera gate records delivered frame rate, warm worker p50/p95, machine/browser details, Stop response, and outstanding-request count in `performance.json`. These measurements are host-specific, not an iPhone FPS promise.
 
-**Physical webcam verified:** the production camera shell acquired real 640×480 Logitech C930e video without fake-capture flags or microphone tracks. Shutter capture ended the live stream and accepted a real PNG snapshot as a retunable still. Retake reacquired the camera; Flip ended the prior stream; Stop ended all retained video tracks, detached the video and prevented further commits. The hardware report records source generations 1 → 2 → 3 → 4 for live → captured still → retake → flip. This is desktop Chromium camera evidence at emulated phone dimensions, **not physical iPhone/Safari validation**.
+**Physical webcam baseline, before the branding cutover:** the production camera shell acquired real 640×480 Logitech C930e video without fake-capture flags or microphone tracks. Shutter capture ended the live stream and accepted a real PNG snapshot as a retunable still. Retake reacquired the camera; Flip ended the prior stream; Stop ended all retained video tracks, detached the video and prevented further commits. The hardware report records source generations 1 → 2 → 3 → 4 for live → captured still → retake → flip. This is desktop Chromium camera evidence at emulated phone dimensions, **not physical iPhone/Safari validation**.
 
 Vision review caught glyphs scrolling under the Detail controls; the controls now sit outside the scrollport, with a production regression check for nonoverlap. A fractional CSS-height edge case in Fit is also corrected rather than hidden by relaxed assertions. Final independent judgments recognize all ten views as camera-like and usable. Two comparisons against the raw wide photograph still flag artwork; native-pixel inspection, complete-row/uniform-scale checks and unchanged Camera/Studio text are recorded in the direct adjudication. The renderer and reference answers were not changed to satisfy a visual judge.
 

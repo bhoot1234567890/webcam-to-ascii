@@ -43,7 +43,7 @@ async function choosePhoto(page, id) {
 }
 
 async function capture(page, testInfo, name, evidence) {
-  const dir = path.join(ROOT, 'qa/artifacts/camera-ui', testInfo.project.name);
+  const dir = path.join(ROOT, 'qa/artifacts/clack', testInfo.project.name);
   await mkdir(dir, { recursive: true });
   await page.evaluate(() => scrollTo(0, 0));
   const file = path.join(dir, `${name}.png`);
@@ -92,9 +92,15 @@ test('camera view imports complete photographs without permission, with touch co
     ['landscape', { width: 832, height: 378 }],
     ['full-height', { width: 428, height: 926 }],
     ['narrow', { width: 320, height: 568 }],
+    ['minimum-width', { width: 280, height: 568 }],
   ]) {
     await page.setViewportSize(viewport);
     await completeOverview(page);
+    const brand = await page.locator('.camera-brand').boundingBox();
+    const guides = await page.locator('#toggle-guides').boundingBox();
+    const actions = await page.locator('.camera-toolbar-actions').boundingBox();
+    expect(brand.x, 'Brand stays clear of the grid control').toBeGreaterThanOrEqual(guides.x + guides.width);
+    expect(brand.x + brand.width, 'Brand stays clear of Stop and Studio controls').toBeLessThanOrEqual(actions.x);
     expect(await readCommit(page)).toEqual(before);
     await capture(page, testInfo, `iphone-14-plus-${name}`, { emulatedViewport: viewport });
   }

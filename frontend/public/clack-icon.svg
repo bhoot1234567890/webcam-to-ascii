@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <title>clack</title>
+  <desc>A character and an amber cursor inside a camera viewfinder.</desc>
+  <rect width="64" height="64" rx="14" fill="#050506" />
+  <path d="M22 13h-5a4 4 0 0 0-4 4v5m29-9h5a4 4 0 0 1 4 4v5M13 42v5a4 4 0 0 0 4 4h5m20 0h5a4 4 0 0 0 4-4v-5" stroke="#737377" stroke-width="2" stroke-linecap="round" />
+  <path d="M34 24a10 10 0 1 0 0 14" stroke="#f1f0eb" stroke-width="5" stroke-linecap="round" />
+  <path d="M39 43h9" stroke="#ffd663" stroke-width="5" stroke-linecap="square" />
+</svg>
