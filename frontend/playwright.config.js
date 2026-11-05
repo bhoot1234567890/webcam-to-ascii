@@ -15,6 +15,7 @@ const webkitEnvironment = preload.every(existsSync) ? {
 } : process.env;
 const chromium = { browserName: 'chromium', launchOptions: { chromiumSandbox: true } };
 const iphone = { ...devices['iPhone 14 Plus'], browserName: 'webkit', launchOptions: { env: webkitEnvironment } };
+const iphoneRecording = { ...devices['iPhone 14 Plus'], ...chromium };
 
 export default defineConfig({
   testDir: './tests/browser',
@@ -39,12 +40,15 @@ export default defineConfig({
   },
   projects: production ? [
     { name: 'production-chromium', testMatch: 'production.spec.js', use: chromium },
-    { name: 'production-iphone-webkit', testMatch: 'mobile.spec.js', use: iphone },
+    // Linux WebKit has no MediaRecorder API. Its fallback/layout gates still run without skips.
+    { name: 'production-iphone-webkit', testMatch: 'mobile.spec.js', grepInvert: /@recording/, use: iphone },
+    { name: 'production-iphone-chromium-recording', testMatch: 'mobile.spec.js', grep: /@recording/, use: iphoneRecording },
   ] : [
     { name: 'chromium', testMatch: 'image.spec.js', use: chromium },
     { name: 'firefox', testMatch: 'image.spec.js', use: { browserName: 'firefox' } },
     { name: 'webkit', testMatch: 'image.spec.js', use: { browserName: 'webkit', launchOptions: { env: webkitEnvironment } } },
-    { name: 'iphone-webkit', testMatch: 'mobile.spec.js', use: iphone },
+    { name: 'iphone-webkit', testMatch: 'mobile.spec.js', grepInvert: /@recording/, use: iphone },
+    { name: 'iphone-chromium-recording', testMatch: 'mobile.spec.js', grep: /@recording/, use: iphoneRecording },
     { name: 'camera-chromium', testMatch: ['camera.spec.js', 'controller.spec.js'], use: {
       ...chromium,
       launchOptions: { chromiumSandbox: true, args: [

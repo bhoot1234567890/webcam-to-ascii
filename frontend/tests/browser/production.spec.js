@@ -5,6 +5,7 @@ import {
   test, expect, ROOT, IMAGES, REFERENCE, readCommit, uploadFixture,
   changeSettings, openApp, captureApp,
 } from './fixtures.js';
+import { installVideoCamera, downloadVideo } from './video-fixtures.js';
 
 const viewports = [
   { name: 'desktop', width: 1440, height: 1000 },
@@ -190,3 +191,44 @@ for (const viewport of viewports) {
     });
   });
 }
+
+test('bundled production records, decodes and saves ASCII video in desktop and phone camera views', async ({ page }, testInfo) => {
+  test.setTimeout(45000);
+  await installVideoCamera(page);
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await openApp(page, { layout: 'camera' });
+    await page.locator('#open-looks').click();
+    await page.locator('input[name="look"][value="print"]').check();
+    await page.locator('input[name="framing"][value="story"]').check();
+    await page.locator('#look-adjustments > summary').click();
+    await page.locator('input[name="text-tint"][value="#ffd663"]').check();
+    await page.locator('#close-look-sheet').click();
+    await page.locator('#video-mode').click();
+    await page.locator('#camera-shutter').click();
+    await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'recording');
+    await expect(page.locator('#recording-timer')).toHaveText('00:01');
+    await page.locator('#camera-shutter').click();
+    await expect(page.locator('#video-review')).toBeVisible();
+    const video = page.locator('#recorded-video');
+    await video.evaluate((element) => element.play());
+    await expect.poll(() => video.evaluate((element) => element.currentTime)).toBeGreaterThan(0);
+    const saved = await downloadVideo(page, testInfo, viewport.name);
+    expect(saved.streams).toHaveLength(1);
+    expect(saved.streams[0]).toMatchObject({ codec_type: 'video', codec_name: 'h264' });
+    expect(saved.streams[0].height).toBeGreaterThan(saved.streams[0].width);
+    expect(Math.max(saved.streams[0].width, saved.streams[0].height)).toBeLessThanOrEqual(1280);
+    expect(Number(saved.format.duration)).toBeGreaterThan(0.5);
+    const url = await video.getAttribute('src');
+    await page.locator('#close-video-review').click();
+    await page.locator('#open-studio').click();
+    await page.locator('#studio-video').click();
+    await page.locator('#review-video').click();
+    await expect(video).toHaveAttribute('src', url);
+    expect(await page.evaluate(() => ({
+      microphoneRequested: window.__videoQA.requests.some((request) => request.audio !== false),
+      cameraEnded: window.__videoQA.cameras.every((stream) => stream.getTracks().every((track) => track.readyState === 'ended')),
+      captureEnded: window.__videoQA.captures.every(({ stream }) => stream.getTracks().every((track) => track.readyState === 'ended')),
+    }))).toEqual({ microphoneRequested: false, cameraEnded: true, captureEnded: true });
+  }
+});

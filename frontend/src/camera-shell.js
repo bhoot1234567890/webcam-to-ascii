@@ -18,23 +18,55 @@ export function createCameraShell() {
   });
 
   return {
-    update({ cameraState, kind, captureReady, busy, disposed }) {
+    setLayout,
+    update({
+      cameraState, kind, captureReady, busy, disposed,
+      mode = 'photo', recordingState = 'idle', pendingRecording = false,
+      recordingSupported = true, hasClip = false,
+    }) {
       const live = cameraState === 'live';
       const requesting = cameraState === 'requesting';
+      const video = mode === 'video';
+      const recording = recordingState === 'recording';
+      const stopping = recordingState === 'stopping';
+      const locked = pendingRecording || recording || stopping;
       const shutter = byId('camera-shutter');
-      shutter.disabled = disposed || busy || (live && !captureReady);
-      shutter.dataset.state = busy ? 'capturing' : requesting ? 'requesting' : live ? 'live' : 'idle';
-      shutter.setAttribute('aria-label', requesting ? 'Cancel camera request' : live ? 'Freeze ASCII frame' : 'Start camera');
+      document.body.dataset.captureMode = mode;
+      document.body.dataset.recordingState = pendingRecording ? 'pending' : recordingState;
+      shutter.dataset.mode = mode;
+      shutter.disabled = disposed || (video ?
+        stopping || (!pendingRecording && !recording && (busy || (!hasClip && !recordingSupported))) :
+        busy || (live && !captureReady));
+      shutter.dataset.state = video && locked ? pendingRecording ? 'pending' : recordingState :
+        busy ? 'capturing' : requesting ? 'requesting' : live ? 'live' : 'idle';
+      shutter.setAttribute('aria-label', video ?
+        pendingRecording ? 'Cancel video start' : recording ? 'Stop recording' :
+          stopping ? 'Finishing video' : hasClip ? 'Review ASCII recording' : 'Start ASCII recording' :
+        requesting ? 'Cancel camera request' : live ? 'Freeze ASCII frame' : 'Start camera');
+      shutter.setAttribute('aria-busy', String(stopping));
       byId('camera-stop').disabled = cameraState === 'idle' || disposed;
-      byId('flip-camera').disabled = requesting || busy || disposed;
-      byId('camera-import').disabled = busy || disposed;
-      byId('live-mode').disabled = requesting || busy || disposed;
-      byId('still-mode').disabled = (!captureReady && kind !== 'image') || busy || disposed;
-      byId('live-mode').setAttribute('aria-pressed', String(live || !kind));
-      byId('still-mode').setAttribute('aria-pressed', String(!live && Boolean(kind)));
-      byId('shutter-help').textContent = busy ? 'Developing your frame…' :
-        requesting ? 'Tap the shutter to cancel' : live ? 'Tap the shutter to freeze a frame' :
-          kind ? 'Tap the shutter to return to live' : 'Tap the shutter to open your camera';
+      byId('flip-camera').disabled = locked || requesting || busy || disposed;
+      byId('camera-import').disabled = locked || busy || disposed;
+      for (const id of ['photo-mode', 'video-mode', 'studio-video']) {
+        byId(id).disabled = locked || requesting || busy || disposed;
+      }
+      byId('photo-mode').setAttribute('aria-pressed', String(!video));
+      byId('video-mode').setAttribute('aria-pressed', String(video));
+      byId('open-studio').disabled = locked || disposed;
+      byId('review-video').hidden = !hasClip;
+      byId('review-video').disabled = locked || busy || disposed;
+      const indicator = byId('recording-indicator');
+      indicator.hidden = !locked;
+      byId('recording-label').textContent = pendingRecording ? 'Starting' : stopping ? 'Finishing' : 'Recording';
+      if (!locked) byId('recording-timer').textContent = '00:00';
+      byId('shutter-help').textContent = video ?
+        pendingRecording ? 'Tap the shutter to cancel video start' : recording ? 'Silent · Tap to stop · Up to 30s' :
+          stopping ? 'Finishing your video…' : hasClip ? 'Tap to review · Silent · Up to 30s' :
+            !recordingSupported ? 'Video unavailable · Use Photo' :
+              'Silent · Up to 30s · Tap to record' :
+        busy ? 'Developing your frame…' : requesting ? 'Tap the shutter to cancel' :
+          live ? 'Tap the shutter to freeze a frame' :
+            kind ? 'Tap the shutter to return to live' : 'Tap the shutter to open your camera';
     },
   };
 }

@@ -59,6 +59,7 @@ select { padding-right: 28px; }
 .image-action { position: relative; display: flex; align-items: center; justify-content: center; grid-column: 1 / -1; margin: 0; overflow: hidden; cursor: pointer; }
 .image-action:focus-within { outline: 2px solid var(--accent); outline-offset: 4px; }
 .image-action input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.studio-video-action { grid-column: 1 / -1; }
 summary { cursor: pointer; min-height: 44px; align-content: center; font-size: 13px; }
 .camera-options { margin-top: 10px; border-top: 1px solid var(--border); }
 .camera-fields { display: grid; gap: 12px; padding-top: 8px; }
@@ -138,6 +139,23 @@ body[data-glow="on"] #ascii-output { text-shadow: 0 0 3px currentColor, 0 0 6px 
 .custom-tint { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
 .custom-tint input { width: 72px; height: 44px; padding: 4px; }
 input:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.output-status:has(#recording-indicator:not([hidden])) > .status-indicator,
+.output-status:has(#recording-indicator:not([hidden])) > #status { display: none; }
+#recording-indicator { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 24px; color: #ffe7e9; font-size: 11px; font-weight: 600; }
+.recording-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: #f34f58; }
+#recording-timer { min-width: 5ch; font-family: "Roboto Mono", monospace; font-variant-numeric: tabular-nums; }
+#video-review { width: min(640px, calc(100% - 24px)); max-width: 100%; max-height: calc(100svh - 24px); margin: auto; padding: 0; overflow: hidden; border: 1px solid #414145; border-radius: 18px; background: #141416; color: #f1f0eb; }
+#video-review[open] { display: flex; flex-direction: column; }
+#video-review::backdrop { background: #000b; }
+.video-review-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 12px max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left)); border-bottom: 1px solid var(--border); }
+.video-review-body { min-height: 0; padding: 14px max(14px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); overflow-y: auto; overscroll-behavior: contain; }
+#recorded-video { display: block; width: 100%; height: auto; max-height: 52svh; min-height: 120px; border-radius: 8px; background: #0b0b0d; object-fit: contain; }
+.video-clip-details { margin: 12px 0 0; color: #ededeb; font: 11px/1.6 "Roboto Mono", monospace; overflow-wrap: anywhere; }
+.video-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.video-review-actions .button { flex: 1 1 120px; min-width: 44px; }
+#video-export-status { color: #ffd663; overflow-wrap: anywhere; }
+#video-export-status:empty { display: none; }
 
 @media (min-width: 1400px) {
   .workspace { grid-template-columns: 330px minmax(0, 1fr); gap: 26px; }

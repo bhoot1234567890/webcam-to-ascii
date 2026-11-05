@@ -9,6 +9,8 @@ import { createCameraShell } from './camera-shell.js';
 import { computeCropRect, FRAMINGS } from './framing.js';
 import { normalizeLook } from './looks.js';
 import { createLookControls } from './look-controls.js';
+import { createAsciiRecorder, getRecordingSupport } from './ascii-recorder.js';
+import { createRecordingView } from './recording-view.js';
 
 const byId = (id) => document.getElementById(id);
 const output = byId('ascii-output');
@@ -50,6 +52,14 @@ let samplerKey = '';
 let outputView = null;
 let cameraShell = null;
 let captureBusy = false;
+let captureMode = 'photo';
+let recording = null;
+let recordingView = null;
+let recordingState = 'idle';
+let pendingRecording = false;
+let reviewPending = false;
+let exportBusy = false;
+const recordingSupport = getRecordingSupport();
 
 function showError(message) {
   errorText.textContent = message;
@@ -72,14 +82,137 @@ function sourceGrid(width, height, proposedSettings = settings, proposedFraming 
   return { crop, ...computeGrid(crop.width, crop.height, proposedSettings) };
 }
 
+function videoBusy() {
+  return pendingRecording || recordingState === 'recording' || recordingState === 'stopping';
+}
+
+function canShareClip() {
+  try {
+    return Boolean(recording?.clip && typeof navigator.share === 'function' &&
+      typeof navigator.canShare === 'function' && navigator.canShare({ files: [recording.clip.file] }));
+  } catch {
+    return false;
+  }
+}
+
+function recordingFrame() {
+  const style = getComputedStyle(output);
+  return {
+    text: output.textContent, columns: Number(output.dataset.columns), rows: Number(output.dataset.rows),
+    fontFamily: style.fontFamily, fontSize: parseFloat(style.fontSize), lineHeight: parseFloat(style.lineHeight),
+    color: style.color, glow,
+  };
+}
+
+function startRecording() {
+  if (disposed || captureMode !== 'video' || cameraState !== 'live' || !hasCurrentFrame()) return;
+  pendingRecording = false;
+  showError('');
+  recording.start(recordingFrame());
+  updateControls();
+}
+
+function selectCaptureMode(mode) {
+  if (videoBusy() || captureBusy || disposed || exportBusy) return;
+  captureMode = mode;
+  if (mode === 'video' && !recordingSupport.supported) showError(recordingSupport.reason);
+  else showError('');
+  updateControls();
+}
+
+function recordingChanged({ state, clip }) {
+  if (disposed) return;
+  const previous = recordingState;
+  recordingState = state;
+  if (state === 'stopping' || (state === 'idle' && previous === 'recording')) {
+    pendingRecording = false;
+    releaseCamera();
+  }
+  recordingView?.update({ state, clip, shareSupported: canShareClip() });
+  if (state === 'recording') status.textContent = 'Recording silent ASCII video';
+  if (state === 'stopping') status.textContent = 'Finishing video…';
+  if (state === 'ready') {
+    status.textContent = 'Video ready — review, save or share';
+    reviewPending = document.visibilityState !== 'visible';
+    if (!reviewPending) openVideoReview();
+  }
+  updateControls();
+}
+
+function openVideoReview() {
+  if (disposed || videoBusy() || captureBusy || !recording?.clip) return;
+  // Reviewing a saved clip must not leave a later Photo preview capturing behind the dialog.
+  if (cameraState !== 'idle') releaseCamera();
+  status.textContent = 'Video ready — review, save or share';
+  recordingView.open();
+}
+
+function retakeVideo() {
+  if (exportBusy || videoBusy() || disposed) return;
+  recordingView.close();
+  reviewPending = false;
+  recording.reset();
+  captureMode = 'video';
+  showError('');
+  updateControls();
+  // Retake returns to the live viewfinder; recording still requires a new tap.
+  void startCamera();
+}
+
+function saveVideo() {
+  const clip = recording?.clip;
+  if (!clip || exportBusy || disposed) return;
+  const link = document.createElement('a');
+  link.href = clip.url;
+  link.download = clip.file.name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  recordingView.setExportMessage('Download requested. Your browser may ask where to save the video.');
+}
+
+async function shareVideo() {
+  if (exportBusy || disposed || !recording?.clip) return;
+  if (!canShareClip()) {
+    recordingView.setExportMessage('File sharing is unavailable here. Use Save video instead.');
+    return;
+  }
+  const file = recording.clip.file;
+  exportBusy = true;
+  byId('video-share').disabled = true;
+  byId('video-retake').disabled = true;
+  try {
+    // Invoke synchronously from the click's activation, before any asynchronous work.
+    await navigator.share({ files: [file], title: 'clack — ASCII video' });
+    if (!disposed) recordingView.setExportMessage('Video shared.');
+  } catch (error) {
+    if (!disposed) recordingView.setExportMessage(error.name === 'AbortError' ?
+      'Sharing canceled. Your clip is still here.' : 'Unable to share this video. Use Save video instead.');
+  } finally {
+    exportBusy = false;
+    if (!disposed) recordingView.update({ state: recordingState, clip: recording.clip, shareSupported: canShareClip() });
+  }
+}
+
 function updateControls() {
-  startButton.disabled = cameraState !== 'idle' || disposed || captureBusy;
+  const locked = videoBusy();
+  startButton.disabled = cameraState !== 'idle' || disposed || captureBusy || locked;
   stopButton.disabled = cameraState === 'idle';
-  deviceSelect.disabled = cameraState === 'requesting' || captureBusy;
-  facingSelect.disabled = cameraState === 'requesting' || captureBusy;
-  imageInput.disabled = disposed || captureBusy;
+  deviceSelect.disabled = cameraState === 'requesting' || captureBusy || locked;
+  facingSelect.disabled = cameraState === 'requesting' || captureBusy || locked;
+  imageInput.disabled = disposed || captureBusy || locked;
+  const shadingOnly = look.id === 'photo' || look.id === 'print';
+  for (const input of inputs) {
+    input.disabled = locked || (shadingOnly && ['sigma1', 'sigma2', 'edgeIndexThreshold'].includes(input.dataset.field));
+  }
+  byId('open-framing').disabled = locked;
+  byId('open-looks').disabled = locked;
   const captureReady = cameraState === 'live' && source?.kind === 'camera' && source.active && hasCurrentFrame();
-  cameraShell?.update({ cameraState, kind: source?.kind, captureReady, busy: captureBusy, disposed });
+  cameraShell?.update({
+    cameraState, kind: source?.kind, captureReady, busy: captureBusy, disposed, mode: captureMode,
+    recordingState, pendingRecording, recordingSupported: recordingSupport.supported,
+    hasClip: Boolean(recording?.clip),
+  });
 }
 
 function cameraMessage(error) {
@@ -105,7 +238,7 @@ function workerFailure() {
   renderEpoch++;
   startToken++;
   if (source?.kind === 'camera') source.active = false;
-  camera.stop();
+  stopCamera();
   showError('Rendering failed');
   status.textContent = 'Rendering failed';
 }
@@ -161,7 +294,12 @@ function ensureWorker(explicitAction = false) {
         performanceLabel.dataset.processingMs = String(data.processingMs);
         performanceLabel.dataset.deliveredFrames = String(deliveredFrames);
         performanceLabel.textContent = `${data.processingMs.toFixed(1)} ms / frame`;
-        status.textContent = source.kind === 'image' ? (source.captured ? 'Frame captured' : 'Image ready') : 'Camera live';
+        if (recordingState !== 'recording' && recordingState !== 'stopping') {
+          status.textContent = source.kind === 'image' ? (source.captured ? 'Frame captured' : 'Image ready') : 'Camera live';
+        }
+        if (recordingState === 'recording' && source.kind === 'camera') {
+          recording.pushFrame({ text: data.text, columns: data.width, rows: data.height });
+        } else if (pendingRecording && source.kind === 'camera') startRecording();
         if (sourceChanged || configurationChanged) updateControls();
       }
       if (pendingStill) renderStill();
@@ -221,6 +359,10 @@ const camera = createCameraController(video, {
     // Camera dimensions can change when a phone rotates.
     if (!inFlight && source?.kind === 'camera' && source.active && video.videoWidth && video.videoHeight) {
       if (source.width !== video.videoWidth || source.height !== video.videoHeight) {
+        if (recordingState === 'recording') {
+          stopCamera();
+          return; // Finalize the existing fixed-size clip instead of stretching a rotated source.
+        }
         source.width = video.videoWidth;
         source.height = video.videoHeight;
         renderEpoch++;
@@ -230,10 +372,13 @@ const camera = createCameraController(video, {
     }
   },
   onError(error) {
+    pendingRecording = false;
+    if (recordingState === 'recording') recording.stop();
     if (source?.kind === 'camera') source.active = false;
     renderEpoch++;
     showError(cameraMessage(error));
     status.textContent = 'Camera stopped';
+    updateControls();
   },
 });
 
@@ -255,7 +400,8 @@ async function refreshDevices(preferred, generation) {
 }
 
 async function startCamera(deviceId = deviceSelect.value) {
-  if (disposed || captureBusy || cameraState === 'requesting') return;
+  if (disposed || captureBusy || recordingState === 'recording' || recordingState === 'stopping' ||
+      cameraState === 'requesting') return;
   const token = ++startToken;
   decodeToken++;
   renderEpoch++;
@@ -279,17 +425,24 @@ async function startCamera(deviceId = deviceSelect.value) {
   submitRender();
 }
 
-function stopCamera() {
+function releaseCamera() {
   startToken++;
   renderEpoch++;
   pendingStill = false;
   if (source?.kind === 'camera') source.active = false;
   camera.stop();
-  status.textContent = 'Camera stopped';
+  if (recordingState !== 'stopping') status.textContent = 'Camera stopped';
+}
+
+function stopCamera() {
+  pendingRecording = false;
+  if (recordingState === 'recording') recording.stop();
+  else releaseCamera();
+  updateControls();
 }
 
 async function freezeFrame() {
-  if (captureBusy || disposed || cameraState !== 'live' || source?.kind !== 'camera' || !hasCurrentFrame()) return;
+  if (captureBusy || videoBusy() || disposed || cameraState !== 'live' || source?.kind !== 'camera' || !hasCurrentFrame()) return;
   const token = ++decodeToken;
   captureBusy = true;
   updateControls();
@@ -317,20 +470,41 @@ async function freezeFrame() {
 }
 
 function shutterAction() {
-  if (cameraState === 'requesting') stopCamera();
-  else if (cameraState === 'live') void freezeFrame();
+  if (recordingState === 'recording') {
+    stopCamera();
+  } else if (recordingState === 'stopping') {
+    return;
+  } else if (cameraState === 'requesting' || pendingRecording) {
+    stopCamera();
+  } else if (captureMode === 'video') {
+    if (recording.clip) {
+      openVideoReview();
+      return;
+    }
+    if (!recordingSupport.supported) {
+      showError(recordingSupport.reason);
+      return;
+    }
+    if (cameraState === 'live' && hasCurrentFrame()) startRecording();
+    else {
+      pendingRecording = true;
+      updateControls();
+      // A live source only needs its next matching commit, not another camera acquisition.
+      if (cameraState !== 'live') void startCamera();
+    }
+  } else if (cameraState === 'live') void freezeFrame();
   else void startCamera();
 }
 
 function flipCamera() {
-  if (disposed || captureBusy || cameraState === 'requesting') return;
+  if (disposed || captureBusy || videoBusy() || cameraState === 'requesting') return;
   facingSelect.value = facingSelect.value === 'environment' ? 'user' : 'environment';
   deviceSelect.value = '';
   if (cameraState === 'live') void startCamera('');
 }
 
 async function acceptImage(file, captured = false) {
-  if (!file || disposed) return;
+  if (!file || disposed || videoBusy()) return;
   const token = ++decodeToken;
   let bitmap;
   try {
@@ -357,6 +531,7 @@ async function acceptImage(file, captured = false) {
   source = { kind: 'image', name: file.name, width: bitmap.width, height: bitmap.height,
     bitmap, url: URL.createObjectURL(file), captured, generation: ++sourceGeneration };
   imagePreview.src = source.url;
+  captureMode = 'photo';
   imagePreview.alt = `Original image: ${file.name}`;
   imagePreview.hidden = false;
   video.hidden = true;
@@ -368,6 +543,11 @@ async function acceptImage(file, captured = false) {
 }
 
 function changeSettings() {
+  if (videoBusy()) {
+    for (const input of inputs) input.value = settings[input.dataset.field];
+    showError('Stop recording before changing the detail');
+    return;
+  }
   const proposed = {};
   for (const input of inputs) {
     const value = input.valueAsNumber;
@@ -398,6 +578,7 @@ function changeSettings() {
 }
 
 function changeLook(proposed) {
+  if (videoBusy()) { syncLookControls(); return; }
   try {
     const next = normalizeLook(proposed);
     const key = JSON.stringify(next);
@@ -416,6 +597,7 @@ function changeLook(proposed) {
 }
 
 function changeFraming(proposed) {
+  if (videoBusy()) { syncLookControls(); return; }
   try {
     if (!FRAMINGS.some(({ id }) => id === proposed)) throw new RangeError('Choose a supported frame');
     if (source) sourceGrid(source.width, source.height, settings, proposed);
@@ -433,6 +615,7 @@ function changeFraming(proposed) {
 }
 
 function changePresentation(proposed) {
+  if (videoBusy()) { syncLookControls(); return; }
   if ((proposed.tint !== 'default' && !/^#[0-9a-f]{6}$/i.test(proposed.tint)) ||
       typeof proposed.glow !== 'boolean') {
     showError('Choose a valid text color and glow setting');
@@ -455,6 +638,8 @@ function dispose() {
   decodeToken++;
   renderEpoch++;
   camera.dispose();
+  recording?.dispose();
+  recordingView?.dispose();
   outputView?.dispose();
   lookControls?.dispose();
   worker?.terminate();
@@ -470,6 +655,19 @@ try {
   outputView = createOutputView(document.querySelector('.ascii-viewport'), output, byId('fit-output'), byId('detail-output'));
   byId('fit-output').click();
   cameraShell = createCameraShell();
+  recordingView = createRecordingView({ onRetake: retakeVideo, onSave: saveVideo, onShare: shareVideo });
+  recording = createAsciiRecorder({
+    onState: recordingChanged,
+    onTime: (elapsedMs) => recordingView.tick(elapsedMs),
+    onError: (message) => {
+      if (disposed) return;
+      pendingRecording = false;
+      releaseCamera();
+      showError(message);
+      status.textContent = 'Video recording failed';
+      updateControls();
+    },
+  });
   lookControls = createLookControls({
     onLookChange: changeLook, onFramingChange: changeFraming, onPresentationChange: changePresentation,
   });
@@ -478,10 +676,13 @@ try {
   byId('camera-stop').addEventListener('click', stopCamera);
   byId('camera-import').addEventListener('click', () => imageInput.click());
   byId('flip-camera').addEventListener('click', flipCamera);
-  byId('live-mode').addEventListener('click', () => {
-    if (cameraState === 'idle') void startCamera();
+  byId('photo-mode').addEventListener('click', () => selectCaptureMode('photo'));
+  byId('video-mode').addEventListener('click', () => selectCaptureMode('video'));
+  byId('review-video').addEventListener('click', openVideoReview);
+  byId('studio-video').addEventListener('click', () => {
+    selectCaptureMode('video');
+    cameraShell.setLayout('camera');
   });
-  byId('still-mode').addEventListener('click', () => { void freezeFrame(); });
   byId('settings-panel').open = !matchMedia('(max-width: 1000px)').matches;
   startButton.addEventListener('click', () => { void startCamera(); });
   stopButton.addEventListener('click', stopCamera);
@@ -499,6 +700,9 @@ try {
     if (document.visibilityState === 'hidden' && cameraState !== 'idle') {
       stopCamera();
       status.textContent = 'Camera paused — tap Start camera to resume';
+    } else if (document.visibilityState === 'visible' && reviewPending) {
+      reviewPending = false;
+      openVideoReview();
     }
   });
   window.addEventListener('pagehide', (event) => {

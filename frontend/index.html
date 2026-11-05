@@ -38,7 +38,7 @@
             <h1 id="page-title" tabindex="-1">A camera with character.</h1>
             <p class="intro-copy">Turn your camera or a photo into ASCII art. Live on your screen. Private on your device.</p>
           </div>
-          <p class="privacy-note">Your camera and images stay in this browser.<br />Nothing is uploaded or recorded.</p>
+          <p class="privacy-note">Your camera and images stay in this browser.<br />Video records only when you tap Record. Nothing is uploaded.</p>
         </section>
 
         <div class="workspace">
@@ -48,6 +48,7 @@
               <button id="start-camera" class="button button-primary" type="button">Start camera</button>
               <button id="stop-camera" class="button button-secondary" type="button" disabled>Stop</button>
               <label class="button button-secondary image-action" for="image-input">Choose photo<input id="image-input" type="file" accept="image/*" aria-describedby="image-help" /></label>
+              <button id="studio-video" class="button button-secondary studio-video-action" type="button">Record ASCII video</button>
             </div>
             <p class="field-help" id="image-help">Camera access starts only when you tap Start. Photos stay local.</p>
             <details class="camera-options" id="camera-options">
@@ -70,7 +71,7 @@
               </div>
               <button id="open-looks" class="output-shortcut" type="button" aria-haspopup="dialog" aria-controls="look-sheet">Looks <span id="look-label">Original</span></button>
             </div>
-            <div class="output-status"><span class="status-indicator" aria-hidden="true"></span><p id="status" role="status" aria-live="polite">Choose a source to get started</p></div>
+            <div class="output-status"><span class="status-indicator" aria-hidden="true"></span><p id="status" role="status" aria-live="polite">Choose a source to get started</p><span id="recording-indicator" role="status" aria-live="polite" hidden><span class="recording-dot" aria-hidden="true"></span><span id="recording-label">Recording</span> <time id="recording-timer" aria-label="Recording elapsed time">00:00</time></span></div>
             <p id="error" class="error-message" role="alert" hidden></p>
             <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output; Fit shows the whole image, detail scrolls the complete grid"><div class="ascii-stage"><pre id="ascii-output" aria-label="Rendered ASCII art"></pre><div class="composition-grid camera-only" aria-hidden="true"></div></div></div>
             <div class="output-footer"><span id="grid-label">No grid yet</span><span id="performance-label">Waiting for a source</span></div>
@@ -104,8 +105,9 @@
       </main>
       <section class="camera-dock camera-only" aria-label="Camera shooting controls">
         <div class="camera-modes" role="group" aria-label="Capture mode">
-          <button id="live-mode" type="button" aria-pressed="true" disabled>Live</button>
-          <button id="still-mode" type="button" aria-pressed="false" disabled>Still</button>
+          <button id="photo-mode" type="button" aria-pressed="true" disabled>Photo</button>
+          <button id="video-mode" type="button" aria-pressed="false" disabled>Video</button>
+          <button id="review-video" type="button" aria-label="Review recorded video" hidden>Review</button>
         </div>
         <div class="shutter-row">
           <button id="camera-import" class="camera-icon library-button" type="button" aria-label="Choose photo from library" title="Choose photo" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.5" /><path d="m4 18 5-5 4 4 3-3 4 4" /></svg></button>
@@ -142,6 +144,22 @@
             <p class="field-help">A subtle halo around the characters. Off by default.</p>
           </div>
         </details>
+      </div>
+    </dialog>
+    <dialog id="video-review" aria-labelledby="video-review-title" aria-describedby="video-review-privacy">
+      <div class="video-review-header"><h2 id="video-review-title">Your ASCII video</h2><button id="close-video-review" class="button button-secondary" type="button" autofocus>Done</button></div>
+      <div class="video-review-body">
+        <video id="recorded-video" controls playsinline preload="metadata" aria-label="Recorded ASCII video"></video>
+        <p id="video-clip-details" class="video-clip-details"></p>
+        <p id="video-review-privacy" class="field-help">Silent video · Stored only in this browser until you save or share. Nothing is shared automatically.</p>
+        <div class="video-review-actions">
+          <button id="video-save" class="button button-primary" type="button" disabled>Save video</button>
+          <button id="video-share" class="button button-secondary" type="button" disabled>Share video</button>
+          <button id="video-retake" class="button button-secondary" type="button" aria-describedby="video-retake-help" disabled>Discard & retake</button>
+        </div>
+        <p id="video-retake-help" class="field-help">Retake discards this clip, including any unsaved video.</p>
+        <p id="video-share-help" class="field-help" hidden>File sharing is unavailable in this browser. Save the video to share it yourself.</p>
+        <p id="video-export-status" class="field-help" role="status" aria-live="polite"></p>
       </div>
     </dialog>
     <script type="module" src="/src/main.js"></script>
