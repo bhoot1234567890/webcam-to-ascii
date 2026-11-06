@@ -1,3 +1,5 @@
+import { createAsciiArtwork } from './artwork.js';
+
 export const RECORDING_LIMITS = Object.freeze({
   maxDurationMs: 30_000,
   maxBytes: 16_777_216,
@@ -13,9 +15,9 @@ const MIME_TYPES = [
   'video/webm;codecs=vp9',
   'video/webm',
 ];
-const BACKGROUND = '#0b0b0d';
 const FRAME_INTERVAL = 1000 / RECORDING_LIMITS.frameRate;
-const PRESENTATION_KEYS = ['columns', 'rows', 'fontFamily', 'fontSize', 'lineHeight', 'color', 'glow'];
+const PAINT_FENCE_TIMEOUT = 250;
+const PRESENTATION_KEYS = ['columns', 'rows', 'fontFamily', 'fontSize', 'lineHeight', 'color', 'background', 'glow'];
 
 /** The encoder's actual container, not the requested codec, determines the filename. */
 export function recordingExtension(mimeType) {
@@ -38,62 +40,24 @@ export function getRecordingSupport() {
   return { supported: false, mimeType: '', reason: 'This browser has no supported MP4 or WebM recorder. Use Photo or try another browser.' };
 }
 
-/** Ink bounds are measured once at the preview's font size, before uniform downscaling. */
-export function computeRecordingLayout(frame, metrics) {
-  const { columns, rows, lineHeight, glow } = frame;
-  const { advance, ascent, descent, left, right } = metrics;
-  if (![columns, rows].every((value) => Number.isSafeInteger(value) && value > 0) ||
-      ![lineHeight, advance].every((value) => Number.isFinite(value) && value > 0) ||
-      ![ascent, descent, left, right].every((value) => Number.isFinite(value) && value >= 0)) {
-    throw new RangeError('Unable to measure the ASCII recording grid.');
-  }
-  const baseline = (lineHeight - ascent - descent) / 2 + ascent;
-  const halo = glow ? 12 : 0;
-  const gutterLeft = Math.ceil(left + halo + 1);
-  const gutterRight = Math.ceil(right + halo + 1);
-  const gutterTop = Math.ceil(Math.max(0, ascent - baseline) + halo + 1);
-  const gutterBottom = Math.ceil(Math.max(0, baseline + descent - lineHeight) + halo + 1);
-  const naturalWidth = columns * advance + gutterLeft + gutterRight;
-  const naturalHeight = rows * lineHeight + gutterTop + gutterBottom;
-  if (!Number.isFinite(naturalWidth) || !Number.isFinite(naturalHeight)) {
-    throw new RangeError('The ASCII recording grid is too large.');
-  }
-  const scale = Math.min(1, RECORDING_LIMITS.maxEdge / Math.max(naturalWidth, naturalHeight));
-  const width = Math.max(2, Math.min(RECORDING_LIMITS.maxEdge, Math.ceil(naturalWidth * scale / 2) * 2));
-  const height = Math.max(2, Math.min(RECORDING_LIMITS.maxEdge, Math.ceil(naturalHeight * scale / 2) * 2));
-  return {
-    width, height, scale, baseline, advance,
-    x: gutterLeft * scale + (width - naturalWidth * scale) / 2,
-    y: gutterTop * scale + (height - naturalHeight * scale) / 2,
-  };
-}
 
 function validateFrame(frame) {
   if (!frame || typeof frame.text !== 'string' ||
       ![frame.columns, frame.rows].every((value) => Number.isSafeInteger(value) && value > 0) ||
       ![frame.fontSize, frame.lineHeight].every((value) => Number.isFinite(value) && value > 0) ||
       typeof frame.fontFamily !== 'string' || !frame.fontFamily.includes('Roboto Mono') ||
-      typeof frame.color !== 'string' || !frame.color || typeof frame.glow !== 'boolean') {
+      typeof frame.color !== 'string' || !frame.color ||
+      typeof frame.background !== 'string' || !frame.background || typeof frame.glow !== 'boolean') {
     throw new Error('The ASCII frame is not ready. Wait for the live preview and try Record again.');
   }
+  validateGrid(frame.text, frame.columns, frame.rows);
 }
 
-function measureFont(context) {
-  const advance = context.measureText('M').width;
-  let ascent = 0;
-  let descent = 0;
-  let left = 0;
-  let right = 0;
-  // Cover every printable ASCII glyph, including punctuation overhang and descenders.
-  for (let code = 32; code <= 126; code++) {
-    const bounds = context.measureText(String.fromCharCode(code));
-    ascent = Math.max(ascent, bounds.fontBoundingBoxAscent || 0, bounds.actualBoundingBoxAscent || 0);
-    descent = Math.max(descent, bounds.fontBoundingBoxDescent || 0, bounds.actualBoundingBoxDescent || 0);
-    left = Math.max(left, bounds.actualBoundingBoxLeft || 0);
-    right = Math.max(right, (bounds.actualBoundingBoxRight || 0) - advance);
+function validateGrid(text, columns, rows) {
+  const lines = text.split('\n');
+  if (lines.length !== rows || lines.some((line) => line.length !== columns || /[^\x20-\x7e]/.test(line))) {
+    throw new Error('The live ASCII grid changed. Start a new recording after the preview settles.');
   }
-  if (!(ascent > 0)) throw new Error('Unable to measure the recording font. Reload the page and try again.');
-  return { advance, ascent, descent, left, right };
 }
 
 /** Records only committed ASCII text. No camera stream, microphone, or DOM capture is used. */
@@ -119,6 +83,10 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
     clearTimeout(active.deadline);
     clearTimeout(active.drawTimer);
     clearTimeout(active.finishTimer);
+    clearTimeout(active.stopTimer);
+    if (active.paintFrame != null) cancelAnimationFrame(active.paintFrame);
+    active.paintFrame = null;
+    active.drawTimer = null;
     active.pendingText = null;
   }
 
@@ -140,9 +108,10 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
       active.canvas.height = 0;
     }
     active.chunks.length = 0;
-    active.context = null;
+    active.artwork = null;
     active.canvas = null;
     active.stream = null;
+    active.captureTrack = null;
     active.recorder = null;
   }
 
@@ -166,26 +135,12 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
   }
 
   function draw(active, text) {
-    const { context, canvas, frame, layout } = active;
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.shadowBlur = 0;
-    context.fillStyle = BACKGROUND;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.setTransform(layout.scale, 0, 0, layout.scale, layout.x, layout.y);
-    context.fillStyle = frame.color;
-    const lines = text.split('\n');
-    if (lines.length !== frame.rows || lines.some((line) => line.length !== frame.columns)) {
-      throw new Error('The live ASCII grid changed. Start a new recording after the preview settles.');
-    }
-    if (frame.glow) {
-      // Canvas shadows use device pixels, so scale the bounded preview-like halo explicitly.
-      context.shadowColor = frame.color;
-      context.shadowBlur = 6 * layout.scale;
-      for (let row = 0; row < lines.length; row++) context.fillText(lines[row], 0, layout.baseline + row * frame.lineHeight);
-      context.shadowBlur = 0;
-    }
-    for (let row = 0; row < lines.length; row++) context.fillText(lines[row], 0, layout.baseline + row * frame.lineHeight);
+    active.artwork.draw(text);
+    // Request on the actual stream track, after painting and after the encoder has started.
+    // A request is a capture opportunity, not a promise of one encoded frame per commit.
+    if (active.captureTrack) active.captureTrack.requestFrame();
     active.frames++;
+    active.lastText = text;
     active.lastDraw = performance.now();
   }
 
@@ -194,7 +149,10 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
     if (session !== active || state !== 'recording' || active.pendingText === null) return;
     const remaining = FRAME_INTERVAL - (performance.now() - active.lastDraw);
     if (remaining > 0) {
-      active.drawTimer = setTimeout(() => flush(active), remaining);
+      const timer = setTimeout(() => {
+        if (active.drawTimer === timer) flush(active);
+      }, remaining);
+      active.drawTimer = timer;
       return;
     }
     const text = active.pendingText;
@@ -226,21 +184,60 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
     }
   }
 
+  function stopEncoder(active) {
+    if (session !== active || state !== 'stopping' || active.encoderStopped) return;
+    active.encoderStopped = true;
+    clearTimeout(active.stopTimer);
+    if (active.paintFrame != null) cancelAnimationFrame(active.paintFrame);
+    active.paintFrame = null;
+    try {
+      active.recorder.stop();
+    } catch {
+      fail(active, 'The video encoder stopped unexpectedly. Try recording again.');
+    }
+  }
+
+  function captureFinalBoundary(active, text) {
+    active.drawTimer = null;
+    if (session !== active || state !== 'stopping') return;
+    try {
+      // Sparse/static canvas streams need an endpoint to retain their elapsed hold. This one
+      // explicit repeat is a Stop boundary, not periodic capture of unchanged preview commits.
+      draw(active, text);
+      // Native encoders can miss an immediately stopped canvas update. Give visible canvases
+      // two paint opportunities, but never wait indefinitely for RAF in a backgrounded tab.
+      active.stopTimer = setTimeout(() => stopEncoder(active), PAINT_FENCE_TIMEOUT);
+      if (document.visibilityState !== 'hidden' && typeof requestAnimationFrame === 'function') {
+        active.paintFrame = requestAnimationFrame(() => {
+          active.paintFrame = null;
+          if (session !== active || state !== 'stopping' || active.encoderStopped) return;
+          active.paintFrame = requestAnimationFrame(() => {
+            active.paintFrame = null;
+            stopEncoder(active);
+          });
+        });
+      }
+    } catch (error) {
+      fail(active, error.message || 'The final ASCII frame could not be captured. Try recording again.');
+    }
+  }
+
   function stop() {
     const active = session;
     if (!active || state !== 'recording') return false;
     active.durationMs = elapsed(active);
+    const finalText = active.pendingText ?? active.lastText;
     clearTimers(active);
     active.finishTimer = setTimeout(() => fail(active, 'The video encoder did not finish. Try a shorter recording or another browser.'), 10_000);
     transition('stopping');
     if (session !== active) return false;
-    try {
-      active.recorder.stop();
-      return true;
-    } catch {
-      fail(active, 'The video encoder stopped unexpectedly. Try recording again.');
-      return false;
+    const remaining = Math.max(0, FRAME_INTERVAL - (performance.now() - active.lastDraw));
+    if (remaining > 0) {
+      active.drawTimer = setTimeout(() => captureFinalBoundary(active, finalText), remaining);
+    } else {
+      captureFinalBoundary(active, finalText);
     }
+    return session === active;
   }
   function reset() {
     const active = session;
@@ -253,7 +250,7 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
 
   function start(frame) {
     if (disposed || state === 'recording' || state === 'stopping') return false;
-    const active = { chunks: [], bytes: 0, chunkMime: '', frames: 0, pendingText: null };
+    const active = { chunks: [], bytes: 0, chunkMime: '', frames: 0, pendingText: null, drawTimer: null };
     session = active;
     revokeClip();
     try {
@@ -261,27 +258,29 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
       if (!support.supported) throw new Error(support.reason);
       validateFrame(frame);
       active.frame = Object.fromEntries(PRESENTATION_KEYS.map((key) => [key, frame[key]]));
-      const font = `400 ${frame.fontSize}px ${frame.fontFamily}`;
-      if (!document.fonts?.check(font, 'M@ ')) throw new Error('The ASCII font is still loading. Wait for the preview and try Record again.');
-      active.canvas = document.createElement('canvas');
-      active.context = active.canvas.getContext('2d', { alpha: false });
-      if (!active.context) throw new Error('Unable to create the recording canvas. Try reloading the page.');
-      active.context.font = font;
-      active.layout = computeRecordingLayout(frame, measureFont(active.context));
-      active.canvas.width = active.layout.width;
-      active.canvas.height = active.layout.height;
-      // Resizing resets context settings; match the bundled preview font without ligatures or kerning.
-      active.context.font = font;
-      active.context.fontKerning = 'none';
-      active.context.textAlign = 'left';
-      active.context.textBaseline = 'alphabetic';
-      draw(active, frame.text);
-      active.stream = active.canvas.captureStream(RECORDING_LIMITS.frameRate);
+      active.artwork = createAsciiArtwork(frame, { maxEdge: RECORDING_LIMITS.maxEdge });
+      active.canvas = active.artwork.canvas;
+      active.layout = active.artwork.layout;
+      active.stream = active.canvas.captureStream(0);
       if (!active.stream.getVideoTracks().length || active.stream.getVideoTracks().some((track) => track.readyState !== 'live')) {
         throw new Error('The browser could not capture the ASCII canvas. Try another browser.');
       }
+      const captureTrack = active.stream.getVideoTracks()[0];
+      if (typeof captureTrack.requestFrame === 'function') {
+        active.captureTrack = captureTrack;
+      } else {
+        // Firefox lacks requestFrame: discard the zero-rate probe, then use a genuinely timed
+        // stream. Drawing remains latest-wins and bounded; capture/encoding cadence is browser-owned.
+        for (const track of active.stream.getTracks()) {
+          try { track.stop(); } catch { /* Release every discarded probe track. */ }
+        }
+        active.stream = active.canvas.captureStream(RECORDING_LIMITS.frameRate);
+        if (!active.stream.getVideoTracks().length || active.stream.getVideoTracks().some((track) => track.readyState !== 'live')) {
+          throw new Error('The browser could not capture the ASCII canvas. Try another browser.');
+        }
+      }
       active.trackEnded = () => {
-        if (session === active && state === 'recording') fail(active, 'The ASCII capture ended unexpectedly. Keep this tab open and try recording again.');
+        if (session === active) fail(active, 'The ASCII capture ended unexpectedly. Keep this tab open and try recording again.');
       };
       for (const track of active.stream.getTracks()) track.addEventListener('ended', active.trackEnded);
       active.recorder = new MediaRecorder(active.stream, {
@@ -308,7 +307,7 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
       active.recorder.onerror = () => fail(active, 'The browser could not encode this recording. Try a shorter recording or another browser.');
       active.recorder.onstop = () => {
         if (session !== active) return;
-        if (state !== 'stopping') {
+        if (state !== 'stopping' || !active.encoderStopped) {
           fail(active, 'The video encoder ended unexpectedly. Try recording again.');
           return;
         }
@@ -316,6 +315,7 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
       };
       active.startedAt = performance.now();
       active.recorder.start(1000);
+      draw(active, frame.text);
       active.clock = setInterval(() => {
         if (session === active && state === 'recording') notify(onTime, elapsed(active));
       }, 250);
@@ -341,8 +341,16 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
         if (PRESENTATION_KEYS.some((key) => key in frame && frame[key] !== active.frame[key])) {
           throw new Error('Recording settings changed. Keep the same ASCII grid and look while recording.');
         }
+        if (frame.text === active.lastText) {
+          // A queued B followed by the already drawn A must cancel B, not flash it later.
+          active.pendingText = null;
+          clearTimeout(active.drawTimer);
+          active.drawTimer = null;
+          return true;
+        }
+        validateGrid(frame.text, active.frame.columns, active.frame.rows);
         active.pendingText = frame.text;
-        if (!active.drawTimer) flush(active);
+        if (active.drawTimer === null) flush(active);
         return session === active;
       } catch (error) {
         fail(active, error.message);

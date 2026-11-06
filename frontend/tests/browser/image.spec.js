@@ -437,7 +437,6 @@ test('SAVE downloads a PNG of the committed frame', async ({ page }) => {
   ]);
   expect(download.suggestedFilename()).toMatch(/^clack-\d{14}\.png$/);
   const bytes = readFileSync(await download.path());
-  expect(bytes.byteLength).toBeGreaterThan(0);
   expect(bytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 });
 

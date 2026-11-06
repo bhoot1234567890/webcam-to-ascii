@@ -43,12 +43,16 @@ export default defineConfig({
     // Linux WebKit has no MediaRecorder API. Its fallback/layout gates still run without skips.
     { name: 'production-iphone-webkit', testMatch: 'mobile.spec.js', grepInvert: /@recording/, use: iphone },
     { name: 'production-iphone-chromium-recording', testMatch: 'mobile.spec.js', grep: /@recording/, use: iphoneRecording },
+    { name: 'production-recording-chromium', testMatch: 'recording.spec.js', grepInvert: /@firefox-motion/, use: chromium },
+    { name: 'production-recording-firefox', testMatch: 'recording.spec.js', use: { browserName: 'firefox' } },
   ] : [
     { name: 'chromium', testMatch: 'image.spec.js', use: chromium },
     { name: 'firefox', testMatch: 'image.spec.js', use: { browserName: 'firefox' } },
     { name: 'webkit', testMatch: 'image.spec.js', use: { browserName: 'webkit', launchOptions: { env: webkitEnvironment } } },
     { name: 'iphone-webkit', testMatch: 'mobile.spec.js', grepInvert: /@recording/, use: iphone },
     { name: 'iphone-chromium-recording', testMatch: 'mobile.spec.js', grep: /@recording/, use: iphoneRecording },
+    { name: 'recording-chromium', testMatch: ['recording.spec.js', 'recorder-native.spec.js'], grepInvert: /@firefox-motion/, use: chromium },
+    { name: 'recording-firefox', testMatch: ['recording.spec.js', 'recorder-native.spec.js'], use: { browserName: 'firefox' } },
     { name: 'camera-chromium', testMatch: ['camera.spec.js', 'controller.spec.js'], use: {
       ...chromium,
       launchOptions: { chromiumSandbox: true, args: [

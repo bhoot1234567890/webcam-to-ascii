@@ -1,7 +1,7 @@
 import './styles.css';
 import { computeGrid, normalizeSettings } from './renderer.js';
 import { createCameraController } from './camera.js';
-import { asciiFontMetrics, configureAsciiText } from './presentation.js';
+import { configureAsciiText } from './presentation.js';
 import { createLanczosResampler } from './resample.js';
 import { createOutputView } from './output-view.js';
 import { createCameraShell } from './camera-shell.js';
@@ -12,6 +12,7 @@ import { createAsciiRecorder, getRecordingSupport } from './ascii-recorder.js';
 import { createRecordingView } from './recording-view.js';
 import { findDensity, findDensityBySettings } from './density.js';
 import { copyAscii, asciiToPng } from './export.js';
+import { readAsciiArtwork } from './artwork.js';
 import { loadSaved, save, loadPresets, savePresets } from './persist.js';
 import { normalizePreset, normalizePresetList, upsertPreset, removePreset } from './presets.js';
 
@@ -125,14 +126,6 @@ function canShareClip() {
   }
 }
 
-function recordingFrame() {
-  const style = getComputedStyle(output);
-  return {
-    text: output.textContent, columns: Number(output.dataset.columns), rows: Number(output.dataset.rows),
-    fontFamily: style.fontFamily, fontSize: parseFloat(style.fontSize), lineHeight: parseFloat(style.lineHeight),
-    color: style.color, glow,
-  };
-}
 
 function startRecording() {
   if (disposed || captureMode !== 'video' || cameraState !== 'live' || !hasCurrentFrame()) return;
@@ -141,7 +134,7 @@ function startRecording() {
   byId('camera-shutter').focus({ preventScroll: true });
   pendingRecording = false;
   showError('');
-  recording.start(recordingFrame());
+  recording.start(readAsciiArtwork(output, { glow }));
   updateControls();
 }
 
@@ -170,17 +163,17 @@ function recordingChanged({ state, clip }) {
   if (state === 'ready') {
     status.textContent = 'Video ready — review, save or share';
     reviewPending = document.visibilityState !== 'visible';
-    if (!reviewPending) openVideoReview();
+    if (!reviewPending) openVideoReview(byId('camera-shutter'));
   }
   updateControls();
 }
 
-function openVideoReview() {
+function openVideoReview(opener) {
   if (disposed || videoBusy() || captureBusy || !recording?.clip) return;
   // Reviewing a saved clip must not leave a later Photo preview capturing behind the dialog.
   if (cameraState !== 'idle') releaseCamera();
   status.textContent = 'Video ready — review, save or share';
-  recordingView.open();
+  recordingView.open(opener);
 }
 
 function retakeVideo() {
@@ -538,7 +531,7 @@ function shutterAction() {
     swallowNextActivation = captureMode === 'photo';
   } else if (captureMode === 'video') {
     if (recording.clip) {
-      openVideoReview();
+      openVideoReview(byId('camera-shutter'));
       return;
     }
     if (!recordingSupport.supported) {
@@ -920,7 +913,7 @@ try {
   byId('camera-import').addEventListener('click', () => imageInput.click());
   byId('photo-mode').addEventListener('click', () => selectCaptureMode('photo'));
   byId('video-mode').addEventListener('click', () => selectCaptureMode('video'));
-  byId('review-video').addEventListener('click', openVideoReview);
+  byId('review-video').addEventListener('click', () => openVideoReview(byId('review-video')));
   byId('studio-video').addEventListener('click', () => {
     selectCaptureMode('video');
     lookControls.close();
@@ -943,22 +936,14 @@ try {
   });
   byId('save-output').addEventListener('click', () => {
     if (videoBusy() || captureBusy || disposed || !hasCurrentFrame()) return;
-    let metrics;
+    let frame;
     try {
-      metrics = asciiFontMetrics(12);
+      frame = readAsciiArtwork(output, { glow });
     } catch {
       showError('Unable to save the frame');
       return;
     }
-    asciiToPng({
-      text: output.textContent,
-      columns: Number(output.dataset.columns),
-      rows: Number(output.dataset.rows),
-      advance: metrics.advance,
-      lineHeight: metrics.lineHeight,
-      font: metrics.font,
-      color: getComputedStyle(output).color,
-    }).then((blob) => {
+    asciiToPng(frame).then((blob) => {
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `clack-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}.png`;
@@ -1007,7 +992,7 @@ try {
       setStatus('Camera paused. Press CAMERA to resume.');
     } else if (document.visibilityState === 'visible' && reviewPending) {
       reviewPending = false;
-      openVideoReview();
+      openVideoReview(byId('camera-shutter'));
     }
   });
   window.addEventListener('pagehide', (event) => {

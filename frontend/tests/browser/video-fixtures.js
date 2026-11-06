@@ -6,21 +6,33 @@ import { createHash } from 'node:crypto';
 import { ROOT, IMAGES, checkedBytes } from './fixtures.js';
 
 /** A deterministic local camera adapter; encoding, worker rendering and playback stay real. */
-export async function installVideoCamera(page) {
+export async function installVideoCamera(page, { frameRate = 15, staticScene = false } = {}) {
   const fixture = IMAGES.fixtures.find(({ id }) => id === 'astronaut');
   const png = checkedBytes(path.join(ROOT, 'qa/fixtures/images'), fixture).toString('base64');
-  await page.addInitScript((base64) => {
+  await page.addInitScript(({ base64, frameRate, staticScene }) => {
     const nativeCapture = HTMLCanvasElement.prototype.captureStream;
     const NativeRecorder = window.MediaRecorder;
     const createURL = URL.createObjectURL.bind(URL);
     const revokeURL = URL.revokeObjectURL.bind(URL);
     const probe = window.__videoQA = {
       cameras: [], sources: [], captures: [], recorders: [], requests: [], urls: [], revoked: [], failNextEncoder: false,
+      staticScene,
     };
     const cameraCanvases = new WeakSet();
     if (nativeCapture) HTMLCanvasElement.prototype.captureStream = function (...args) {
       const stream = nativeCapture.apply(this, args);
-      if (!cameraCanvases.has(this)) probe.captures.push({ canvas: this, stream });
+      if (!cameraCanvases.has(this)) {
+        const capture = { canvas: this, stream, frameRate: args[0], frameRequests: [] };
+        for (const track of stream.getVideoTracks()) {
+          if (typeof track.requestFrame !== 'function') continue;
+          const requestFrame = track.requestFrame.bind(track);
+          track.requestFrame = () => {
+            capture.frameRequests.push(performance.now());
+            return requestFrame();
+          };
+        }
+        probe.captures.push(capture);
+      }
       return stream;
     };
     if (NativeRecorder) window.MediaRecorder = class extends NativeRecorder {
@@ -57,11 +69,11 @@ export async function installVideoCamera(page) {
         ctx.drawImage(bitmap, 40, 0, 240, 240);
         // A moving bar makes temporal changes testable in the decoded recording.
         ctx.fillStyle = '#fff';
-        ctx.fillRect((frame++ * 8) % 300, 192, 20, 48);
+        ctx.fillRect(probe.staticScene ? 0 : (frame++ * 8) % 300, 192, 20, 48);
       }
       paint();
-      const stream = canvas.captureStream(15);
-      const interval = setInterval(paint, 1000 / 15);
+      const stream = canvas.captureStream(frameRate);
+      const interval = setInterval(paint, 1000 / frameRate);
       let released = false;
       function cleanup() {
         if (released) return;
@@ -78,7 +90,7 @@ export async function installVideoCamera(page) {
       probe.cameras.push(stream);
       return stream;
     } });
-  }, png);
+  }, { base64: png, frameRate, staticScene });
 }
 
 /** Save through the real download control, then inspect the native encoded container. */

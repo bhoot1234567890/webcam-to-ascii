@@ -84,9 +84,10 @@ export function createRecordingView({ onRetake, onSave, onShare }) {
       if (timer.textContent !== label) timer.textContent = label;
       timer.dateTime = `PT${Math.floor(Math.max(0, elapsedMs) / 1000)}S`;
     },
-    open() {
+    open(trigger) {
       if (disposed || !clip || state !== 'ready' || dialog.open) return;
-      opener = document.activeElement;
+      // Encoding completes after Stop loses focus; retain the actual return control.
+      opener = trigger;
       dialog.showModal();
       byId('close-video-review').focus({ preventScroll: true });
     },
