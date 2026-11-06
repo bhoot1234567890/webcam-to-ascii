@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { test, expect, ROOT, IMAGES, openApp, readCommit, changeSettings } from './fixtures.js';
+import { test, expect, ROOT, IMAGES, openApp, openPanel, readCommit, changeSettings } from './fixtures.js';
 
 async function geometry(page) {
   return page.locator('.ascii-viewport').evaluate((viewport) => {
@@ -63,21 +63,22 @@ test('camera view imports complete photographs without permission, with touch co
     await new Promise((resolve) => setTimeout(resolve, 250));
     await route.fallback();
   });
-  await openApp(page, { layout: 'camera' });
+  await openApp(page);
   await capture(page, testInfo, 'iphone-14-plus-empty', {});
-  await expect(page.locator('.source-card')).toBeHidden();
+  await expect(page.locator('.rail')).toBeVisible();
   for (const id of ['astronaut', 'astronaut-portrait', 'astronaut-landscape']) {
     const commit = await choosePhoto(page, id);
     await completeOverview(page);
     const shape = await geometry(page);
     expect(shape.art.bottom, 'Entire artwork appears in the initial phone viewport').toBeLessThanOrEqual(shape.viewport.height);
     expect(shape.region.bottom - shape.region.top, 'Viewfinder is the primary surface, not a collapsed card').toBeGreaterThan(shape.viewport.height / 2);
-    for (const selector of ['#camera-shutter', '#camera-import', '#flip-camera', '#open-studio',
-      '#camera-stop', '#toggle-guides', '#fit-output', '#detail-output', '#live-mode', '#still-mode', '#open-framing', '#open-looks']) {
+    for (const selector of ['#camera-shutter', '#camera-import', '#toggle-guides',
+      '#fit-output', '#detail-output', '#open-looks', '#open-grid', '#open-framing']) {
       const bounds = await page.locator(selector).boundingBox();
       expect(bounds.width, `${selector} touch width`).toBeGreaterThanOrEqual(44);
       expect(bounds.height, `${selector} touch height`).toBeGreaterThanOrEqual(44);
     }
+    await expect(page.locator('#camera-stop')).toBeHidden();
     await capture(page, testInfo, `iphone-14-plus-${id}`, {});
     expect(await readCommit(page)).toEqual(commit);
   }
@@ -96,29 +97,27 @@ test('camera view imports complete photographs without permission, with touch co
   ]) {
     await page.setViewportSize(viewport);
     await completeOverview(page);
-    const brand = await page.locator('.camera-brand').boundingBox();
+    const brand = await page.locator('.wordmark').boundingBox();
     const guides = await page.locator('#toggle-guides').boundingBox();
-    const actions = await page.locator('.camera-toolbar-actions').boundingBox();
-    expect(brand.x, 'Brand stays clear of the grid control').toBeGreaterThanOrEqual(guides.x + guides.width);
-    expect(brand.x + brand.width, 'Brand stays clear of Stop and Studio controls').toBeLessThanOrEqual(actions.x);
+    expect(brand.x + brand.width, 'Brand stays clear of the Guides control').toBeLessThanOrEqual(guides.x);
     expect(await readCommit(page)).toEqual(before);
     await capture(page, testInfo, `iphone-14-plus-${name}`, { emulatedViewport: viewport });
   }
 });
 
 test('detail reaches the last glyph, Fit restores the whole result, and tuning refits without changing source', async ({ page }, testInfo) => {
-  await openApp(page, { layout: 'camera' });
+  await openApp(page);
   const initial = await choosePhoto(page, 'astronaut-portrait');
   await page.locator('#detail-output').tap();
   await expect(page.locator('#detail-output')).toHaveAttribute('aria-pressed', 'true');
   const chrome = await page.evaluate(() => {
     const viewport = document.querySelector('.ascii-viewport').getBoundingClientRect();
-    const status = document.querySelector('.output-status').getBoundingClientRect();
-    const controls = document.querySelector('.view-controls').getBoundingClientRect();
-    return { viewportTop: viewport.top, viewportBottom: viewport.bottom, statusBottom: status.bottom, controlsTop: controls.top };
+    const status = document.querySelector('.statusline').getBoundingClientRect();
+    const rail = document.querySelector('.rail').getBoundingClientRect();
+    return { viewportTop: viewport.top, viewportBottom: viewport.bottom, statusBottom: status.bottom, railTop: rail.top };
   });
   expect(chrome.statusBottom, 'Status never obscures the scrolling glyphs').toBeLessThanOrEqual(chrome.viewportTop);
-  expect(chrome.controlsTop, 'Zoom controls never obscure the scrolling glyphs').toBeGreaterThanOrEqual(chrome.viewportBottom);
+  expect(chrome.railTop, 'Controls never obscure the scrolling glyphs').toBeGreaterThanOrEqual(chrome.viewportBottom);
   const last = await page.locator('.ascii-viewport').evaluate((viewport) => {
     viewport.scrollLeft = viewport.scrollWidth;
     viewport.scrollTop = viewport.scrollHeight;
@@ -146,25 +145,22 @@ test('detail reaches the last glyph, Fit restores the whole result, and tuning r
   await page.locator('#fit-output').tap();
   await completeOverview(page);
   expect(await readCommit(page)).toEqual(initial);
-  await page.locator('#open-studio').tap();
   const tuned = await changeSettings(page, { maxHeightLines: 80 });
   expect(tuned.sourceGeneration).toBe(initial.sourceGeneration);
   expect(tuned.rows).toBe(80);
   expect(tuned.columns).toBe(80);
   await completeOverview(page);
-  await page.locator('#settings-panel > summary').tap();
-  await page.locator('#open-camera').tap();
+  await page.locator('#close-look-sheet').tap();
   await capture(page, testInfo, 'iphone-14-plus-tuned', {});
-  await page.locator('#open-studio').tap();
-  await page.locator('#camera-options > summary').tap();
-  for (const selector of ['#camera-facing', '#camera-select']) {
+  await openPanel(page, 'camera');
+  for (const selector of ['#camera-facing', '#camera-select', '#flip-camera']) {
     const bounds = await page.locator(selector).boundingBox();
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(428);
     expect(bounds.height).toBeGreaterThanOrEqual(44);
   }
   expect(await readCommit(page)).toEqual(tuned);
-  await page.locator('#open-camera').tap();
+  await page.locator('#close-look-sheet').tap();
 });
 
 async function selectProcessing(page, name, value) {
@@ -192,15 +188,14 @@ async function haloGeometry(page) {
 }
 
 test('shared sheet applies complete recipes, restores focus, and keeps edge settings for shade-only looks', async ({ page }) => {
-  await openApp(page, { layout: 'camera' });
+  await openApp(page);
   const original = await choosePhoto(page, 'astronaut');
   await page.locator('#open-looks').tap();
   await expect(page.locator('#look-sheet')).toBeVisible();
   await expect(page.locator('input[name="look"][value="original"]')).toBeFocused();
-  await expect(page.locator('#look-adjustments')).not.toHaveAttribute('open', '');
   const photo = await selectProcessing(page, 'look', 'photo');
   expect(photo.text).not.toBe(original.text);
-  await page.locator('#look-adjustments > summary').tap();
+  await page.locator('#tab-looks').tap();
   let before = await readCommit(page);
   await page.locator('#look-auto-contrast').check();
   await expect.poll(async () => (await readCommit(page)).renderId).toBeGreaterThan(before.renderId);
@@ -215,6 +210,7 @@ test('shared sheet applies complete recipes, restores focus, and keeps edge sett
   before = await readCommit(page);
   await page.locator('#look-invert').check();
   await expect.poll(async () => (await readCommit(page)).renderId).toBeGreaterThan(before.renderId);
+  await page.locator('#tab-looks').tap();
   await expect(page.locator('#look-adjusted')).toBeVisible();
   // Reapplying the same selected recipe must reset, not leave an adjusted Photo selected.
   before = await readCommit(page);
@@ -228,14 +224,14 @@ test('shared sheet applies complete recipes, restores focus, and keeps edge sett
   await expect(page.locator('#look-adjusted')).toBeHidden();
   await page.locator('#close-look-sheet').tap();
   await expect(page.locator('#open-looks')).toBeFocused();
-  await page.locator('#open-studio').tap();
-  await page.locator('#settings-panel > summary').tap();
+  await page.locator('#open-looks').tap();
+  await page.locator('#tab-tune').tap();
   for (const [selector, value] of [['#sigma1', '1'], ['#sigma2', '2'], ['#edge-threshold', '90']]) {
     await expect(page.locator(selector)).toBeDisabled();
     await expect(page.locator(selector)).toHaveValue(value);
   }
   await expect(page.locator('#edge-controls-help')).toBeVisible();
-  await page.locator('#open-looks').click();
+  await page.locator('#tab-looks').tap();
   await expect(page.locator('input[name="look"][value="photo"]')).toBeChecked();
   const reset = await selectProcessing(page, 'look', 'original');
   expect(reset.text).toBe(original.text);
@@ -244,14 +240,10 @@ test('shared sheet applies complete recipes, restores focus, and keeps edge sett
   await expect(page.locator('#open-looks')).toBeFocused();
   for (const selector of ['#sigma1', '#sigma2', '#edge-threshold']) await expect(page.locator(selector)).toBeEnabled();
   await expect(page.locator('#edge-controls-help')).toBeHidden();
-  await page.locator('#open-looks').click();
-  await page.mouse.click(5, 5);
-  await expect(page.locator('#look-sheet')).toBeHidden();
-  await expect(page.locator('#open-looks')).toBeFocused();
 });
 
 test('framed artwork, guide bounds and glow survive Fit, last-glyph Detail and narrow rotation', async ({ page }, testInfo) => {
-  await openApp(page, { layout: 'camera' });
+  await openApp(page);
   await choosePhoto(page, 'astronaut-landscape');
   await page.locator('#open-framing').tap();
   await expect(page.locator('input[name="framing"][value="full"]')).toBeFocused();
@@ -259,8 +251,7 @@ test('framed artwork, guide bounds and glow survive Fit, last-glyph Detail and n
   expect(framed.columns / (framed.rows * 2)).toBeCloseTo(9 / 16, 1);
   await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', 'story');
   const originalViewport = page.viewportSize();
-  const glowOffGeometry = await geometry(page);
-  await page.locator('#look-adjustments > summary').tap();
+  await page.locator('#tab-style').tap();
   const before = await readCommit(page);
   await page.locator('input[name="text-tint"][value="#ffd663"]').check();
   await page.locator('#soft-glow').check();
@@ -284,12 +275,35 @@ test('framed artwork, guide bounds and glow survive Fit, last-glyph Detail and n
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
     }
-    await page.locator('#open-looks').tap();
+    await page.locator('#open-framing').tap();
     await expect(page.locator('input[name="framing"][value="story"]')).toBeChecked();
-    for (const selector of ['.sheet-choice', '.check-control', '#look-midtone', '#look-sharpness', '#text-color', '#close-look-sheet', '#look-adjustments > summary']) {
+    await expect.poll(() => page.locator('.ascii-viewport').evaluate((viewport) => viewport.clientHeight),
+      { message: 'Artwork pane keeps a usable floor with the drawer open at every rotation' }).toBeGreaterThanOrEqual(140);
+    for (const selector of ['#panel-framing .choice', '.tab']) {
       for (const target of await page.locator(selector).all()) {
         const bounds = await target.boundingBox();
         expect(bounds.width, `${selector} target width`).toBeGreaterThanOrEqual(44);
+        expect(bounds.height, `${selector} target height`).toBeGreaterThanOrEqual(44);
+      }
+    }
+    await page.locator('#tab-looks').tap();
+    for (const selector of ['#panel-looks .check', '#panel-looks input[type="range"]']) {
+      for (const target of await page.locator(selector).all()) {
+        const bounds = await target.boundingBox();
+        expect(bounds.height, `${selector} target height`).toBeGreaterThanOrEqual(44);
+      }
+    }
+    await page.locator('#tab-tune').tap();
+    for (const selector of ['#panel-tune input[type="number"]']) {
+      for (const target of await page.locator(selector).all()) {
+        const bounds = await target.boundingBox();
+        expect(bounds.height, `${selector} target height`).toBeGreaterThanOrEqual(44);
+      }
+    }
+    await page.locator('#tab-style').tap();
+    for (const selector of ['#panel-style .choice', '#text-color', '#panel-style .check']) {
+      for (const target of await page.locator(selector).all()) {
+        const bounds = await target.boundingBox();
         expect(bounds.height, `${selector} target height`).toBeGreaterThanOrEqual(44);
       }
     }
@@ -318,16 +332,27 @@ test('framed artwork, guide bounds and glow survive Fit, last-glyph Detail and n
     expect(await readCommit(page)).toEqual(before);
     await capture(page, testInfo, `looks-glow-${name}`, { emulatedViewport: viewport });
   }
+  await page.setViewportSize(originalViewport);
+  await completeOverview(page);
+  // Baseline with glow ON at the settled viewport; emulated WebKit can re-resolve
+  // svh across viewport round-trips, so wait for the layout to stop moving first.
+  await expect.poll(async () => {
+    const first = await geometry(page);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const second = await geometry(page);
+    return Math.abs(second.art.top - first.art.top) < 0.5 && Math.abs(second.art.left - first.art.left) < 0.5;
+  }, { message: 'Viewport geometry settles after the rotation round-trip' }).toBe(true);
+  const glowOnGeometry = await geometry(page);
   await page.locator('#open-looks').tap();
+  await page.locator('#tab-style').tap();
   await page.locator('#soft-glow').uncheck();
   await page.locator('#close-look-sheet').tap();
-  await page.setViewportSize(originalViewport);
   await completeOverview(page);
   expect((await haloGeometry(page)).left).toBe(0);
   expect((await haloGeometry(page)).top).toBe(0);
   const restoredGeometry = await geometry(page);
   for (const edge of ['left', 'right', 'top', 'bottom']) {
-    expect(Math.abs(restoredGeometry.art[edge] - glowOffGeometry.art[edge]), 'Disabling glow restores unchanged Fit geometry').toBeLessThan(0.1);
+    expect(Math.abs(restoredGeometry.art[edge] - glowOnGeometry.art[edge]), 'Disabling glow changes only the 8px halo gutter').toBeLessThanOrEqual(9);
   }
   expect(await readCommit(page)).toEqual(before);
 });

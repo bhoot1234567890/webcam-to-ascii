@@ -14,13 +14,13 @@
 
 - **Live ASCII viewfinder** — see the camera feed rendered in characters, freeze a frame, or import a local photo. The Python viewer prints frames to the terminal; quit it with `q`.
 - **Nondestructive framing** — Full, 1:1, 3:4, 9:16, 4:3 and 16:9 center crops, shared by live frames, frozen shots and imported photos.
-- **Curated looks and opt-in adjustments** — Original, Photo, Print and Outline, with advanced tone controls, text tint and optional soft glow in one shared mobile sheet.
+- **Curated looks and opt-in adjustments** — Original, Photo, Print and Outline, with advanced tone controls, text tint and optional soft glow in one inline settings drawer.
 - **Directional edge glyphs** — the original ordered angle-selection rule chooses `/ - \ |`, including its historical negative-angle quirks.
 - **95-character luminance ramp** — Original maps shading through the full measured printable ASCII set. Photo and Print use a compact ramp with the same real ink measurements, not assumed equal brightness steps.
 - **Ink-weighted character ramp** — glyphs are ranked by their real rendered "ink" (dark-pixel count in a font), not by a hand-tuned guess, so brightness maps perceptually.
 - **Difference-of-Gaussians preprocessing** — sharpens edges before detection, keeping thin features (hair, glasses, text) visible at low resolution.
 - **Character-proportioned sizing** — the original orientation policy selects a width or height setting, then doubles columns. These settings are not strict output bounds; a square at the defaults is 400 columns × 200 rows.
-- **Original source preview** — Studio shows the unmodified source; the Python viewer opens the raw camera feed in an OpenCV window.
+- **Original source preview** — the Camera tab's monitor shows the unmodified source; the Python viewer opens the raw camera feed in an OpenCV window.
 - **Helper utilities included** — scripts to enumerate cameras, regenerate the ink-usage ramp, and render a still image offline for tuning.
 
 ## Browser application
@@ -32,13 +32,11 @@ bash qa/setup.sh
 bun run --cwd frontend dev
 ```
 
-Open **http://127.0.0.1:4173**. The default is an iOS-inspired **Camera view**, with the actual ASCII output as its viewfinder—not a raw camera feed or a prerecorded effect. Tap the white **shutter** to request camera access. Tap it again, or choose **Still**, to freeze a real frame; capture releases the camera and renders that frame through the same image pipeline. Tap the shutter or **Live** to return to live capture. During a pending permission request, the shutter cancels the request and releases any stream that resolves late.
+Open **http://127.0.0.1:4173**. clack is a terminal-native ASCII camera: one full-width instrument panel with the rendered ASCII as the viewfinder—not a raw camera feed or a prerecorded effect. Press **CAMERA** to request camera access. When live, the same button becomes **HOLD** and freezes a real frame; capture releases the camera and renders that frame through the same image pipeline. Press **LIVE** on a held frame to return to live capture. During a pending permission request the button becomes **CANCEL**; an accidental double-tap immediately after cancelling is swallowed once.
 
-The **library** button opens the local photo picker without needing camera permission. **Flip** switches the Front/Back preference; the rear-facing preference is the initial choice, with browser fallback when no matching camera exists. The small **Stop** button releases capture without taking a still. The **grid** button toggles composition guides only; it never changes the rendered text.
+**PHOTO** opens the local photo picker without needing camera permission. **STOP** releases capture without taking a still. **GUIDES** toggles composition guides only; it never changes the rendered text. The status line under the wordmark reports state; the readout line at the bottom shows the live look, density, framing, grid size and frame cost.
 
-Use the top-right **Studio controls** button for the existing source selector, numeric tuning, original preview and diagnostics. **Camera view** returns to the viewfinder without restarting the source. Both views share one source, worker and ASCII node. Frozen shots remain in page memory; they are not automatically saved to Photos or uploaded.
-
-The viewfinder's bottom chrome keeps **Frame** on the left, **Fit / 1×** centered and **Looks** on the right. Frame and Looks open the same scrollable bottom sheet in Camera and Studio. Choices apply immediately; **Done**, Escape or tapping the backdrop closes it and restores focus.
+Every setting lives in one inline drawer opened from the readout (**LOOK / GRID / FRAME**) or any of its six tabs: **Camera · Look · Grid · Frame · Tune · Ink**. The Camera tab holds facing and device selection, the unmodified source monitor and **FLIP CAMERA**. Choices apply immediately; **CLOSE**, Escape or opening another tab keeps the artwork visible above the drawer, so every choice can be judged live. The drawer is part of the page, not a modal sheet.
 
 Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. Wide ratios can deliberately cut off the top and bottom of a portrait; use Full to restore every source pixel. A frozen shot keeps the full-resolution PNG in page memory, so reframing never crops an already-cropped result. Very small images that cannot represent a ratio are rejected without losing the valid source or frame. Composition guides follow the artwork, including its letterboxing.
 
@@ -49,17 +47,17 @@ Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. 
 | Print | Ordered Bayer halftone shading with the compact measured ramp; a stationary pattern rather than diffusion. |
 | Outline | Directional contours with empty interiors; intentionally sparse rather than a full photographic rendering. |
 
-**Adjust** is collapsed initially. Midtones, auto contrast, sharpness and inversion change source luminance **before** shading/edge processing. A manually changed recipe is marked **Adjusted**. Selecting any recipe again resets these processing adjustments; it does not reset framing, resolution, tint or glow. Photo and Print disable the unused sigma/edge controls in Studio while retaining their values for Original and Outline.
+**Tune** holds the tone controls (midtones, auto contrast, sharpness, inversion) and the numeric sigma/edge fields. Tone controls change source luminance **before** shading/edge processing. A manually changed recipe is marked **ADJUSTED**. Selecting any recipe again resets these processing adjustments; it does not reset framing, resolution, tint or glow. Photo and Print disable the unused sigma/edge fields while retaining their values for Original and Outline.
 
-Auto contrast can recover a flat photo, but recomputes the brightness range every frame: a moving highlight can cause live brightness pumping. It is off by default, with a warning in the sheet. Midtones below 1 lighten; above 1 darken. Sharpness uses a bounded unsharp mask and also affects Outline contours.
+Auto contrast can recover a flat photo, but recomputes the brightness range every frame: a moving highlight can cause live brightness pumping. It is off by default. Midtones below 1 lighten; above 1 darken. Sharpness uses a bounded unsharp mask and also affects Outline contours.
 
-Text color (Default, White, Amber, Green or the native custom-color picker) and **Soft text glow** are presentation-only: they work in both layouts without requesting another ASCII render. Default preserves each layout's existing warm-white appearance. Glow is off initially, reserves a small halo gutter in Fit/Detail, and is not a claim of GPU acceleration.
+**Ink** sets text color (Paper, White, Amber, Green or the native custom-color picker) and **Soft glow**; both are presentation-only and never request another ASCII render. Glow is off initially, reserves a small halo gutter in Fit/1:1, and is not a claim of GPU acceleration.
 
-**Tune the detail** applies the numeric resolution and edge controls; invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The source preview in Studio stays unmodified for every frame, look and presentation choice.
+**Grid** holds the density presets and width/height sliders; the sliders are range-bounded, so the numeric invalid-value path applies only to the Tune fields. Invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The Camera tab's source monitor stays unmodified for every frame, look and presentation choice.
 
-**Fit** initially shows the complete proportional grid. The camera's **1×** button (Studio: **1:1 detail**) restores readable glyphs with two-dimensional scrolling. Fit changes presentation only—not text, resolution, or aspect ratio. The camera view fills the phone viewport, with side-mounted controls in landscape; primary controls have at least 44 CSS-pixel touch targets and respect safe areas. Studio retains the more detailed scrolling layout.
+**FIT** initially shows the complete proportional grid; **1:1** restores readable glyphs with two-dimensional scrolling. Fit changes presentation only—not text, resolution, or aspect ratio. One layout serves every screen from 280px up; primary controls have at least 44 CSS-pixel touch targets and respect safe areas.
 
-Camera access requires HTTPS or localhost. Camera options in Studio offers Front / selfie, Back / scene and specific browser device IDs; a facing preference does not guarantee a particular lens. Backgrounding the page stops capture, including pending permission requests; returning requires an explicit restart. Cached navigation returns leave Start usable.
+Camera access requires HTTPS or localhost. The Camera tab offers Front / selfie, Back / scene and specific browser device IDs; a facing preference does not guarantee a particular lens. Backgrounding the page stops capture, including pending permission requests; returning requires an explicit restart. Cached navigation returns leave CAMERA usable.
 
 Images and camera frames stay on the device: no upload endpoints, external fonts, analytics, recordings, or frame-processing services. Roboto Mono is bundled locally; its measured cell geometry preserves image proportions.
 
@@ -78,9 +76,9 @@ Deploy **`frontend/dist/`** to a static HTTPS host. No Python service is needed.
 
 ### Brand assets
 
-The name and wordmark are lowercase **clack**; the tagline is **“A camera with character.”** An amber cursor connects the camera identity to character art. Camera and Studio share an ink-black, warm-white and amber (`#ffd663`) palette, with the locally bundled Roboto Mono wordmark.
+The name and wordmark are lowercase **clack**; the tagline is **“A camera with character.”** The blinking amber cursor connects the camera identity to character art. The whole interface is terminal-native: ink-black, one warm-white ink, amber (`#ffd663`) reserved for live/active states, square edges, and the locally bundled Roboto Mono everywhere.
 
-- [`frontend/public/clack-icon.svg`](frontend/public/clack-icon.svg): vector `c_` viewfinder mark, also used in the Studio header.
+- [`frontend/public/clack-icon.svg`](frontend/public/clack-icon.svg): vector `c_` viewfinder mark.
 - `frontend/public/clack-icon-32.png`: browser favicon fallback.
 - `frontend/public/apple-touch-icon.png`: opaque 180×180 iPhone home-screen icon.
 
@@ -238,27 +236,27 @@ Each frame is printed as a complete block of glyphs. Landscape sources use twice
 
 ## ⚙️ Configuration
 
-The Python scripts are tuned in source. The browser's shared Frame/Looks sheet and Studio numeric controls expose:
+The Python scripts are tuned in source. The browser exposes everything through the settings drawer:
 
 | Constant | Default | Where | Description |
 |---|---|---|---|
-| `MAX_WIDTH_CHARS` / Max width | `150` | Python scripts; browser `20–150` | Landscape width before column doubling; not a strict grid limit. |
-| `MAX_HEIGHT_LINES` / Max height | `200` (`63` in old offline script) | Python scripts; browser `20–200` | Portrait/square grid height. |
+| `MAX_WIDTH_CHARS` / Max width | `150` Python / `50` browser (Balanced) | Python scripts; browser `20–150` | Landscape width before column doubling; not a strict grid limit. |
+| `MAX_HEIGHT_LINES` / Max height | `200` Python / `65` browser (Balanced) | Python scripts; browser `20–200` | Portrait/square grid height. |
 | `cv2.VideoCapture(0)` / Camera | `0` / browser default device | Python viewers / browser selector | Python device index or browser video-input device ID. |
-| Camera view | `Back / scene` preference | Camera Flip button; Studio Camera options | Requests the rear camera when available; a specific device selection overrides the preference. |
-| Interface | `Camera` | Camera Studio-controls button / Studio Camera-view button | Switch presentation without changing or restarting the source. |
-| Composition guides | `Off` | Camera grid button | Viewfinder overlay only; no effect on ASCII or captured source pixels. |
-| ASCII display size | `Fit` | Camera Fit / 1×; Studio Fit / 1:1 detail | Presentation-only scale; unchanged grid, characters and aspect ratio. The selected mode persists through resizing and layout changes until changed. |
-| Frame | `Full` | Frame / Looks sheet | Full, 1:1, 3:4, 9:16, 4:3 or 16:9; exact centered whole-pixel crop before Lanczos/grid sizing, with the full source retained. |
-| Look | `Original` | Looks sheet | Original / Photo / Print / Outline; choosing a recipe resets processing adjustments only. |
-| Auto contrast | `Off` | Looks → Adjust | Per-frame extrema stretching, safe on flat images. Moving highlights can cause brightness pumping. |
-| Midtones | `1` | Looks → Adjust; `0.5–2` in `0.05` steps | Gamma exponent; below 1 lightens, above 1 darkens. |
-| Sharpness | `0` | Looks → Adjust; `0–1.5` in `0.05` steps | Bounded 2D binomial unsharp mask before shading and contours. |
-| Invert tones | `Off` | Looks → Adjust | Invert processed luminance, not the page or selected text color. |
-| Text color | `Default` | Looks → Adjust | Default / White / Amber / Green / native custom picker; presentation-only and shared across layouts. |
-| Soft text glow | `Off` | Looks → Adjust | Bounded text shadow with an 8 CSS-pixel halo gutter; presentation-only. |
-| `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; Studio `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. Browser uses these only for Original/Outline. |
-| `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; Studio integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. Retained but disabled for Photo/Print. |
+| Camera facing | `Back / scene` preference | Drawer Camera tab, FLIP CAMERA | Requests the rear camera when available; a specific device selection overrides the preference. |
+| Composition guides | `Off` | GUIDES (top bar) | Viewfinder overlay only; no effect on ASCII or captured source pixels. |
+| ASCII display size | `Fit` (mobile) / `1:1` (desktop) | FIT / 1:1 in the rail | Presentation-only scale; unchanged grid, characters and aspect ratio. The selected mode persists through resizing until changed. |
+| Frame | `Full` | Drawer Frame tab | Full, 1:1, 3:4, 9:16, 4:3 or 16:9; exact centered whole-pixel crop before Lanczos/grid sizing, with the full source retained. |
+| Look | `Original` | Drawer Look tab | Original / Photo / Print / Outline; choosing a recipe resets processing adjustments only. |
+| Density | `Balanced` | Drawer Grid tab | Chunky (~60 cols) / Balanced (~100 cols) / Fine (~150 cols) / Detailed (~300 cols) presets, or the width/height sliders for a custom grid; applies live. |
+| Auto contrast | `Off` | Drawer Tune tab | Per-frame extrema stretching, safe on flat images. Moving highlights can cause brightness pumping. |
+| Midtones | `1` | Drawer Tune tab; `0.5–2` in `0.05` steps | Gamma exponent; below 1 lightens, above 1 darkens. |
+| Sharpness | `0` | Drawer Tune tab; `0–1.5` in `0.05` steps | Bounded 2D binomial unsharp mask before shading and contours. |
+| Invert tones | `Off` | Drawer Tune tab | Invert processed luminance, not the page or selected text color. |
+| Text color | `Paper` | Drawer Ink tab | Paper / White / Amber / Green / native custom picker; presentation-only. |
+| Soft text glow | `Off` | Drawer Ink tab | Bounded text shadow with an 8 CSS-pixel halo gutter; presentation-only. |
+| `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; browser Tune `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. Browser uses these only for Original/Outline. |
+| `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; browser Tune integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. Retained but disabled for Photo/Print. |
 | `ord('q')` | `q` | `webcam ascii.py`, `web ascii cv2.py` | Key that stops the loop and releases the camera. |
 
 ## 🧱 How it works

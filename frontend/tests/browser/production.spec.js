@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import {
   test, expect, ROOT, IMAGES, REFERENCE, readCommit, uploadFixture,
-  changeSettings, openApp, captureApp,
+  changeSettings, openApp, openPanel, captureApp,
 } from './fixtures.js';
 
 const viewports = [
@@ -25,9 +25,9 @@ function assertGrid(commit, id, profile) {
 }
 
 async function readPreview(page, fixture) {
+  await openPanel(page, 'camera');
   const image = page.locator('#image-preview');
   await expect(image).toBeVisible();
-  await expect.poll(() => image.evaluate((element) => element.complete && element.naturalWidth)).toBe(fixture.width);
   const preview = await image.evaluate((element) => ({
     src: element.getAttribute('src'), width: element.naturalWidth, height: element.naturalHeight,
   }));
@@ -98,18 +98,24 @@ for (const viewport of viewports) {
       expect(await readPreview(page, portrait)).toEqual(originalPreview);
       await expect(page.locator('#error')).toBeHidden();
       await expect(page.locator('#status')).toHaveText('Image ready');
-      if (!await page.locator('#camera-options').evaluate((panel) => panel.open)) {
-        await page.locator('#camera-options > summary').click();
+      const panelControls = [
+        ['camera', ['camera-select', 'camera-facing']],
+        ['tune', ['sigma1', 'sigma2', 'edge-threshold']],
+        ['grid', ['grid-max-width', 'grid-max-height']],
+      ];
+      for (const [tab, ids] of panelControls) {
+        await openPanel(page, tab);
+        for (const id of ids) {
+          const control = page.locator(`#${id}`);
+          await control.scrollIntoViewIfNeeded();
+          await expect(control).toBeVisible();
+          const bounds = await control.boundingBox();
+          expect(bounds.x).toBeGreaterThanOrEqual(0);
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1);
+        }
       }
-      for (const id of ['image-input', 'start-camera', 'stop-camera', 'camera-select',
-        'max-width', 'max-height', 'sigma1', 'sigma2', 'edge-threshold']) {
-        const control = page.locator(`#${id}`);
-        await control.scrollIntoViewIfNeeded();
-        await expect(control).toBeVisible();
-        const bounds = await control.boundingBox();
-        expect(bounds.x).toBeGreaterThanOrEqual(0);
-        expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1);
-      }
+      await expect(page.locator('#image-input')).toBeEnabled();
+      await page.locator('#close-look-sheet').click();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       await captureApp(page, testInfo, `production-${viewport.name}-portrait-tuned`);
       expect(await readCommit(page)).toEqual(tuned);
@@ -117,64 +123,61 @@ for (const viewport of viewports) {
       commits.push({ fixtureId: 'astronaut-portrait', identity,
         textSha256: createHash('sha256').update(text).digest('hex'), preview: originalPreview });
 
-      for (const layout of ['studio', 'camera']) {
-        if (layout === 'camera') await page.locator('#open-camera').click();
-        await page.locator('#open-looks').click();
-        for (const id of ['photo', 'print', 'outline', 'original']) {
-          const previous = await readCommit(page);
-          await page.locator(`input[name="look"][value="${id}"]`).check();
-          await expect.poll(async () => (await readCommit(page)).renderId).toBeGreaterThan(previous.renderId);
-          await expect.poll(() => page.locator('#ascii-output').evaluate((output) => JSON.parse(output.dataset.lookKey).id)).toBe(id);
-          const selected = await readCommit(page);
-          expect(selected.sourceGeneration).toBe(tuned.sourceGeneration);
-          expect(selected.settingsKey).toBe(tuned.settingsKey);
-          if (id === 'original') expect(selected.text).toBe(tuned.text);
-          else expect(selected.text).not.toBe(tuned.text);
-        }
-        for (const id of ['square', 'portrait', 'story', 'classic', 'wide', 'full']) {
-          const previous = await readCommit(page);
-          await page.locator(`input[name="framing"][value="${id}"]`).check();
-          await expect.poll(async () => (await readCommit(page)).renderId).toBeGreaterThan(previous.renderId);
-          await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', id);
-          expect((await readCommit(page)).sourceGeneration).toBe(tuned.sourceGeneration);
-        }
-        expect((await readCommit(page)).text).toBe(tuned.text);
-        const presentationBaseline = await readCommit(page);
-        const renderRequests = await page.evaluate(() => window.__presentationRenderRequests);
-        if (!await page.locator('#look-adjustments').evaluate((panel) => panel.open)) {
-          await page.locator('#look-adjustments > summary').click();
-        }
-        for (const [value, color] of [
-          ['#ffffff', 'rgb(255, 255, 255)'], ['#ffd663', 'rgb(255, 214, 99)'], ['#9be5a2', 'rgb(155, 229, 162)'],
-        ]) {
-          await page.locator(`input[name="text-tint"][value="${value}"]`).check();
-          await expect(page.locator('#ascii-output')).toHaveCSS('color', color);
-          expect(await readCommit(page)).toEqual(presentationBaseline);
-        }
-        // Native color dialogs are OS UI; set the native input's value and exercise its real input event.
-        await page.locator('#text-color').evaluate((picker) => {
-          picker.value = '#87b7ff';
-          picker.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-        await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(135, 183, 255)');
-        await page.locator('#soft-glow').check();
-        await expect(page.locator('body')).toHaveAttribute('data-glow', 'on');
-        await expect(page.locator('#ascii-output')).not.toHaveCSS('text-shadow', 'none');
-        await page.locator('#close-look-sheet').click();
-        await expect(page.locator('#open-looks')).toBeFocused();
-        expect(await readCommit(page)).toEqual(presentationBaseline);
-        expect(await page.evaluate(() => window.__presentationRenderRequests), 'Tint and glow never request processing').toBe(renderRequests);
-        await captureApp(page, testInfo, `production-${viewport.name}-${layout}-custom-glow`);
-        await page.locator('#open-looks').click();
-        await expect(page.locator('#text-color')).toHaveValue('#87b7ff');
-        await page.locator('#soft-glow').uncheck();
-        await page.locator('input[name="text-tint"][value="default"]').check();
-        await expect(page.locator('#ascii-output')).toHaveCSS('text-shadow', 'none');
-        await expect(page.locator('#ascii-output')).toHaveCSS('color', layout === 'camera' ? 'rgb(241, 240, 235)' : 'rgb(226, 233, 231)');
-        await page.locator('#close-look-sheet').click();
-        expect(await readCommit(page)).toEqual(presentationBaseline);
-        expect(await page.evaluate(() => window.__presentationRenderRequests)).toBe(renderRequests);
+      await page.locator('#open-looks').click();
+      for (const id of ['photo', 'print', 'outline', 'original']) {
+        const previous = await readCommit(page);
+        await page.locator(`input[name="look"][value="${id}"]`).check();
+        await expect.poll(async () => (await readCommit(page)).renderId).toBeGreaterThan(previous.renderId);
+        await expect.poll(() => page.locator('#ascii-output').evaluate((output) => JSON.parse(output.dataset.lookKey).id)).toBe(id);
+        const selected = await readCommit(page);
+        expect(selected.sourceGeneration).toBe(tuned.sourceGeneration);
+        expect(selected.settingsKey).toBe(tuned.settingsKey);
+        if (id === 'original') expect(selected.text).toBe(tuned.text);
+        else expect(selected.text).not.toBe(tuned.text);
       }
+      await page.locator('#tab-framing').click();
+      for (const id of ['square', 'portrait', 'story', 'classic', 'wide', 'full']) {
+        const previous = await readCommit(page);
+        await page.locator(`input[name="framing"][value="${id}"]`).check();
+        await expect.poll(async () => (await readCommit(page)).renderId).toBeGreaterThan(previous.renderId);
+        await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', id);
+        expect((await readCommit(page)).sourceGeneration).toBe(tuned.sourceGeneration);
+      }
+      expect((await readCommit(page)).text).toBe(tuned.text);
+      const presentationBaseline = await readCommit(page);
+      const renderRequests = await page.evaluate(() => window.__presentationRenderRequests);
+      await page.locator('#tab-style').click();
+      for (const [value, color] of [
+        ['#ffffff', 'rgb(255, 255, 255)'], ['#ffd663', 'rgb(255, 214, 99)'], ['#9be5a2', 'rgb(155, 229, 162)'],
+      ]) {
+        await page.locator(`input[name="text-tint"][value="${value}"]`).check();
+        await expect(page.locator('#ascii-output')).toHaveCSS('color', color);
+        expect(await readCommit(page)).toEqual(presentationBaseline);
+      }
+      // Native color dialogs are OS UI; set the native input's value and exercise its real input event.
+      await page.locator('#text-color').evaluate((picker) => {
+        picker.value = '#87b7ff';
+        picker.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(135, 183, 255)');
+      await page.locator('#soft-glow').check();
+      await expect(page.locator('body')).toHaveAttribute('data-glow', 'on');
+      await expect(page.locator('#ascii-output')).not.toHaveCSS('text-shadow', 'none');
+      await page.locator('#close-look-sheet').click();
+      await expect(page.locator('#open-looks')).toBeFocused();
+      expect(await readCommit(page)).toEqual(presentationBaseline);
+      expect(await page.evaluate(() => window.__presentationRenderRequests), 'Tint and glow never request processing').toBe(renderRequests);
+      await captureApp(page, testInfo, `production-${viewport.name}-custom-glow`);
+      await page.locator('#open-looks').click();
+      await page.locator('#tab-style').click();
+      await expect(page.locator('#text-color')).toHaveValue('#87b7ff');
+      await page.locator('#soft-glow').uncheck();
+      await page.locator('input[name="text-tint"][value="default"]').check();
+      await expect(page.locator('#ascii-output')).toHaveCSS('text-shadow', 'none');
+      await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(226, 233, 231)');
+      await page.locator('#close-look-sheet').click();
+      expect(await readCommit(page)).toEqual(presentationBaseline);
+      expect(await page.evaluate(() => window.__presentationRenderRequests)).toBe(renderRequests);
 
       expect(requests.length).toBeGreaterThan(0);
       for (const request of requests) {

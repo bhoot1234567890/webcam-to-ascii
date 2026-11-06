@@ -1,13 +1,18 @@
 import { LOOKS, normalizeLook } from './looks.js';
 import { FRAMINGS } from './framing.js';
+import { DENSITIES, findDensity, findDensityBySettings } from './density.js';
 
-/** Shared Camera/Studio controls. Only the owner commits processing and presentation state. */
-export function createLookControls({ onLookChange, onFramingChange, onPresentationChange }) {
+const TINT_LABELS = { default: 'Paper', '#ffffff': 'White', '#ffd663': 'Amber', '#9be5a2': 'Green' };
+const FIELD_HELP = { sigma1: 'sigma1-help', sigma2: 'sigma2-help', 'edge-threshold': 'edge-threshold-help' };
+
+/** Settings drawer. Only the owner (main.js) commits processing and presentation state. */
+export function createLookControls({ onLookChange, onFramingChange, onPresentationChange, onDensityChange }) {
   const byId = (id) => document.getElementById(id);
   const sheet = byId('look-sheet');
   const listeners = [];
   let opener = null;
-  let state = { look: normalizeLook(), framing: 'full', tint: 'default', glow: false };
+  let state = { look: normalizeLook(), framing: 'full', tint: 'default', glow: false, density: 'balanced' };
+
   const listen = (node, event, handler) => {
     node.addEventListener(event, handler);
     listeners.push(() => node.removeEventListener(event, handler));
@@ -16,42 +21,114 @@ export function createLookControls({ onLookChange, onFramingChange, onPresentati
   function addChoices(fieldset, name, choices) {
     for (const choice of choices) {
       const label = document.createElement('label');
-      label.className = 'sheet-choice';
+      label.className = 'choice';
       const radio = document.createElement('input');
       radio.type = 'radio';
       radio.name = name;
       radio.value = choice.id;
       const text = document.createElement('span');
-      const title = document.createElement('strong');
-      title.textContent = choice.label;
-      text.append(title);
-      if (choice.description) {
-        const description = document.createElement('small');
-        description.textContent = choice.description;
-        text.append(description);
-      }
+      text.textContent = choice.label;
       label.append(radio, text);
+      if (choice.description) {
+        const note = document.createElement('small');
+        note.className = 'choice-note';
+        note.textContent = choice.description;
+        label.append(note);
+      }
       fieldset.append(label);
     }
   }
   addChoices(byId('look-choices'), 'look', LOOKS);
   addChoices(byId('framing-choices'), 'framing', FRAMINGS);
+  if (byId('density-choices')) addChoices(byId('density-choices'), 'density', DENSITIES);
 
-  function open(event, name) {
-    opener = event.currentTarget;
-    sheet.showModal();
-    sheet.querySelector(`input[name="${name}"]:checked`).focus({ preventScroll: true });
-    sheet.querySelector(`#${name === 'look' ? 'look' : 'framing'}-choices`).scrollIntoView({ block: 'nearest' });
+  const underline = sheet.querySelector('.tab-underline');
+  const tabsBar = sheet.querySelector('.tabs');
+  function positionUnderline(tab, animate) {
+    if (!underline || !tab || sheet.hidden) return;
+    if (!animate) underline.style.transition = 'none';
+    underline.style.width = `${tab.offsetWidth}px`;
+    underline.style.transform = `translateX(${tab.offsetLeft}px)`;
+    if (!animate) {
+      void underline.offsetWidth;
+      underline.style.transition = '';
+    }
   }
-  listen(byId('open-framing'), 'click', (event) => open(event, 'framing'));
-  listen(byId('open-looks'), 'click', (event) => open(event, 'look'));
-  listen(byId('close-look-sheet'), 'click', () => sheet.close());
-  listen(sheet, 'close', () => opener?.focus({ preventScroll: true }));
-  listen(sheet, 'click', (event) => {
-    if (event.target !== sheet) return;
-    const box = sheet.getBoundingClientRect();
-    if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) sheet.close();
+  function switchTab(panelId, animate = true) {
+    let activeTab = null;
+    for (const tab of sheet.querySelectorAll('.tab')) {
+      const active = tab.getAttribute('aria-controls') === panelId;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+      if (active) activeTab = tab;
+    }
+    for (const panel of sheet.querySelectorAll('.panel')) {
+      panel.hidden = panel.id !== panelId;
+    }
+    positionUnderline(activeTab, animate);
+  }
+  const tabsObserver = new ResizeObserver(() => {
+    positionUnderline(sheet.querySelector('.tab[aria-selected="true"]'), false);
   });
+  tabsObserver.observe(tabsBar);
+  for (const tab of sheet.querySelectorAll('.tab')) {
+    listen(tab, 'click', () => switchTab(tab.getAttribute('aria-controls')));
+  }
+  // Automatic activation: an arrow key moves focus and selects together.
+  listen(sheet.querySelector('.tabs'), 'keydown', (event) => {
+    const keys = { ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last' };
+    if (!(event.key in keys)) return;
+    event.preventDefault();
+    const tabs = [...sheet.querySelectorAll('.tab')];
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+      : (tabs.indexOf(document.activeElement) + keys[event.key] + tabs.length) % tabs.length;
+    tabs[index].focus();
+    switchTab(tabs[index].getAttribute('aria-controls'));
+  });
+
+  function close() {
+    sheet.hidden = true;
+    opener?.focus({ preventScroll: true });
+  }
+  function open(event, panelId, focusSelector) {
+    opener = event.currentTarget;
+    const wasHidden = sheet.hidden;
+    sheet.hidden = false;
+    switchTab(panelId, !wasHidden);
+    const checked = sheet.querySelector(`${focusSelector}:checked`) || sheet.querySelector(focusSelector);
+    checked?.focus({ preventScroll: true });
+  }
+  listen(byId('open-framing'), 'click', (event) => open(event, 'panel-framing', 'input[name="framing"]'));
+  listen(byId('open-looks'), 'click', (event) => open(event, 'panel-looks', 'input[name="look"]'));
+  if (byId('open-grid')) listen(byId('open-grid'), 'click', (event) => open(event, 'panel-grid', 'input[name="density"]'));
+  listen(byId('open-ink'), 'click', (event) => open(event, 'panel-style', 'input[name="text-tint"]'));
+  listen(byId('close-look-sheet'), 'click', close);
+  listen(document, 'keydown', (event) => {
+    if (!sheet.hidden && event.key === 'Escape') close();
+  });
+  // The sheet is modal: a Tab at either end wraps inside it.
+  listen(sheet, 'keydown', (event) => {
+    if (event.key !== 'Tab' || sheet.hidden) return;
+    const items = [...sheet.querySelectorAll('button, input, select')]
+      .filter((element) => !element.disabled && element.offsetParent !== null);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  // The rail stays interactive while tuning; a tap on the dimmed stage or top bar closes.
+  listen(document, 'click', (event) => {
+    if (sheet.hidden || sheet.contains(event.target) || event.target.closest('.rail')) return;
+    if (event.target.closest('.stage, .topbar')) close();
+  });
+
   listen(byId('look-choices'), 'change', (event) => {
     if (event.target.name === 'look') onLookChange(normalizeLook({ id: event.target.value }));
   });
@@ -65,6 +142,29 @@ export function createLookControls({ onLookChange, onFramingChange, onPresentati
   listen(byId('framing-choices'), 'change', (event) => {
     if (event.target.name === 'framing') onFramingChange(event.target.value);
   });
+  if (byId('density-choices')) {
+    listen(byId('density-choices'), 'change', (event) => {
+      if (event.target.name === 'density') onDensityChange?.(event.target.value);
+    });
+  }
+  const widthSlider = byId('grid-max-width');
+  const heightSlider = byId('grid-max-height');
+  if (widthSlider) {
+    listen(widthSlider, 'input', (event) => {
+      const val = event.target.valueAsNumber;
+      const out = byId('grid-max-width-value');
+      if (out) out.textContent = `${val} chars`;
+      onDensityChange?.({ maxWidthChars: val, maxHeightLines: heightSlider ? heightSlider.valueAsNumber : 65 });
+    });
+  }
+  if (heightSlider) {
+    listen(heightSlider, 'input', (event) => {
+      const val = event.target.valueAsNumber;
+      const out = byId('grid-max-height-value');
+      if (out) out.textContent = `${val} lines`;
+      onDensityChange?.({ maxWidthChars: widthSlider ? widthSlider.valueAsNumber : 50, maxHeightLines: val });
+    });
+  }
   const adjustments = {
     'look-auto-contrast': ['autoContrast', (input) => input.checked],
     'look-midtone': ['midtone', (input) => input.valueAsNumber],
@@ -102,21 +202,48 @@ export function createLookControls({ onLookChange, onFramingChange, onPresentati
     for (const radio of sheet.querySelectorAll('input[name="text-tint"]')) radio.checked = radio.value === state.tint;
     if (state.tint !== 'default') byId('text-color').value = state.tint;
     byId('soft-glow').checked = state.glow;
-    for (const id of ['sigma1', 'sigma2', 'edge-threshold']) {
+    const inkLabel = TINT_LABELS[state.tint] ?? String(state.tint).toUpperCase();
+    byId('ink-label').textContent = inkLabel;
+    byId('open-ink').setAttribute('aria-label', `Ink, ${inkLabel}`);
+    byId('text-color').closest('.ink-row').classList.toggle('custom-selected', !Object.hasOwn(TINT_LABELS, state.tint));
+    for (const id of Object.keys(FIELD_HELP)) {
       byId(id).disabled = !recipe.edges;
-      if (recipe.edges) byId(id).removeAttribute('aria-describedby');
-      else byId(id).setAttribute('aria-describedby', 'edge-controls-help');
+      byId(id).setAttribute('aria-describedby', recipe.edges ? FIELD_HELP[id] : 'edge-controls-help');
     }
     byId('edge-controls-help').hidden = recipe.edges;
+
+    const matchedDensity = (typeof state.density === 'string' ? findDensity(state.density) : null) ||
+      findDensityBySettings(state.settings);
+    const densityId = matchedDensity ? matchedDensity.id : null;
+    const densityLabel = matchedDensity ? matchedDensity.label : 'Custom';
+    const gridLabel = byId('grid-density-label');
+    if (gridLabel) gridLabel.textContent = densityLabel;
+    const openGridBtn = byId('open-grid');
+    if (openGridBtn) openGridBtn.setAttribute('aria-label', `Detail, ${densityLabel}`);
+    for (const radio of sheet.querySelectorAll('input[name="density"]')) {
+      radio.checked = densityId ? radio.value === densityId : false;
+    }
+    if (next.settings) {
+      if (widthSlider) {
+        widthSlider.value = next.settings.maxWidthChars;
+        const out = byId('grid-max-width-value');
+        if (out) out.textContent = `${next.settings.maxWidthChars} chars`;
+      }
+      if (heightSlider) {
+        heightSlider.value = next.settings.maxHeightLines;
+        const out = byId('grid-max-height-value');
+        if (out) out.textContent = `${next.settings.maxHeightLines} lines`;
+      }
+    }
   }
   sync(state);
   return {
     sync,
     dispose() {
-      for (const remove of listeners) remove();
-      if (sheet.open) sheet.close();
-      for (const fieldset of [byId('look-choices'), byId('framing-choices')]) {
-        for (const label of fieldset.querySelectorAll('.sheet-choice')) label.remove();
+      tabsObserver.disconnect();
+      sheet.hidden = true;
+      for (const fieldset of [byId('look-choices'), byId('framing-choices'), byId('density-choices')].filter(Boolean)) {
+        for (const label of fieldset.querySelectorAll('.choice')) label.remove();
       }
     },
   };

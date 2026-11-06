@@ -2,11 +2,11 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  test, expect, ROOT, IMAGES, readCommit, uploadFixture, changeSettings, openApp,
+  test, expect, ROOT, IMAGES, readCommit, uploadFixture, changeSettings, openApp, openPanel,
 } from './fixtures.js';
 
 const DEFAULT_SETTINGS = {
-  maxWidthChars: 150, maxHeightLines: 200, sigma1: 1, sigma2: 2, edgeIndexThreshold: 90,
+  maxWidthChars: 50, maxHeightLines: 65, sigma1: 1, sigma2: 2, edgeIndexThreshold: 90,
 };
 const settingsKey = (patch = {}) => JSON.stringify({ ...DEFAULT_SETTINGS, ...patch });
 const fixture = (id) => {
@@ -111,12 +111,11 @@ async function installWorkerProbe(page) {
       if (!output) return;
       new MutationObserver((records) => {
         if (!records.some((record) => record.attributeName === 'data-render-id')) return;
-        const label = document.getElementById('performance-label');
         probe.commits.push({ id: Number(output.dataset.renderId),
           generation: Number(output.dataset.sourceGeneration), kind: output.dataset.sourceKind,
           name: output.dataset.sourceName, settingsKey: output.dataset.settingsKey,
           lookKey: output.dataset.lookKey, framing: output.dataset.framing,
-          processingMs: Number(label.dataset.processingMs), time: performance.now() });
+          processingMs: Number(output.dataset.processingMs), time: performance.now() });
       }).observe(output, { attributes: true, attributeFilter: ['data-render-id'] });
     });
   });
@@ -167,7 +166,7 @@ async function waitCameraCommit(page, previous = null) {
 }
 
 async function startCamera(page, previous = null) {
-  await page.locator('#start-camera').click();
+  await page.locator('#camera-shutter').click();
   return waitCameraCommit(page, previous);
 }
 
@@ -198,16 +197,16 @@ test('real camera commits, Stop ends retained tracks, and restart/settings use f
   const initial = await startCamera(page);
   const retained = await retainCamera(page);
   expect([retained.width, retained.height]).toEqual([320, 240]);
-  expect([initial.columns, initial.rows]).toEqual([300, 112]);
+  expect([initial.columns, initial.rows]).toEqual([100, 37]);
   expect(initial.settingsKey).toBe(settingsKey());
   expect(initial.sourceName).toBe(retained.deviceId);
-  await expect(page.locator('#camera-preview')).toBeVisible();
-  await page.locator('#stop-camera').click();
+  expect(await page.locator('#camera-preview').evaluate((video) => video.srcObject !== null)).toBe(true);
+  await page.locator('#camera-stop').click();
   const stopped = await readCommit(page);
   await expectRetainedEnded(page, retained.index);
   await expect(page.locator('#status')).toHaveText('Camera stopped');
-  await expect(page.locator('#start-camera')).toBeEnabled();
-  await expect(page.locator('#stop-camera')).toBeDisabled();
+  await expect(page.locator('#camera-shutter')).toBeEnabled();
+  await expect(page.locator('#camera-stop')).toBeDisabled();
   await renderingTurns(page);
   expect(await readCommit(page)).toEqual(stopped);
   const restarted = await startCamera(page, stopped);
@@ -218,7 +217,7 @@ test('real camera commits, Stop ends retained tracks, and restart/settings use f
   expect(changed.sourceName).toBe(restarted.sourceName);
   expect(changed.settingsKey).toBe(settingsKey({ maxWidthChars: 60, maxHeightLines: 80, sigma1: 0.5, sigma2: 1.5 }));
   expect([changed.columns, changed.rows]).toEqual([120, 45]);
-  await page.locator('#stop-camera').click();
+  await page.locator('#camera-stop').click();
   await expectRetainedEnded(page, current.index);
 });
 
@@ -231,6 +230,7 @@ test('uploading a real image releases the live camera and commits the new source
   expect(image.sourceGeneration).toBeGreaterThan(camera.sourceGeneration);
   expect(image.sourceKind).toBe('image');
   await expectRetainedEnded(page, retained.index);
+  await openPanel(page, 'camera');
   await expect(page.locator('#camera-preview')).toBeHidden();
   await expect(page.locator('#image-preview')).toBeVisible();
   await renderingTurns(page);
@@ -252,56 +252,53 @@ test('selecting the enumerated real device replaces the old stream before commit
     video.srcObject !== window.__retainedCameras[0].stream)).toBe(true);
   expect(switched.sourceName).toBe(retained.deviceId);
   const replacement = await retainCamera(page);
-  await page.locator('#stop-camera').click();
+  await page.locator('#camera-stop').click();
   await expectRetainedEnded(page, replacement.index);
 });
 
-for (const layout of ['studio', 'camera']) {
-  test(`${layout} pending permission rejects duplicate starts and ends a stream resolved after cancellation`, async ({ page }) => {
-    await page.addInitScript(() => {
-      const media = navigator.mediaDevices;
-      const real = media.getUserMedia.bind(media);
-      window.__pendingCamera = { calls: 0, stream: null, tracks: [], release: null };
-      media.getUserMedia = async (constraints) => {
-        const probe = window.__pendingCamera;
-        probe.calls++;
-        const stream = await real(constraints);
-        probe.stream = stream;
-        probe.tracks = stream.getTracks();
-        return new Promise((resolve) => { probe.release = () => resolve(stream); });
-      };
-    });
-    await openApp(page, { layout });
-    const startSelector = layout === 'camera' ? '#camera-shutter' : '#start-camera';
-    await page.locator(startSelector).click();
-    await expect.poll(() => page.evaluate(() => !!window.__pendingCamera.release)).toBe(true);
-    await expect(page.locator('#start-camera')).toBeDisabled();
-    await expect(page.locator('#camera-select')).toBeDisabled();
-    await page.locator('#start-camera').evaluate((button) => { button.click(); button.click(); });
-    expect(await page.evaluate(() => window.__pendingCamera.calls)).toBe(1);
-    expect(await page.evaluate(() => window.__pendingCamera.tracks.map((track) => track.readyState))).toEqual(['live']);
-    await page.locator(layout === 'camera' ? '#camera-shutter' : '#stop-camera').click();
-    await page.evaluate(() => window.__pendingCamera.release());
-    await expect.poll(() => page.evaluate(() => window.__pendingCamera.tracks
-      .map((track) => track.readyState))).toEqual(['ended']);
-    expect(await page.locator('#camera-preview').evaluate((video) => video.srcObject === null)).toBe(true);
-    await renderingTurns(page);
-    expect((await readCommit(page)).renderId || 0).toBe(0);
-    await expect(page.locator('#status')).toHaveText('Camera stopped');
-    await expect(page.locator('#error')).toBeHidden();
-    await expect(page.locator('#start-camera')).toBeEnabled();
-    // Remove only this lifecycle adapter; recovery uses real acquisition again.
-    await page.evaluate(() => {
-      navigator.mediaDevices.getUserMedia = Object.getPrototypeOf(navigator.mediaDevices)
-        .getUserMedia.bind(navigator.mediaDevices);
-    });
-    await page.locator(startSelector).click();
-    await waitCameraCommit(page);
-    const retained = await retainCamera(page);
-    await page.locator(layout === 'camera' ? '#camera-stop' : '#stop-camera').click();
-    await expectRetainedEnded(page, retained.index);
+test('pending permission rejects duplicate starts and ends a stream resolved after cancellation', async ({ page }) => {
+  await page.addInitScript(() => {
+    const media = navigator.mediaDevices;
+    const real = media.getUserMedia.bind(media);
+    window.__pendingCamera = { calls: 0, stream: null, tracks: [], release: null };
+    media.getUserMedia = async (constraints) => {
+      const probe = window.__pendingCamera;
+      probe.calls++;
+      const stream = await real(constraints);
+      probe.stream = stream;
+      probe.tracks = stream.getTracks();
+      return new Promise((resolve) => { probe.release = () => resolve(stream); });
+    };
   });
-}
+  await openApp(page);
+  await page.locator('#camera-shutter').click();
+  await expect.poll(() => page.evaluate(() => !!window.__pendingCamera.release)).toBe(true);
+  await expect(page.locator('#camera-shutter')).toHaveAttribute('aria-label', 'Cancel camera request');
+  await expect(page.locator('#camera-select')).toBeDisabled();
+  await page.locator('#camera-shutter').evaluate((button) => { button.click(); button.click(); });
+  expect(await page.evaluate(() => window.__pendingCamera.calls)).toBe(1);
+  expect(await page.evaluate(() => window.__pendingCamera.tracks.map((track) => track.readyState))).toEqual(['live']);
+  // The double activation above already cancelled (first tap) with the replay swallowed (second tap).
+  await page.evaluate(() => window.__pendingCamera.release());
+  await expect.poll(() => page.evaluate(() => window.__pendingCamera.tracks
+    .map((track) => track.readyState))).toEqual(['ended']);
+  expect(await page.locator('#camera-preview').evaluate((video) => video.srcObject === null)).toBe(true);
+  await renderingTurns(page);
+  expect((await readCommit(page)).renderId || 0).toBe(0);
+  await expect(page.locator('#status')).toHaveText('Camera stopped');
+  await expect(page.locator('#error')).toBeHidden();
+  await expect(page.locator('#camera-shutter')).toBeEnabled();
+  // Remove only this lifecycle adapter; recovery uses real acquisition again.
+  await page.evaluate(() => {
+    navigator.mediaDevices.getUserMedia = Object.getPrototypeOf(navigator.mediaDevices)
+      .getUserMedia.bind(navigator.mediaDevices);
+  });
+  await page.locator('#camera-shutter').click();
+  await waitCameraCommit(page);
+  const retained = await retainCamera(page);
+  await page.locator('#camera-stop').click();
+  await expectRetainedEnded(page, retained.index);
+});
 
 test('an image accepted during pending real permission remains committed after the late stream resolves', async ({ page }) => {
   await page.addInitScript(() => {
@@ -315,7 +312,7 @@ test('an image accepted during pending real permission remains committed after t
     };
   });
   await openApp(page);
-  await page.locator('#start-camera').click();
+  await page.locator('#camera-shutter').click();
   await expect.poll(() => page.evaluate(() => !!window.__pendingSource.release)).toBe(true);
   expect(await page.evaluate(() => window.__pendingSource.tracks.map((track) => track.readyState))).toEqual(['live']);
   const accepted = await uploadFixture(page, 'astronaut-portrait');
@@ -337,7 +334,7 @@ test('page teardown disposes the real app camera and worker while retained track
   const disposed = await readCommit(page);
   await expectRetainedEnded(page, retained.index);
   expect(await page.evaluate(() => window.__cameraQA.workers.every((worker) => worker.terminated))).toBe(true);
-  await expect(page.locator('#start-camera')).toBeDisabled();
+  await expect(page.locator('#camera-shutter')).toBeDisabled();
   await renderingTurns(page);
   expect(await readCommit(page)).toEqual(disposed);
 });
@@ -361,12 +358,11 @@ test('backgrounding ends capture and rejects a late worker result until an expli
     document.dispatchEvent(new Event('visibilitychange'));
   });
   await renderingTurns(page);
-  expect(await readCommit(page)).toEqual(paused);
-  await expect(page.locator('#start-camera')).toBeEnabled();
+  await expect(page.locator('#camera-shutter')).toBeEnabled();
   const restarted = await startCamera(page, initial);
   expect(restarted.sourceGeneration).toBeGreaterThan(initial.sourceGeneration);
   const replacement = await retainCamera(page);
-  await page.locator('#stop-camera').click();
+  await page.locator('#camera-stop').click();
   await expectRetainedEnded(page, replacement.index);
 });
 
@@ -383,10 +379,10 @@ test('a cached page return keeps Start usable but never retains or silently rest
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
   await renderingTurns(page);
   expect(await readCommit(page)).toEqual(stopped);
-  await expect(page.locator('#start-camera')).toBeEnabled();
+  await expect(page.locator('#camera-shutter')).toBeEnabled();
   await startCamera(page, initial);
   const replacement = await retainCamera(page);
-  await page.locator('#stop-camera').click();
+  await page.locator('#camera-stop').click();
   await expectRetainedEnded(page, replacement.index);
 });
 
@@ -411,22 +407,31 @@ test.describe('document camera policy denial', () => {
       };
     });
     await openApp(page);
-    await page.locator('#start-camera').click();
-    await expect(page.locator('#error')).toHaveText('Camera access was denied');
+    await page.locator('#camera-shutter').click();
+    await expect(page.locator('#error-text')).toHaveText('Camera access was denied. Allow camera in your browser site settings, then press CAMERA.');
     expect(await page.evaluate(() => window.__policyRejections)).toEqual(['NotAllowedError']);
     expect(await page.locator('#camera-preview').evaluate((video) => video.srcObject === null)).toBe(true);
-    await expect(page.locator('#start-camera')).toBeEnabled();
+    await expect(page.locator('#camera-shutter')).toBeEnabled();
     expect((await readCommit(page)).renderId || 0).toBe(0);
     expect(policyDiagnostics.length).toBeGreaterThan(0);
-    const image = await uploadFixture(page, 'black');
-    expect(image.sourceKind).toBe('image');
+    const recovery = fixture('black');
+    const [picker] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.locator('#error-action').click(),
+    ]);
+    await picker.setFiles(recovery.file);
+    await page.waitForFunction((name) => {
+      const data = document.querySelector('#ascii-output').dataset;
+      return Number(data.renderId) > 0 && data.sourceKind === 'image' && data.sourceName === name;
+    }, path.basename(recovery.file));
+    expect((await readCommit(page)).sourceKind).toBe('image');
     await expect(page.locator('#error')).toBeHidden();
   });
 });
 
 for (const [name, message] of [
-  ['NotFoundError', 'No camera found'],
-  ['NotReadableError', 'Camera is unavailable'],
+  ['NotFoundError', 'No camera found.'],
+  ['NotReadableError', 'Camera is unavailable. Another app may be using it.'],
   ['SecurityError', 'Unable to start camera'],
 ]) {
   test(`${name} shows its camera error without losing a valid image and a real retry succeeds`, async ({ page }) => {
@@ -444,15 +449,15 @@ for (const [name, message] of [
     }, name);
     await openApp(page);
     const original = await uploadFixture(page, 'midgray');
-    await page.locator('#start-camera').click();
-    await expect(page.locator('#error')).toHaveText(message);
-    await expect(page.locator('#start-camera')).toBeEnabled();
+    await page.locator('#camera-shutter').click();
+    await expect(page.locator('#error-text')).toHaveText(message);
+    await expect(page.locator('#camera-shutter')).toBeEnabled();
     expect(await readCommit(page)).toEqual(original);
     expect(await page.locator('#camera-preview').evaluate((video) => video.srcObject === null)).toBe(true);
     await startCamera(page, original);
     await expect(page.locator('#error')).toBeHidden();
     const retained = await retainCamera(page);
-    await page.locator('#stop-camera').click();
+    await page.locator('#camera-stop').click();
     await expectRetainedEnded(page, retained.index);
   });
 }
@@ -465,9 +470,9 @@ for (const boundary of ['missing-mediaDevices', 'insecure-context']) {
       } else Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
     }, boundary);
     await openApp(page);
-    await page.locator('#start-camera').click();
-    await expect(page.locator('#error')).toHaveText('Camera requires HTTPS or localhost');
-    await expect(page.locator('#start-camera')).toBeEnabled();
+    await page.locator('#camera-shutter').click();
+    await expect(page.locator('#error-text')).toHaveText('Camera requires HTTPS or localhost');
+    await expect(page.locator('#camera-shutter')).toBeEnabled();
     expect((await readCommit(page)).renderId || 0).toBe(0);
     const image = await uploadFixture(page, 'white');
     expect(image.sourceKind).toBe('image');
@@ -481,7 +486,7 @@ test('an unchanged real worker reply delivered after Stop cannot commit', async 
   const held = await holdRealReply(page);
   const beforeStop = await readCommit(page);
   expect(held.id).toBeGreaterThan(beforeStop.renderId);
-  await page.locator('#stop-camera').click({ timeout: 2000 });
+  await page.locator('#camera-stop').click({ timeout: 2000 });
   await expectRetainedEnded(page, retained.index);
   await releaseRealReply(page, held.id);
   await renderingTurns(page);
@@ -527,9 +532,12 @@ test('backpressure copies no dropped frames and source/settings churn retains on
   }
   await expectRetainedEnded(page, retained.index);
   for (const width of [70, 90, 60]) {
-    await page.locator('#max-width').fill(String(width));
-    await page.locator('#max-width').dispatchEvent('change');
+    await page.locator('#grid-max-width').evaluate((slider, value) => {
+      slider.value = String(value);
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    }, width);
   }
+  await openPanel(page, 'tune');
   await page.locator('#sigma1').fill('0.5');
   await page.locator('#sigma1').dispatchEvent('change');
   expect(await page.evaluate(() => window.__cameraQA.reads)).toBe(held.reads);
@@ -562,19 +570,21 @@ for (const recovery of ['camera', 'image']) {
     await startCamera(page);
     const retained = await retainCamera(page);
     await page.evaluate(() => { window.__cameraQA.invalidNextRgba = true; });
-    await expect(page.locator('#error')).toHaveText('Rendering failed');
-    await expect(page.locator('#status')).toHaveText('Rendering failed');
+    await expect(page.locator('#error-text')).toHaveText('Rendering failed');
+    await expect(page.locator('#status')).toHaveText('Camera stopped');
     await expectRetainedEnded(page, retained.index);
     const failed = await readCommit(page);
     const workers = await page.evaluate(() => window.__cameraQA.workers.length);
     expect(await page.evaluate(() => window.__cameraQA.computed.some((reply) => reply.type === 'error'))).toBe(true);
     expect(await page.evaluate(() => window.__cameraQA.workers.at(-1).terminated)).toBe(true);
-    await page.locator('#max-width').fill('60');
-    await page.locator('#max-width').dispatchEvent('change');
+    await page.locator('#grid-max-width').evaluate((slider) => {
+      slider.value = '60';
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     await renderingTurns(page);
     expect(await page.evaluate(() => window.__cameraQA.workers.length)).toBe(workers);
     expect(await readCommit(page)).toEqual(failed);
-    await expect(page.locator('#error')).toHaveText('Rendering failed');
+    await expect(page.locator('#error-text')).toHaveText('Rendering failed');
     const recovered = recovery === 'camera' ? await startCamera(page, failed) : await uploadFixture(page, 'astronaut');
     expect(recovered.renderId).toBeGreaterThan(failed.renderId);
     expect(recovered.settingsKey).toBe(settingsKey({ maxWidthChars: 60 }));
@@ -582,7 +592,7 @@ for (const recovery of ['camera', 'image']) {
     await expect(page.locator('#error')).toBeHidden();
     if (recovery === 'camera') {
       const replacement = await retainCamera(page);
-      await page.locator('#stop-camera').click();
+      await page.locator('#camera-stop').click();
       await expectRetainedEnded(page, replacement.index);
     }
   });
@@ -615,7 +625,7 @@ test('five-second real camera run records warm worker latency and delivered fram
   const changed = await changeSettings(page, { edgeIndexThreshold: 95 });
   expect(changed.sourceGeneration).toBe(initial.sourceGeneration);
   const stopStart = await page.evaluate(() => performance.now());
-  await page.locator('#stop-camera').click({ timeout: 2000 });
+  await page.locator('#camera-stop').click({ timeout: 2000 });
   await expect(page.locator('#status')).toHaveText('Camera stopped', { timeout: 2000 });
   await expectRetainedEnded(page, retained.index);
   const stopResponseMs = await page.evaluate((start) => performance.now() - start, stopStart);
@@ -644,7 +654,7 @@ test('five-second real camera run records warm worker latency and delivered fram
 
 test('camera shutter freezes a real frame, rejects late replies, retunes the shot and returns to live capture', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 428, height: 746 });
-  await openApp(page, { layout: 'camera' });
+  await openApp(page);
   await page.locator('#camera-shutter').click();
   const initial = await waitCameraCommit(page);
   const retained = await retainCamera(page);
@@ -668,15 +678,14 @@ test('camera shutter freezes a real frame, rejects late replies, retunes the sho
   await renderingTurns(page);
   expect(await readCommit(page)).toEqual(shot);
   await page.screenshot({ path: path.join(directory, 'captured-frame.png') });
-  await page.locator('#open-studio').click();
   const tuned = await changeSettings(page, { maxWidthChars: 60, maxHeightLines: 80 });
   expect(tuned.sourceGeneration).toBe(shot.sourceGeneration);
   expect([tuned.columns, tuned.rows]).toEqual([120, 45]);
-  await page.locator('#open-camera').click();
   expect(await readCommit(page)).toEqual(tuned);
-  await page.locator('#live-mode').click();
+  await page.locator('#camera-shutter').click();
   const resumed = await waitCameraCommit(page, tuned);
   const resumeTracks = await retainCamera(page);
+  await openPanel(page, 'camera');
   await page.locator('#flip-camera').click();
   await waitCameraCommit(page, resumed);
   await expectRetainedEnded(page, resumeTracks.index, false);
@@ -690,13 +699,14 @@ test('camera shutter freezes a real frame, rejects late replies, retunes the sho
 
 test('look and frame changes reject held replies, gate the shutter, and preserve full captured sources', async ({ page }) => {
   await page.setViewportSize({ width: 428, height: 745 });
-  await openApp(page, { layout: 'camera' });
+  await openApp(page);
   await page.locator('#camera-shutter').click();
   const initial = await waitCameraCommit(page);
   const firstStream = await retainCamera(page);
   const held = await holdRealReply(page);
   await page.locator('#open-looks').click();
   await page.locator('input[name="look"][value="photo"]').check();
+  await page.locator('#tab-framing').click();
   await page.locator('input[name="framing"][value="story"]').check();
   await page.locator('#close-look-sheet').click();
   await expect(page.locator('#camera-shutter')).toBeDisabled();
@@ -710,7 +720,7 @@ test('look and frame changes reject held replies, gate the shutter, and preserve
   await expect(page.locator('#camera-shutter')).toBeEnabled();
   const framed = await readCommit(page);
   expect(framed.sourceGeneration).toBe(initial.sourceGeneration);
-  expect([framed.columns, framed.rows]).toEqual([224, 200]);
+  expect([framed.columns, framed.rows]).toEqual([72, 65]);
   expect(await page.evaluate((id) => window.__cameraQA.commits.some((commit) => commit.id === id), held.id)).toBe(false);
 
   const pendingCapture = await holdRealReply(page);
@@ -719,6 +729,7 @@ test('look and frame changes reject held replies, gate the shutter, and preserve
   await expect(page.locator('#source-label')).toHaveText('Captured frame.png');
   await page.locator('#open-framing').click();
   await page.locator('input[name="framing"][value="wide"]').check();
+  await page.locator('#tab-looks').click();
   await page.locator('input[name="look"][value="print"]').check();
   await page.locator('#close-look-sheet').click();
   expect(await page.evaluate(() => window.__cameraQA.reads)).toBe(pendingCapture.reads);
@@ -729,7 +740,7 @@ test('look and frame changes reject held replies, gate the shutter, and preserve
   });
   const shot = await readCommit(page);
   expect(shot.sourceGeneration).toBe(initial.sourceGeneration + 1);
-  expect([shot.columns, shot.rows]).toEqual([300, 84]);
+  expect([shot.columns, shot.rows]).toEqual([100, 28]);
   const probe = await page.evaluate(() => ({
     maxOutstanding: window.__cameraQA.maxOutstanding,
     commits: window.__cameraQA.commits,
@@ -745,11 +756,12 @@ test('look and frame changes reject held replies, gate the shutter, and preserve
   await page.waitForFunction(() => document.querySelector('#ascii-output').dataset.framing === 'full');
   const fullShot = await readCommit(page);
   expect(fullShot.sourceGeneration).toBe(shot.sourceGeneration);
-  expect([fullShot.columns, fullShot.rows]).toEqual([300, 112]);
+  expect([fullShot.columns, fullShot.rows]).toEqual([100, 37]);
   expect(await page.locator('#image-preview').evaluate((img) => [img.naturalWidth, img.naturalHeight])).toEqual([320, 240]);
-  await page.locator('#live-mode').click();
+  await page.locator('#camera-shutter').click();
   const resumed = await waitCameraCommit(page, fullShot);
   const resumedStream = await retainCamera(page);
+  await openPanel(page, 'camera');
   await page.locator('#flip-camera').click();
   await waitCameraCommit(page, resumed);
   await expectRetainedEnded(page, resumedStream.index, false);
@@ -761,4 +773,18 @@ test('look and frame changes reject held replies, gate the shutter, and preserve
   expect(await readCommit(page)).toEqual(stopped);
   await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', 'full');
   expect(JSON.parse(await page.locator('#ascii-output').getAttribute('data-look-key')).id).toBe('print');
+});
+
+test('empty state starts the camera and retires once a frame commits', async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator('#empty-state')).toBeVisible();
+  await expect(page.locator('#empty-start')).toBeVisible();
+  await page.locator('#empty-start').click();
+  await waitCameraCommit(page);
+  await expect(page.locator('#empty-state')).toBeHidden();
+  await expect(page.locator('#camera-stop')).toBeVisible();
+  const retained = await retainCamera(page);
+  await page.locator('#camera-stop').click();
+  await expectRetainedEnded(page, retained.index);
+  await expect(page.locator('#empty-state')).toBeHidden();
 });

@@ -31,7 +31,7 @@ def settings(width=150, height=200, sigma1=1, sigma2=2, threshold=90):
                 sigma2=sigma2, edgeIndexThreshold=threshold)
 
 
-PROFILES = {"comparison": settings(60, 80), "default": settings()}
+PROFILES = {"comparison": settings(60, 80), "default": settings(50, 65)}
 
 
 def _regressions():

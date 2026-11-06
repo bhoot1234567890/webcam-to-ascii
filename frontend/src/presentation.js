@@ -1,5 +1,24 @@
 const FONT_FAMILY = 'Roboto Mono';
 
+/** Monospace cell metrics: one advance wide, two advances tall. */
+export function asciiFontMetrics(fontSizePx = 12) {
+  if (!Number.isFinite(fontSizePx) || fontSizePx <= 0) {
+    throw new RangeError('ASCII font size must be finite and positive');
+  }
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Unable to measure the ASCII font');
+  }
+  const font = `400 ${fontSizePx}px "${FONT_FAMILY}"`;
+  context.font = font;
+  const advance = context.measureText('M').width;
+  if (!Number.isFinite(advance) || advance <= 0) {
+    throw new Error('Unable to measure the ASCII character advance');
+  }
+  return { advance, lineHeight: advance * 2, font };
+}
+
 /** Load the local font and give every ASCII cell a 1:2 width-to-height ratio. */
 export async function configureAsciiText(element, fontSizePx = 12) {
   if (!(element instanceof HTMLElement)) {
@@ -44,18 +63,7 @@ export async function configureAsciiText(element, fontSizePx = 12) {
   ) {
     throw new Error('The required Roboto Mono font is missing or failed to load');
   }
-
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  if (!context) {
-    throw new Error('Unable to measure the ASCII font');
-  }
-  context.font = font;
-  const advance = context.measureText('M').width;
-  if (!Number.isFinite(advance) || advance <= 0) {
-    throw new Error('Unable to measure the ASCII character advance');
-  }
-
+  const { advance } = asciiFontMetrics(fontSizePx);
   Object.assign(element.style, {
     fontFamily: `"${FONT_FAMILY}"`,
     fontWeight: '400',
