@@ -1,8 +1,7 @@
 import './styles.css';
-import './camera-shell.css';
 import { computeGrid, normalizeSettings } from './renderer.js';
 import { createCameraController } from './camera.js';
-import { configureAsciiText } from './presentation.js';
+import { asciiFontMetrics, configureAsciiText } from './presentation.js';
 import { createLanczosResampler } from './resample.js';
 import { createOutputView } from './output-view.js';
 import { createCameraShell } from './camera-shell.js';
@@ -11,22 +10,29 @@ import { normalizeLook } from './looks.js';
 import { createLookControls } from './look-controls.js';
 import { createAsciiRecorder, getRecordingSupport } from './ascii-recorder.js';
 import { createRecordingView } from './recording-view.js';
+import { findDensity, findDensityBySettings } from './density.js';
+import { copyAscii, asciiToPng } from './export.js';
+import { loadSaved, save, loadPresets, savePresets } from './persist.js';
+import { normalizePreset, normalizePresetList, upsertPreset, removePreset } from './presets.js';
 
 const byId = (id) => document.getElementById(id);
 const output = byId('ascii-output');
 const video = byId('camera-preview');
 const imagePreview = byId('image-preview');
 const status = byId('status');
-const errorText = byId('error');
-const startButton = byId('start-camera');
-const stopButton = byId('stop-camera');
+const errorLine = byId('error');
+const errorText = byId('error-text');
 const deviceSelect = byId('camera-select');
 const facingSelect = byId('camera-facing');
 const imageInput = byId('image-input');
 const inputs = [...byId('settings-form').querySelectorAll('[data-field]')];
 const canvas = document.createElement('canvas');
 const context = canvas.getContext('2d', { willReadFrequently: true });
-let settings = normalizeSettings();
+const initialDensity = findDensity('balanced');
+let settings = normalizeSettings({
+  maxWidthChars: initialDensity.maxWidthChars,
+  maxHeightLines: initialDensity.maxHeightLines,
+});
 let settingsKey = JSON.stringify(settings);
 let look = normalizeLook();
 let lookKey = JSON.stringify(look);
@@ -34,6 +40,7 @@ let framing = 'full';
 let tint = 'default';
 let glow = false;
 let lookControls = null;
+let presets = [];
 let source = null;
 let sourceGeneration = 0;
 let decodeToken = 0;
@@ -46,7 +53,6 @@ let workerFailed = false;
 let inFlight = null;
 let pendingStill = false;
 let disposed = false;
-let deliveredFrames = 0;
 let sampler = null;
 let samplerKey = '';
 let outputView = null;
@@ -61,9 +67,17 @@ let reviewPending = false;
 let exportBusy = false;
 const recordingSupport = getRecordingSupport();
 
-function showError(message) {
+function showError(message, photoAction = false) {
   errorText.textContent = message;
-  errorText.hidden = !message;
+  errorLine.hidden = !message;
+  byId('error-action').hidden = !photoAction;
+}
+
+let statusNoticeUntil = 0;
+
+function setStatus(text, notice = false) {
+  if (notice) statusNoticeUntil = performance.now() + 2500;
+  if (status.textContent !== text) status.textContent = text;
 }
 
 function hasCurrentFrame() {
@@ -73,8 +87,24 @@ function hasCurrentFrame() {
     output.dataset.sourceHeight === String(source.height);
 }
 
+function syncSettingsInputs() {
+  for (const input of inputs) {
+    if (Object.hasOwn(settings, input.dataset.field)) {
+      input.value = settings[input.dataset.field];
+    }
+  }
+}
+
 function syncLookControls() {
-  lookControls?.sync({ look, framing, tint, glow });
+  const currentDensity = findDensityBySettings(settings);
+  lookControls?.sync({
+    look,
+    framing,
+    tint,
+    glow,
+    settings,
+    density: currentDensity ? currentDensity.id : null,
+  });
 }
 
 function sourceGrid(width, height, proposedSettings = settings, proposedFraming = framing) {
@@ -106,6 +136,9 @@ function recordingFrame() {
 
 function startRecording() {
   if (disposed || captureMode !== 'video' || cameraState !== 'live' || !hasCurrentFrame()) return;
+  stopPeek();
+  lookControls.close();
+  byId('camera-shutter').focus({ preventScroll: true });
   pendingRecording = false;
   showError('');
   recording.start(recordingFrame());
@@ -115,8 +148,11 @@ function startRecording() {
 function selectCaptureMode(mode) {
   if (videoBusy() || captureBusy || disposed || exportBusy) return;
   captureMode = mode;
-  if (mode === 'video' && !recordingSupport.supported) showError(recordingSupport.reason);
-  else showError('');
+  swallowNextActivation = false;
+  showError('');
+  if (mode === 'video' && !recordingSupport.supported) setStatus(recordingSupport.reason);
+  else if (mode === 'video' && recording?.clip) setStatus('Video ready — review, save or share');
+  else setStatus(mode === 'video' ? 'Video mode — press RECORD to begin.' : 'Photo mode — use the shutter or choose PHOTO.');
   updateControls();
 }
 
@@ -195,30 +231,46 @@ async function shareVideo() {
 }
 
 function updateControls() {
-  const locked = videoBusy();
-  startButton.disabled = cameraState !== 'idle' || disposed || captureBusy || locked;
-  stopButton.disabled = cameraState === 'idle';
-  deviceSelect.disabled = cameraState === 'requesting' || captureBusy || locked;
-  facingSelect.disabled = cameraState === 'requesting' || captureBusy || locked;
-  imageInput.disabled = disposed || captureBusy || locked;
-  const shadingOnly = look.id === 'photo' || look.id === 'print';
-  for (const input of inputs) {
-    input.disabled = locked || (shadingOnly && ['sigma1', 'sigma2', 'edgeIndexThreshold'].includes(input.dataset.field));
+  const locked = videoBusy() || captureBusy || disposed;
+  lookControls?.setDisabled(locked);
+  deviceSelect.disabled = cameraState === 'requesting' || locked;
+  facingSelect.disabled = cameraState === 'requesting' || locked;
+  imageInput.disabled = locked;
+  for (const id of ['open-framing', 'open-looks', 'open-grid', 'open-ink', 'toggle-guides', 'fit-output', 'detail-output']) {
+    byId(id).disabled = locked;
   }
-  byId('open-framing').disabled = locked;
-  byId('open-looks').disabled = locked;
   const captureReady = cameraState === 'live' && source?.kind === 'camera' && source.active && hasCurrentFrame();
   cameraShell?.update({
     cameraState, kind: source?.kind, captureReady, busy: captureBusy, disposed, mode: captureMode,
     recordingState, pendingRecording, recordingSupported: recordingSupport.supported,
     hasClip: Boolean(recording?.clip),
   });
+  const exportable = hasCurrentFrame();
+  byId('copy-output').disabled = !exportable || locked;
+  byId('save-output').disabled = !exportable || locked;
+  byId('compare-output').disabled = locked || !source || (source.kind === 'camera' && !source.active);
+  const waiting = cameraState === 'requesting';
+  byId('empty-start').hidden = waiting;
+  byId('empty-photo').hidden = waiting;
+  byId('empty-start').disabled = locked;
+  byId('empty-photo').disabled = locked;
+  byId('error-action').disabled = locked;
+  syncEmptyState();
+}
+
+function syncEmptyState() {
+  const empty = output.textContent === '';
+  byId('empty-state').hidden = !empty;
+  byId('empty-hint').hidden = !(empty && cameraState === 'requesting');
 }
 
 function cameraMessage(error) {
   if (error.message === 'Camera requires HTTPS or localhost') return error.message;
-  return ({ NotAllowedError: 'Camera access was denied', NotFoundError: 'No camera found',
-    NotReadableError: 'Camera is unavailable' })[error.name] || 'Unable to start camera';
+  return ({
+    NotAllowedError: 'Camera access was denied. Allow camera in your browser site settings, then press CAMERA.',
+    NotFoundError: 'No camera found.',
+    NotReadableError: 'Camera is unavailable. Another app may be using it.',
+  })[error.name] || 'Unable to start camera';
 }
 
 function releaseImage(previous) {
@@ -240,7 +292,7 @@ function workerFailure() {
   if (source?.kind === 'camera') source.active = false;
   stopCamera();
   showError('Rendering failed');
-  status.textContent = 'Rendering failed';
+  setStatus('Camera stopped');
 }
 
 function ensureWorker(explicitAction = false) {
@@ -279,6 +331,7 @@ function ensureWorker(explicitAction = false) {
           output.dataset.lookKey !== request.lookKey || output.dataset.framing !== request.framing ||
           output.dataset.sourceWidth !== String(request.sourceWidth) ||
           output.dataset.sourceHeight !== String(request.sourceHeight);
+        const wasEmpty = output.textContent === '';
         output.textContent = data.text;
         Object.assign(output.dataset, {
           renderId: String(request.id), sourceGeneration: String(request.generation),
@@ -286,16 +339,19 @@ function ensureWorker(explicitAction = false) {
           settingsKey: request.settingsKey, columns: String(data.width), rows: String(data.height),
           lookKey: request.lookKey, framing: request.framing,
           sourceWidth: String(request.sourceWidth), sourceHeight: String(request.sourceHeight),
+          processingMs: String(data.processingMs),
         });
+        if (wasEmpty && data.text) {
+          output.classList.remove('just-revealed');
+          void output.offsetWidth; // restart the one-shot if a prior run left the class
+          output.classList.add('just-revealed');
+        }
+        output.setAttribute('aria-label', `ASCII art, ${data.width} by ${data.height} characters`);
         if (gridChanged) outputView.update();
-        byId('grid-label').textContent = `${data.width} columns × ${data.height} rows`;
-        const performanceLabel = byId('performance-label');
-        if (source.kind === 'camera') deliveredFrames++;
-        performanceLabel.dataset.processingMs = String(data.processingMs);
-        performanceLabel.dataset.deliveredFrames = String(deliveredFrames);
-        performanceLabel.textContent = `${data.processingMs.toFixed(1)} ms / frame`;
-        if (recordingState !== 'recording' && recordingState !== 'stopping') {
-          status.textContent = source.kind === 'image' ? (source.captured ? 'Frame captured' : 'Image ready') : 'Camera live';
+        byId('grid-label').textContent = `${data.width} × ${data.height}`;
+        if (recordingState !== 'recording' && recordingState !== 'stopping' &&
+            (source.kind !== 'camera' || performance.now() > statusNoticeUntil)) {
+          setStatus(source.kind === 'image' ? (source.captured ? 'Frame captured' : 'Image ready') : 'Camera live');
         }
         if (recordingState === 'recording' && source.kind === 'camera') {
           recording.pushFrame({ text: data.text, columns: data.width, rows: data.height });
@@ -353,7 +409,7 @@ const camera = createCameraController(video, {
   onState(state) {
     cameraState = state;
     updateControls();
-    if (state === 'requesting') status.textContent = 'Requesting camera…';
+    if (state === 'requesting') setStatus('Requesting camera…');
   },
   onFrame() {
     // Camera dimensions can change when a phone rotates.
@@ -376,8 +432,8 @@ const camera = createCameraController(video, {
     if (recordingState === 'recording') recording.stop();
     if (source?.kind === 'camera') source.active = false;
     renderEpoch++;
-    showError(cameraMessage(error));
-    status.textContent = 'Camera stopped';
+    showError(cameraMessage(error), ['NotAllowedError', 'NotFoundError', 'NotReadableError'].includes(error.name));
+    setStatus('Camera stopped');
     updateControls();
   },
 });
@@ -420,7 +476,7 @@ async function startCamera(deviceId = deviceSelect.value) {
   imagePreview.removeAttribute('src');
   video.hidden = false;
   byId('source-label').textContent = 'Live camera';
-  status.textContent = 'Rendering camera…';
+  setStatus('Rendering camera…');
   void refreshDevices(actualDeviceId, source.generation);
   submitRender();
 }
@@ -431,7 +487,7 @@ function releaseCamera() {
   pendingStill = false;
   if (source?.kind === 'camera') source.active = false;
   camera.stop();
-  if (recordingState !== 'stopping') status.textContent = 'Camera stopped';
+  if (recordingState !== 'stopping') setStatus('Camera stopped');
 }
 
 function stopCamera() {
@@ -456,7 +512,7 @@ async function freezeFrame() {
     snapshotContext.drawImage(video, 0, 0);
     const encoded = new Promise((resolve) => snapshot.toBlob(resolve, 'image/png'));
     stopCamera();
-    status.textContent = 'Developing frame…';
+    setStatus('Developing frame…');
     const blob = await encoded;
     if (disposed || token !== decodeToken) return;
     if (!blob) throw new Error('Unable to capture frame');
@@ -469,6 +525,8 @@ async function freezeFrame() {
   }
 }
 
+let swallowNextActivation = false;
+
 function shutterAction() {
   if (recordingState === 'recording') {
     stopCamera();
@@ -476,6 +534,8 @@ function shutterAction() {
     return;
   } else if (cameraState === 'requesting' || pendingRecording) {
     stopCamera();
+    // Preserve Photo's protection against a double-tap replay after cancellation.
+    swallowNextActivation = captureMode === 'photo';
   } else if (captureMode === 'video') {
     if (recording.clip) {
       openVideoReview();
@@ -492,8 +552,13 @@ function shutterAction() {
       // A live source only needs its next matching commit, not another camera acquisition.
       if (cameraState !== 'live') void startCamera();
     }
-  } else if (cameraState === 'live') void freezeFrame();
-  else void startCamera();
+  } else if (cameraState === 'live') {
+    void freezeFrame();
+  } else if (swallowNextActivation) {
+    swallowNextActivation = false;
+  } else {
+    void startCamera();
+  }
 }
 
 function flipCamera() {
@@ -501,6 +566,43 @@ function flipCamera() {
   facingSelect.value = facingSelect.value === 'environment' ? 'user' : 'environment';
   deviceSelect.value = '';
   if (cameraState === 'live') void startCamera('');
+}
+
+let peeking = false;
+let peekRaf = 0;
+
+function peekDraw() {
+  if (!peeking || !source) return;
+  try {
+    const media = source.kind === 'image' ? source.bitmap : video;
+    const crop = computeCropRect(source.width, source.height, framing);
+    const peek = byId('source-peek');
+    if (peek.width !== crop.width || peek.height !== crop.height) {
+      peek.width = crop.width;
+      peek.height = crop.height;
+    }
+    peek.getContext('2d').drawImage(media, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
+  } catch {
+    stopPeek();
+    return;
+  }
+  peekRaf = requestAnimationFrame(peekDraw);
+}
+
+function startPeek() {
+  if (!source || peeking) return;
+  peeking = true;
+  byId('source-peek').hidden = false;
+  byId('compare-output').setAttribute('aria-pressed', 'true');
+  peekDraw();
+}
+
+function stopPeek() {
+  if (!peeking) return;
+  peeking = false;
+  cancelAnimationFrame(peekRaf);
+  byId('source-peek').hidden = true;
+  byId('compare-output').setAttribute('aria-pressed', 'false');
 }
 
 async function acceptImage(file, captured = false) {
@@ -537,28 +639,27 @@ async function acceptImage(file, captured = false) {
   video.hidden = true;
   byId('source-label').textContent = file.name;
   showError('');
-  status.textContent = 'Rendering image…';
+  setStatus('Rendering image…');
   if (ensureWorker(true)) renderStill();
   updateControls();
 }
 
 function changeSettings() {
   if (videoBusy()) {
-    for (const input of inputs) input.value = settings[input.dataset.field];
+    syncSettingsInputs();
     showError('Stop recording before changing the detail');
     return;
   }
-  const proposed = {};
+  const proposed = { ...settings };
   for (const input of inputs) {
     const value = input.valueAsNumber;
     const valid = Number.isFinite(value) && value >= Number(input.min) && value <= Number(input.max) &&
       Number.isInteger((value - Number(input.min)) / Number(input.step));
-    input.setCustomValidity(valid ? '' : 'Choose a value within the indicated range and step');
+    const fieldError = byId(`${input.id}-error`);
     input.setAttribute('aria-invalid', String(!valid));
-    if (!valid) {
-      showError('Invalid settings: choose a value within the indicated range and step');
-      return;
-    }
+    fieldError.textContent = valid ? '' : "Choose a value between the indicated min and max, using the field's step.";
+    fieldError.hidden = valid;
+    if (!valid) return;
     proposed[input.dataset.field] = value;
   }
   try {
@@ -572,9 +673,67 @@ function changeSettings() {
     renderEpoch++;
     updateControls();
     if (source?.kind === 'image') renderStill();
+    else if (source?.kind === 'camera' && source.active) submitRender();
+    syncLookControls();
+    persist();
   } catch (error) {
     showError(error.message);
   }
+}
+
+function persist() {
+  if (disposed) return;
+  save({
+    look,
+    framing,
+    tint,
+    glow,
+    density: { maxWidthChars: settings.maxWidthChars, maxHeightLines: settings.maxHeightLines },
+    tuning: {
+      sigma1: settings.sigma1,
+      sigma2: settings.sigma2,
+      edgeIndexThreshold: settings.edgeIndexThreshold,
+    },
+    facing: facingSelect.value,
+    view: document.querySelector('.ascii-viewport').dataset.view,
+    guides: byId('toggle-guides').getAttribute('aria-pressed') === 'true',
+  });
+}
+
+function changeDensity(proposed) {
+  if (videoBusy()) { syncLookControls(); return; }
+  let nextWidth, nextHeight;
+  if (typeof proposed === 'string') {
+    const preset = findDensity(proposed);
+    if (!preset) return;
+    nextWidth = preset.maxWidthChars;
+    nextHeight = preset.maxHeightLines;
+  } else if (proposed && typeof proposed === 'object') {
+    nextWidth = proposed.maxWidthChars;
+    nextHeight = proposed.maxHeightLines;
+  } else {
+    return;
+  }
+  const proposedSettings = { ...settings, maxWidthChars: nextWidth, maxHeightLines: nextHeight };
+  try {
+    const next = normalizeSettings(proposedSettings);
+    if (source) sourceGrid(source.width, source.height, next);
+    const nextKey = JSON.stringify(next);
+    showError(workerFailed ? 'Rendering failed' : '');
+    if (nextKey !== settingsKey) {
+      settings = next;
+      settingsKey = nextKey;
+      syncSettingsInputs();
+      renderEpoch++;
+      updateControls();
+      if (source?.kind === 'image') renderStill();
+      else if (source?.kind === 'camera' && source.active) submitRender();
+    }
+    persist();
+  } catch (error) {
+    showError(error.message);
+  }
+  syncLookControls();
 }
 
 function changeLook(proposed) {
@@ -589,7 +748,9 @@ function changeLook(proposed) {
       renderEpoch++;
       updateControls();
       if (source?.kind === 'image') renderStill();
+      else if (source?.kind === 'camera' && source.active) submitRender();
     }
+    persist();
   } catch (error) {
     showError(error.message);
   }
@@ -607,11 +768,22 @@ function changeFraming(proposed) {
       renderEpoch++;
       updateControls();
       if (source?.kind === 'image') renderStill();
+      else if (source?.kind === 'camera' && source.active) submitRender();
     }
+    persist();
   } catch (error) {
     showError(error.message);
   }
   syncLookControls();
+}
+
+function applyPresentation({ tint: nextTint, glow: nextGlow }) {
+  tint = nextTint;
+  glow = nextGlow;
+  if (tint === 'default') document.body.style.removeProperty('--ascii-tint');
+  else document.body.style.setProperty('--ascii-tint', tint);
+  document.body.dataset.glow = glow ? 'on' : 'off';
+  outputView.update();
 }
 
 function changePresentation(proposed) {
@@ -622,13 +794,53 @@ function changePresentation(proposed) {
     syncLookControls();
     return;
   }
-  tint = proposed.tint;
-  glow = proposed.glow;
-  if (tint === 'default') document.body.style.removeProperty('--ascii-tint');
-  else document.body.style.setProperty('--ascii-tint', tint);
-  document.body.dataset.glow = glow ? 'on' : 'off';
-  outputView.update();
+  applyPresentation({ tint: proposed.tint, glow: proposed.glow });
   syncLookControls();
+  persist();
+}
+
+function savePreset(name) {
+  if (videoBusy() || captureBusy || disposed) {
+    return { ok: false, message: 'Finish capture before changing presets' };
+  }
+  try {
+    const preset = normalizePreset({ name, settings, look, framing, tint, glow });
+    presets = upsertPreset(presets, preset);
+    savePresets(presets);
+    lookControls?.syncPresets(presets);
+    setStatus(`Saved ${preset.name}.`, true);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error.message };
+  }
+}
+
+function deletePreset(name) {
+  if (videoBusy() || captureBusy || disposed) return;
+  presets = removePreset(presets, name);
+  savePresets(presets);
+  lookControls?.syncPresets(presets);
+  setStatus('Preset deleted.', true);
+}
+
+function applyPreset(name) {
+  if (videoBusy() || captureBusy || disposed) return;
+  const preset = presets.find((entry) => entry.name === name);
+  if (!preset || disposed) return;
+  settings = preset.settings;
+  settingsKey = JSON.stringify(settings);
+  look = preset.look;
+  lookKey = JSON.stringify(look);
+  framing = preset.framing;
+  renderEpoch++;
+  applyPresentation({ tint: preset.tint, glow: preset.glow });
+  syncSettingsInputs();
+  syncLookControls();
+  updateControls();
+  if (source?.kind === 'image') renderStill();
+  else if (source?.kind === 'camera' && source.active) submitRender();
+  persist();
+  setStatus(`Applied ${preset.name}.`, true);
 }
 
 function dispose() {
@@ -637,6 +849,7 @@ function dispose() {
   startToken++;
   decodeToken++;
   renderEpoch++;
+  stopPeek();
   camera.dispose();
   recording?.dispose();
   recordingView?.dispose();
@@ -651,9 +864,26 @@ function dispose() {
 }
 
 try {
+  const saved = loadSaved();
+  if (saved) {
+    try {
+      look = normalizeLook(saved.look);
+      lookKey = JSON.stringify(look);
+    } catch { /* keep the default recipe */ }
+    if (FRAMINGS.some((frame) => frame.id === saved.framing)) framing = saved.framing;
+    if (saved.tint === 'default' || /^#[0-9a-f]{6}$/i.test(saved.tint)) tint = saved.tint;
+    if (typeof saved.glow === 'boolean') glow = saved.glow;
+    try {
+      settings = normalizeSettings({ ...settings, ...saved.density, ...saved.tuning });
+      settingsKey = JSON.stringify(settings);
+    } catch { /* keep the default density */ }
+    if (['', 'user', 'environment'].includes(saved.facing)) facingSelect.value = saved.facing;
+  }
+  presets = normalizePresetList(loadPresets());
   await configureAsciiText(output);
   outputView = createOutputView(document.querySelector('.ascii-viewport'), output, byId('fit-output'), byId('detail-output'));
-  byId('fit-output').click();
+  if (saved?.view === 'detail') byId('detail-output').click();
+  else if (saved?.view === 'fit') byId('fit-output').click();
   cameraShell = createCameraShell();
   recordingView = createRecordingView({ onRetake: retakeVideo, onSave: saveVideo, onShare: shareVideo });
   recording = createAsciiRecorder({
@@ -668,38 +898,113 @@ try {
       updateControls();
     },
   });
+  if (saved?.guides === true) {
+    byId('toggle-guides').setAttribute('aria-pressed', 'true');
+    document.body.dataset.guides = 'on';
+  }
   lookControls = createLookControls({
-    onLookChange: changeLook, onFramingChange: changeFraming, onPresentationChange: changePresentation,
+    onLookChange: changeLook,
+    onFramingChange: changeFraming,
+    onPresentationChange: changePresentation,
+    onDensityChange: changeDensity,
+    onSavePreset: savePreset,
+    onApplyPreset: applyPreset,
+    onDeletePreset: deletePreset,
   });
+  changePresentation({ tint, glow });
+  syncSettingsInputs();
   syncLookControls();
+  lookControls.syncPresets(presets);
   byId('camera-shutter').addEventListener('click', shutterAction);
   byId('camera-stop').addEventListener('click', stopCamera);
   byId('camera-import').addEventListener('click', () => imageInput.click());
-  byId('flip-camera').addEventListener('click', flipCamera);
   byId('photo-mode').addEventListener('click', () => selectCaptureMode('photo'));
   byId('video-mode').addEventListener('click', () => selectCaptureMode('video'));
   byId('review-video').addEventListener('click', openVideoReview);
   byId('studio-video').addEventListener('click', () => {
     selectCaptureMode('video');
-    cameraShell.setLayout('camera');
+    lookControls.close();
+    const shutter = byId('camera-shutter');
+    (shutter.disabled ? byId('photo-mode') : shutter).focus({ preventScroll: true });
   });
-  byId('settings-panel').open = !matchMedia('(max-width: 1000px)').matches;
-  startButton.addEventListener('click', () => { void startCamera(); });
-  stopButton.addEventListener('click', stopCamera);
+  byId('error-action').addEventListener('click', () => imageInput.click());
+  byId('empty-start').addEventListener('click', () => {
+    if (!disposed && !captureBusy) void startCamera();
+  });
+  byId('empty-photo').addEventListener('click', () => imageInput.click());
+  byId('copy-output').addEventListener('click', async () => {
+    if (videoBusy() || captureBusy || disposed || !hasCurrentFrame()) return;
+    try {
+      await copyAscii(output.textContent);
+      setStatus('Copied. Paste it anywhere.', true);
+    } catch {
+      showError('Copy failed. Your browser blocked clipboard access.');
+    }
+  });
+  byId('save-output').addEventListener('click', () => {
+    if (videoBusy() || captureBusy || disposed || !hasCurrentFrame()) return;
+    let metrics;
+    try {
+      metrics = asciiFontMetrics(12);
+    } catch {
+      showError('Unable to save the frame');
+      return;
+    }
+    asciiToPng({
+      text: output.textContent,
+      columns: Number(output.dataset.columns),
+      rows: Number(output.dataset.rows),
+      advance: metrics.advance,
+      lineHeight: metrics.lineHeight,
+      font: metrics.font,
+      color: getComputedStyle(output).color,
+    }).then((blob) => {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `clack-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}.png`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+      setStatus('Saved.', true);
+    }).catch(() => showError('Unable to save the frame'));
+  });
+  const compare = byId('compare-output');
+  compare.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    startPeek();
+  });
+  compare.addEventListener('keydown', (event) => {
+    if (event.key !== ' ' && event.key !== 'Enter') return;
+    event.preventDefault();
+    startPeek();
+  });
+  compare.addEventListener('keyup', (event) => {
+    if (event.key !== ' ' && event.key !== 'Enter') return;
+    stopPeek();
+  });
+  window.addEventListener('pointerup', stopPeek);
+  window.addEventListener('pointercancel', stopPeek);
+  byId('flip-camera').addEventListener('click', flipCamera);
   deviceSelect.addEventListener('change', () => {
     if (cameraState === 'live') void startCamera(deviceSelect.value);
   });
   facingSelect.addEventListener('change', () => {
     deviceSelect.value = '';
+    persist();
     if (cameraState === 'live') void startCamera('');
   });
+  byId('fit-output').addEventListener('click', persist);
+  byId('detail-output').addEventListener('click', persist);
+  byId('toggle-guides').addEventListener('click', persist);
   imageInput.addEventListener('change', () => { void acceptImage(imageInput.files[0]); });
   byId('settings-form').addEventListener('submit', (event) => event.preventDefault());
-  inputs.forEach((input) => input.addEventListener('change', changeSettings));
+  inputs.forEach((input) => {
+    input.addEventListener('input', changeSettings);
+    input.addEventListener('change', changeSettings);
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && cameraState !== 'idle') {
       stopCamera();
-      status.textContent = 'Camera paused — tap Start camera to resume';
+      setStatus('Camera paused. Press CAMERA to resume.');
     } else if (document.visibilityState === 'visible' && reviewPending) {
       reviewPending = false;
       openVideoReview();
@@ -710,11 +1015,13 @@ try {
       if (cameraState !== 'idle') stopCamera();
     } else dispose();
   });
-  status.textContent = 'Ready — choose a local source';
+  setStatus('Ready. Press CAMERA or PHOTO.');
   updateControls();
 } catch {
   showError('Unable to load the ASCII font');
-  startButton.disabled = true;
+  byId('camera-shutter').disabled = true;
+  byId('empty-start').disabled = true;
+  byId('empty-photo').disabled = true;
   imageInput.disabled = true;
-  status.textContent = 'Font unavailable';
+  setStatus('Font unavailable');
 }

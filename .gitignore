@@ -2,6 +2,8 @@
 .venv-qa/
 __pycache__/
 *.py[cod]
+*.pyc
 frontend/node_modules/
 frontend/dist/
 qa/artifacts/
+gradient_angle_degrees_rounded.txt

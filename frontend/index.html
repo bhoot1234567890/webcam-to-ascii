@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#050506" />
+    <meta name="theme-color" content="#09090b" />
     <meta name="application-name" content="clack" />
     <meta name="apple-mobile-web-app-title" content="clack" />
     <meta name="description" content="clack turns your camera and photos into ASCII art. Live on your screen, private on your device." />
@@ -15,147 +15,161 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <title>clack — A camera with character.</title>
   </head>
-  <body data-layout="camera" data-guides="off" data-glow="off">
-    <div class="app-shell">
-      <header class="camera-toolbar camera-only" aria-label="Camera controls">
-        <button id="toggle-guides" class="camera-icon" type="button" aria-label="Composition grid" aria-pressed="false" title="Composition grid"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M9 3v18M15 3v18M3 9h18M3 15h18" /></svg></button>
-        <div class="camera-brand"><span class="brand-name">clack<span class="brand-cursor" aria-hidden="true">_</span></span><span class="camera-brand-caption">ASCII CAMERA</span></div>
-        <div class="camera-toolbar-actions">
-          <button id="camera-stop" class="camera-icon" type="button" aria-label="Stop camera" title="Stop camera" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2" /></svg></button>
-          <button id="open-studio" class="camera-icon" type="button" aria-label="Open Studio controls" title="Studio controls"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="3" /><circle cx="15" cy="17" r="3" /></svg></button>
+  <body data-guides="off" data-glow="off" data-capture-mode="photo" data-recording-state="idle">
+    <div class="app">
+      <header class="topbar" aria-label="clack controls">
+        <h1 class="wordmark">clack<span class="wordmark-cursor" aria-hidden="true">_</span></h1>
+        <span class="topbar-caption">ASCII CAMERA · LOCAL ONLY</span>
+        <div class="topbar-actions">
+          <button id="toggle-guides" type="button" aria-pressed="false" title="Composition grid">GUIDES</button>
+          <button id="camera-stop" type="button" disabled hidden title="Stop camera">STOP</button>
         </div>
       </header>
-      <header class="site-header">
-        <a class="wordmark" href="./" aria-label="clack home"><img class="wordmark-icon" src="/clack-icon.svg" width="35" height="35" alt="" /><span class="brand-name">clack<span class="brand-cursor" aria-hidden="true">_</span></span><span class="wordmark-secondary">STUDIO</span></a>
-        <span class="privacy-badge"><span aria-hidden="true" class="privacy-dot"></span> On-device processing</span>
-        <button id="open-camera" class="button button-secondary" type="button">Camera view</button>
-      </header>
 
-      <main>
-        <section class="intro" aria-labelledby="page-title">
-          <div>
-            <p class="eyebrow">Your world, made of characters</p>
-            <h1 id="page-title" tabindex="-1">A camera with character.</h1>
-            <p class="intro-copy">Turn your camera or a photo into ASCII art. Live on your screen. Private on your device.</p>
+      <p id="status" class="statusline" role="status" aria-live="polite">Loading the renderer…</p>
+      <div id="error" class="errorline" role="alert" hidden><span id="error-text"></span><button id="error-action" type="button" hidden>USE A PHOTO</button></div>
+
+      <main class="stage">
+        <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output. FIT scales the image to the pane; 1:1 scrolls the full grid.">
+          <div class="ascii-stage"><pre id="ascii-output" role="img" aria-label="Rendered ASCII art"></pre><div class="composition-grid" aria-hidden="true"></div></div>
+          <div id="empty-state" class="empty-state" hidden>
+            <p class="empty-title">NO SIGNAL</p>
+            <button id="empty-start" type="button">START CAMERA</button>
+            <button id="empty-photo" type="button">USE A PHOTO</button>
+            <p id="empty-hint" class="empty-hint" hidden>WAITING FOR CAMERA PERMISSION. Allow access in the browser prompt.</p>
           </div>
-          <p class="privacy-note">Your camera and images stay in this browser.<br />Video records only when you tap Record. Nothing is uploaded.</p>
-        </section>
-
-        <div class="workspace">
-          <section class="card source-card" aria-labelledby="source-heading">
-            <div class="card-heading"><h2 id="source-heading">Choose a source</h2></div>
-            <div class="camera-actions">
-              <button id="start-camera" class="button button-primary" type="button">Start camera</button>
-              <button id="stop-camera" class="button button-secondary" type="button" disabled>Stop</button>
-              <label class="button button-secondary image-action" for="image-input">Choose photo<input id="image-input" type="file" accept="image/*" aria-describedby="image-help" /></label>
-              <button id="studio-video" class="button button-secondary studio-video-action" type="button">Record ASCII video</button>
-            </div>
-            <p class="field-help" id="image-help">Camera access starts only when you tap Start. Photos stay local.</p>
-            <details class="camera-options" id="camera-options">
-              <summary>Camera options</summary>
-              <div class="camera-fields">
-                <div><label for="camera-facing">Camera view</label><select id="camera-facing"><option value="">Automatic</option><option value="user">Front / selfie</option><option value="environment" selected>Back / scene</option></select></div>
-                <div><label for="camera-select">Camera device</label><select id="camera-select"><option value="">Automatic camera</option></select></div>
-              </div>
-              <p class="field-help">Front / Back is a preference. Select a specific device to override it.</p>
-            </details>
-          </section>
-
-          <section class="card output-card" id="output-card" aria-labelledby="output-heading">
-            <div class="output-header">
-              <div class="card-heading"><h2 id="output-heading">The ASCII view</h2></div>
-              <button id="open-framing" class="output-shortcut" type="button" aria-haspopup="dialog" aria-controls="look-sheet">Frame <span id="framing-label">Full</span></button>
-              <div class="view-controls" role="group" aria-label="ASCII display size">
-                <button id="fit-output" type="button" aria-pressed="false" aria-controls="ascii-output">Fit</button>
-                <button id="detail-output" type="button" aria-pressed="false" aria-label="1:1 detail" aria-controls="ascii-output"><span class="studio-only">1:1 detail</span><span class="camera-only">1×</span></button>
-              </div>
-              <button id="open-looks" class="output-shortcut" type="button" aria-haspopup="dialog" aria-controls="look-sheet">Looks <span id="look-label">Original</span></button>
-            </div>
-            <div class="output-status"><span class="status-indicator" aria-hidden="true"></span><p id="status" role="status" aria-live="polite">Choose a source to get started</p><span id="recording-indicator" role="status" aria-live="polite" hidden><span class="recording-dot" aria-hidden="true"></span><span id="recording-label">Recording</span> <time id="recording-timer" aria-label="Recording elapsed time">00:00</time></span></div>
-            <p id="error" class="error-message" role="alert" hidden></p>
-            <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output; Fit shows the whole image, detail scrolls the complete grid"><div class="ascii-stage"><pre id="ascii-output" aria-label="Rendered ASCII art"></pre><div class="composition-grid camera-only" aria-hidden="true"></div></div></div>
-            <div class="output-footer"><span id="grid-label">No grid yet</span><span id="performance-label">Waiting for a source</span></div>
-          </section>
-
-          <details class="card settings-card" id="settings-panel">
-            <summary><h2 id="settings-heading">Tune the detail</h2><span class="small-tag">Resolution & edges</span></summary>
-            <form id="settings-form" novalidate aria-labelledby="settings-heading">
-              <div class="settings-grid">
-                <div class="setting-field"><label for="max-width">Max width <span class="field-unit">chars</span></label><input id="max-width" data-field="maxWidthChars" type="number" inputmode="numeric" min="20" max="150" step="1" value="150" required /></div>
-                <div class="setting-field"><label for="max-height">Max height <span class="field-unit">lines</span></label><input id="max-height" data-field="maxHeightLines" type="number" inputmode="numeric" min="20" max="200" step="1" value="200" required /></div>
-                <div class="setting-field"><label for="sigma1">Sigma 1</label><input id="sigma1" data-field="sigma1" type="number" inputmode="decimal" min="0.5" max="3" step="0.5" value="1" required /></div>
-                <div class="setting-field"><label for="sigma2">Sigma 2</label><input id="sigma2" data-field="sigma2" type="number" inputmode="decimal" min="0.5" max="5" step="0.5" value="2" required /></div>
-                <div class="setting-field setting-wide"><label for="edge-threshold">Edge threshold <span class="field-unit">0–95</span></label><input id="edge-threshold" data-field="edgeIndexThreshold" type="number" inputmode="numeric" min="0" max="95" step="1" value="90" required /></div>
-              </div>
-              <p class="field-help settings-help">Resolution controls the grid. Sigma and threshold shape the edge detail. Changes apply automatically.</p>
-              <p class="field-help" id="edge-controls-help" hidden>This look uses shading only. Sigma and threshold are retained for Original and Outline.</p>
-            </form>
-          </details>
-
-          <section class="card preview-card" id="preview-card" aria-labelledby="preview-heading">
-            <div class="card-heading"><h2 id="preview-heading">Source preview</h2><span class="small-tag">Original · unmodified</span></div>
-            <div class="preview-media">
-              <video id="camera-preview" muted playsinline hidden aria-label="Live camera source preview"></video>
-              <img id="image-preview" alt="Selected local image source preview" hidden />
-              <div class="preview-placeholder"><span class="preview-mark" aria-hidden="true">[ &nbsp; ]</span><p>Your source appears here</p></div>
-            </div>
-            <p class="source-caption" id="source-label">No source selected</p>
-          </section>
+          <canvas id="source-peek" class="source-peek" hidden aria-hidden="true"></canvas>
         </div>
       </main>
-      <section class="camera-dock camera-only" aria-label="Camera shooting controls">
-        <div class="camera-modes" role="group" aria-label="Capture mode">
-          <button id="photo-mode" type="button" aria-pressed="true" disabled>Photo</button>
-          <button id="video-mode" type="button" aria-pressed="false" disabled>Video</button>
-          <button id="review-video" type="button" aria-label="Review recorded video" hidden>Review</button>
+
+      <form id="settings-form" novalidate>
+        <section id="look-sheet" class="drawer" role="dialog" aria-modal="true" aria-labelledby="look-sheet-title" hidden>
+          <div class="drawer-head">
+            <h2 id="look-sheet-title" class="visually-hidden">Settings</h2>
+            <nav class="tabs" role="tablist" aria-label="Settings categories">
+              <span class="tab-underline" aria-hidden="true"></span>
+              <button role="tab" id="tab-camera" aria-selected="false" aria-controls="panel-camera" class="tab" tabindex="-1" type="button">Camera</button>
+              <button role="tab" id="tab-looks" aria-selected="true" aria-controls="panel-looks" class="tab active" tabindex="0" type="button">Look</button>
+              <button role="tab" id="tab-grid" aria-selected="false" aria-controls="panel-grid" class="tab" tabindex="-1" type="button">Detail</button>
+              <button role="tab" id="tab-framing" aria-selected="false" aria-controls="panel-framing" class="tab" tabindex="-1" type="button">Frame</button>
+              <button role="tab" id="tab-tune" aria-selected="false" aria-controls="panel-tune" class="tab" tabindex="-1" type="button">Edges</button>
+              <button role="tab" id="tab-style" aria-selected="false" aria-controls="panel-style" class="tab" tabindex="-1" type="button">Ink</button>
+              <button role="tab" id="tab-presets" aria-selected="false" aria-controls="panel-presets" class="tab" tabindex="-1" type="button">Presets</button>
+            </nav>
+            <button id="close-look-sheet" type="button">CLOSE</button>
+          </div>
+          <div class="drawer-body">
+            <section role="tabpanel" id="panel-camera" aria-labelledby="tab-camera" class="panel" hidden>
+              <div class="camera-fields">
+                <div><label for="camera-facing">FACING</label><select id="camera-facing"><option value="">Automatic</option><option value="user" selected>Front / selfie</option><option value="environment">Back / scene</option></select></div>
+                <div><label for="camera-select">DEVICE</label><select id="camera-select"><option value="">Automatic camera</option></select></div>
+              </div>
+              <figure class="monitor">
+                <video id="camera-preview" muted playsinline hidden aria-label="Live camera source monitor"></video>
+                <img id="image-preview" alt="Selected local image, unmodified" hidden />
+                <figcaption id="source-label">No source</figcaption>
+              </figure>
+              <div class="flip-row"><button id="flip-camera" type="button" aria-label="Switch front and back camera" title="Switch camera" disabled>FLIP CAMERA</button><button id="studio-video" type="button" disabled>RECORD ASCII VIDEO</button></div>
+            </section>
+            <section role="tabpanel" id="panel-looks" aria-labelledby="tab-looks" class="panel">
+              <fieldset id="look-choices" class="choices"><legend>LOOK <span id="look-adjusted" class="adjusted-tag" hidden>ADJUSTED</span></legend></fieldset>
+              <div class="adjust-fields">
+                <label class="check" for="look-auto-contrast"><input id="look-auto-contrast" type="checkbox" />AUTO CONTRAST</label>
+                <div class="slider-field"><label for="look-midtone">MIDTONE <output id="midtone-value" for="look-midtone">1.00 · Neutral</output></label><input id="look-midtone" type="range" min="0.5" max="2" step="0.05" value="1" /></div>
+                <div class="slider-field"><label for="look-sharpness">SHARPNESS <output id="sharpness-value" for="look-sharpness">0.00</output></label><input id="look-sharpness" type="range" min="0" max="1.5" step="0.05" value="0" /></div>
+                <label class="check" for="look-invert"><input id="look-invert" type="checkbox" />INVERT TONES</label>
+              </div>
+            </section>
+            <section role="tabpanel" id="panel-grid" aria-labelledby="tab-grid" class="panel" hidden>
+              <fieldset id="density-choices" class="choices"><legend>DENSITY</legend></fieldset>
+              <div class="slider-fields">
+                <div class="slider-field">
+                  <label for="grid-max-width">WIDTH <output id="grid-max-width-value" for="grid-max-width">50 chars</output></label>
+                  <input id="grid-max-width" type="range" min="20" max="150" step="1" value="50" />
+                </div>
+                <div class="slider-field">
+                  <label for="grid-max-height">HEIGHT <output id="grid-max-height-value" for="grid-max-height">65 lines</output></label>
+                  <input id="grid-max-height" type="range" min="20" max="200" step="1" value="65" />
+                </div>
+              </div>
+            </section>
+            <section role="tabpanel" id="panel-framing" aria-labelledby="tab-framing" class="panel" hidden>
+              <fieldset id="framing-choices" class="choices"><legend>FRAME</legend></fieldset>
+            </section>
+            <section role="tabpanel" id="panel-tune" aria-labelledby="tab-tune" class="panel" hidden>
+              <p class="tune-help" id="edge-controls-help" hidden>Photo and Print are shading-only. Sigma and threshold apply to Original and Outline.</p>
+              <div class="number-fields">
+                <div class="number-field"><label for="sigma1">SIGMA 1</label><input id="sigma1" data-field="sigma1" type="number" inputmode="decimal" min="0.5" max="3" step="0.5" value="1" required aria-describedby="sigma1-help" /><p class="field-help" id="sigma1-help">Fine detail blur. 0.5 to 3 in steps of 0.5.</p><p class="field-error" id="sigma1-error" hidden></p></div>
+                <div class="number-field"><label for="sigma2">SIGMA 2</label><input id="sigma2" data-field="sigma2" type="number" inputmode="decimal" min="0.5" max="5" step="0.5" value="2" required aria-describedby="sigma2-help" /><p class="field-help" id="sigma2-help">Large shape blur. 0.5 to 5 in steps of 0.5.</p><p class="field-error" id="sigma2-error" hidden></p></div>
+                <div class="number-field"><label for="edge-threshold">EDGE THRESHOLD</label><input id="edge-threshold" data-field="edgeIndexThreshold" type="number" inputmode="numeric" min="0" max="95" step="1" value="90" required aria-describedby="edge-threshold-help" /><p class="field-help" id="edge-threshold-help">Minimum edge strength to draw. 0 to 95.</p><p class="field-error" id="edge-threshold-error" hidden></p></div>
+              </div>
+            </section>
+            <section role="tabpanel" id="panel-style" aria-labelledby="tab-style" class="panel" hidden>
+              <fieldset id="tint-choices" class="choices"><legend>INK</legend>
+                <label class="choice"><input type="radio" name="text-tint" value="default" checked /><span class="swatch" aria-hidden="true" style="background:#e2e9e7"></span><span>PAPER</span></label>
+                <label class="choice"><input type="radio" name="text-tint" value="#ffffff" /><span class="swatch" aria-hidden="true" style="background:#ffffff"></span><span>WHITE</span></label>
+                <label class="choice"><input type="radio" name="text-tint" value="#ffd663" /><span class="swatch" aria-hidden="true" style="background:#ffd663"></span><span>AMBER</span></label>
+                <label class="choice"><input type="radio" name="text-tint" value="#9be5a2" /><span class="swatch" aria-hidden="true" style="background:#9be5a2"></span><span>GREEN</span></label>
+              </fieldset>
+              <div class="ink-row"><label for="text-color">CUSTOM</label><input id="text-color" type="color" value="#ffffff" /></div>
+              <label class="check" for="soft-glow"><input id="soft-glow" type="checkbox" />SOFT GLOW</label>
+            </section>
+            <section role="tabpanel" id="panel-presets" aria-labelledby="tab-presets" class="panel" hidden>
+              <div class="preset-save">
+                <label for="preset-name">NAME</label>
+                <input id="preset-name" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="Name" aria-describedby="preset-error" />
+                <button id="preset-save" type="button">SAVE PRESET</button>
+              </div>
+              <p id="preset-error" class="field-error" hidden></p>
+              <p id="preset-empty" class="preset-empty">No saved presets.</p>
+              <ul id="preset-list" class="preset-list" aria-label="Saved presets"></ul>
+            </section>
+          </div>
+        </section>
+      </form>
+
+      <footer class="rail" aria-label="Camera controls">
+        <div class="capture-controls">
+          <div class="capture-modes" role="group" aria-label="Capture mode">
+            <button id="photo-mode" type="button" aria-pressed="true" disabled>PHOTO</button>
+            <button id="video-mode" type="button" aria-pressed="false" disabled>VIDEO</button>
+            <button id="review-video" type="button" aria-label="Review recorded ASCII video" hidden>REVIEW</button>
+          </div>
+          <span id="recording-indicator" role="status" aria-live="polite" hidden><span class="recording-dot" aria-hidden="true"></span><span id="recording-label">Recording</span> <time id="recording-timer" datetime="PT0S" aria-label="Recording elapsed time">00:00</time></span>
         </div>
-        <div class="shutter-row">
-          <button id="camera-import" class="camera-icon library-button" type="button" aria-label="Choose photo from library" title="Choose photo" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.5" /><path d="m4 18 5-5 4 4 3-3 4 4" /></svg></button>
-          <button id="camera-shutter" class="camera-shutter" type="button" aria-label="Start camera" aria-describedby="shutter-help" disabled><span></span></button>
-          <button id="flip-camera" class="camera-icon flip-button" type="button" aria-label="Switch front and back camera" title="Switch camera" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 8a8 8 0 0 0-13-3L3 8m0-5v5h5M5 16a8 8 0 0 0 13 3l3-3m0 5v-5h-5" /></svg></button>
+        <div class="rail-main">
+          <button id="camera-shutter" class="shutter" type="button" data-mode="photo" data-state="idle" aria-label="Start camera" title="Start camera" aria-describedby="shutter-help" disabled><span>CAMERA</span></button>
+          <button id="camera-import" type="button" aria-label="Choose photo from this device" title="Choose photo" disabled>IMPORT</button>
+          <button id="copy-output" type="button" disabled title="Copy ASCII text">COPY</button>
+          <button id="save-output" type="button" disabled title="Download PNG">SAVE</button>
+          <input id="image-input" type="file" accept="image/*" hidden />
+          <div class="view-controls" role="group" aria-label="ASCII display size">
+            <button id="fit-output" type="button" aria-pressed="false" aria-controls="ascii-output">FIT</button>
+            <button id="detail-output" type="button" aria-pressed="false" aria-controls="ascii-output">1:1</button>
+            <button id="compare-output" type="button" aria-pressed="false" title="Hold to compare with the source">SOURCE</button>
+          </div>
         </div>
         <p id="shutter-help" class="shutter-help">Loading the viewfinder…</p>
-        <p class="camera-privacy">ON DEVICE. JUST YOU AND YOUR VIEW.</p>
-      </section>
-
-      <footer class="site-footer"><span>clack — Your world, made of characters.</span><span>Local input · Local processing · No uploads</span></footer>
+        <p class="readout">
+          <button id="open-looks" type="button">LOOK <span id="look-label">Original</span></button>
+          <button id="open-grid" type="button">DETAIL <span id="grid-density-label">Balanced</span></button>
+          <button id="open-framing" type="button">FRAME <span id="framing-label">Full</span></button>
+          <button id="open-ink" type="button">INK <span id="ink-label">Paper</span></button>
+          <span id="grid-label" class="readout-static"></span>
+          <span class="readout-static">nothing leaves this device</span>
+        </p>
+      </footer>
     </div>
-    <dialog id="look-sheet" aria-labelledby="look-sheet-title">
-      <div class="look-sheet-header"><h2 id="look-sheet-title">Make it yours</h2><button id="close-look-sheet" class="button button-secondary" type="button" autofocus>Done</button></div>
-      <div class="look-sheet-body">
-        <fieldset id="look-choices" class="sheet-choices"><legend>Looks <span id="look-adjusted" class="small-tag" hidden>Adjusted</span></legend></fieldset>
-        <fieldset id="framing-choices" class="sheet-choices"><legend>Frame</legend></fieldset>
-        <details id="look-adjustments">
-          <summary>Adjust <span class="small-tag">Tone, text color & glow</span></summary>
-          <div class="adjustment-fields">
-            <label class="check-control" for="look-auto-contrast"><input id="look-auto-contrast" type="checkbox" aria-describedby="contrast-help" />Auto contrast</label>
-            <p id="contrast-help" class="field-help">Useful for flat photos. Adapts every frame; moving highlights can cause live brightness flicker.</p>
-            <div><label for="look-midtone">Midtones <output id="midtone-value" for="look-midtone">1.00 · Neutral</output></label><input id="look-midtone" type="range" min="0.5" max="2" step="0.05" value="1" /><p class="field-help">Lower is lighter. Higher is darker.</p></div>
-            <div><label for="look-sharpness">Sharpness <output id="sharpness-value" for="look-sharpness">0.00</output></label><input id="look-sharpness" type="range" min="0" max="1.5" step="0.05" value="0" /></div>
-            <label class="check-control" for="look-invert"><input id="look-invert" type="checkbox" />Invert tones</label>
-            <fieldset id="tint-choices" class="sheet-choices tint-choices"><legend>Text color</legend>
-              <label class="sheet-choice"><input type="radio" name="text-tint" value="default" checked /><span>Default</span></label>
-              <label class="sheet-choice"><input type="radio" name="text-tint" value="#ffffff" /><span>White</span></label>
-              <label class="sheet-choice"><input type="radio" name="text-tint" value="#ffd663" /><span>Amber</span></label>
-              <label class="sheet-choice"><input type="radio" name="text-tint" value="#9be5a2" /><span>Green</span></label>
-            </fieldset>
-            <div class="custom-tint"><label for="text-color">Custom text color</label><input id="text-color" type="color" value="#ffffff" /></div>
-            <label class="check-control" for="soft-glow"><input id="soft-glow" type="checkbox" />Soft text glow</label>
-            <p class="field-help">A subtle halo around the characters. Off by default.</p>
-          </div>
-        </details>
-      </div>
-    </dialog>
     <dialog id="video-review" aria-labelledby="video-review-title" aria-describedby="video-review-privacy">
-      <div class="video-review-header"><h2 id="video-review-title">Your ASCII video</h2><button id="close-video-review" class="button button-secondary" type="button" autofocus>Done</button></div>
+      <div class="video-review-header"><h2 id="video-review-title">Your ASCII video</h2><button id="close-video-review" type="button" autofocus>DONE</button></div>
       <div class="video-review-body">
         <video id="recorded-video" controls playsinline preload="metadata" aria-label="Recorded ASCII video"></video>
         <p id="video-clip-details" class="video-clip-details"></p>
         <p id="video-review-privacy" class="field-help">Silent video · Stored only in this browser until you save or share. Nothing is shared automatically.</p>
         <div class="video-review-actions">
-          <button id="video-save" class="button button-primary" type="button" disabled>Save video</button>
-          <button id="video-share" class="button button-secondary" type="button" disabled>Share video</button>
-          <button id="video-retake" class="button button-secondary" type="button" aria-describedby="video-retake-help" disabled>Discard & retake</button>
+          <button id="video-save" type="button" disabled>SAVE VIDEO</button>
+          <button id="video-share" type="button" disabled>SHARE VIDEO</button>
+          <button id="video-retake" type="button" aria-describedby="video-retake-help" disabled>DISCARD &amp; RETAKE</button>
         </div>
         <p id="video-retake-help" class="field-help">Retake discards this clip, including any unsaved video.</p>
         <p id="video-share-help" class="field-help" hidden>File sharing is unavailable in this browser. Save the video to share it yourself.</p>

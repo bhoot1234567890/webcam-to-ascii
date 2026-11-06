@@ -15,13 +15,14 @@
 - **Live ASCII viewfinder** — see the camera feed rendered in characters, freeze a frame, or import a local photo. The Python viewer prints frames to the terminal; quit it with `q`.
 - **Silent ASCII video** — record the character artwork, not the raw camera or interface, then play, save, share or discard and retake the clip.
 - **Nondestructive framing** — Full, 1:1, 3:4, 9:16, 4:3 and 16:9 center crops, shared by live frames, frozen shots and imported photos.
-- **Curated looks and opt-in adjustments** — Original, Photo, Print and Outline, with advanced tone controls, text tint and optional soft glow in one shared mobile sheet.
+- **Curated looks and opt-in adjustments** — Original, Photo, Print and Outline, with advanced tone controls, text tint and optional soft glow in one inline settings drawer.
+- **Named presets** — save the current look, tone, edges, density, frame, tint and glow under a name, then apply or delete it; up to 24, stored only on this device.
 - **Directional edge glyphs** — the original ordered angle-selection rule chooses `/ - \ |`, including its historical negative-angle quirks.
 - **95-character luminance ramp** — Original maps shading through the full measured printable ASCII set. Photo and Print use a compact ramp with the same real ink measurements, not assumed equal brightness steps.
 - **Ink-weighted character ramp** — glyphs are ranked by their real rendered "ink" (dark-pixel count in a font), not by a hand-tuned guess, so brightness maps perceptually.
 - **Difference-of-Gaussians preprocessing** — sharpens edges before detection, keeping thin features (hair, glasses, text) visible at low resolution.
 - **Character-proportioned sizing** — the original orientation policy selects a width or height setting, then doubles columns. These settings are not strict output bounds; a square at the defaults is 400 columns × 200 rows.
-- **Original source preview** — Studio shows the unmodified source; the Python viewer opens the raw camera feed in an OpenCV window.
+- **Original source preview** — the Camera tab's monitor shows the unmodified source; the Python viewer opens the raw camera feed in an OpenCV window.
 - **Helper utilities included** — scripts to enumerate cameras, regenerate the ink-usage ramp, and render a still image offline for tuning.
 
 ## Browser application
@@ -33,13 +34,11 @@ bash qa/setup.sh
 bun run --cwd frontend dev
 ```
 
-Open **http://127.0.0.1:4173**. The default is an iOS-inspired **Camera view** in **Photo** mode, with actual ASCII output as the viewfinder—not a raw camera feed or prerecorded effect. Tap the white **shutter** to request camera access. Tap it again to freeze a real frame; capture releases the camera and renders the snapshot through the same image pipeline. Tap the shutter again to return to live capture. During a pending permission request, the shutter cancels and releases any stream that resolves late.
+Open **http://127.0.0.1:4173**. clack is a terminal-native ASCII camera: one full-width instrument panel with actual rendered characters as the viewfinder—not a raw camera feed or prerecorded effect. **Photo** is the default capture mode. Press **CAMERA** to request camera access, then use the same shutter to freeze a real frame. Capture releases the camera and renders the snapshot through the shared pipeline; activate the shutter again to return live. During a pending permission request the shutter cancels, releasing any stream that resolves late. Photo mode preserves the accidental-double-tap protection after cancellation.
 
-The **library** button opens the local photo picker without camera permission; video-file import is not part of this feature. **Flip** switches the Front/Back preference, with browser fallback when no matching camera exists. The small **Stop** button releases capture; during recording it also finishes the video. The **grid** button toggles composition guides only; guides and interface controls are never exported.
+The **PHOTO/library** button opens the local image picker without camera permission; video-file import is not included. **STOP** releases capture and, during video recording, finishes the clip. **GUIDES** changes only composition overlays. The status line reports state; the readout shows the active look, density, framing, grid size and processing time.
 
-Use the top-right **Studio controls** button for the existing source selector, numeric tuning, original preview and diagnostics. **Camera view** returns to the viewfinder without restarting the source. Both views share one source, worker and ASCII node. Frozen shots remain in page memory; they are not automatically saved to Photos or uploaded.
-
-The viewfinder's bottom chrome keeps **Frame** on the left, **Fit / 1×** centered and **Looks** on the right. Frame and Looks open the same scrollable bottom sheet in Camera and Studio. Choices apply immediately; **Done**, Escape or tapping the backdrop closes it and restores focus.
+Every setting lives in one inline drawer opened from the readout (**LOOK / GRID / FRAME**) or any of its six tabs: **Camera · Look · Grid · Frame · Tune · Ink**. The Camera tab holds facing and device selection, the unmodified source monitor and **FLIP CAMERA**. Choices apply immediately; **CLOSE**, Escape or opening another tab keeps the artwork visible above the drawer, so every choice can be judged live. The drawer is part of the page, not a modal sheet.
 
 Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. Wide ratios can deliberately cut off the top and bottom of a portrait; use Full to restore every source pixel. A frozen shot keeps the full-resolution PNG in page memory, so reframing never crops an already-cropped result. Very small images that cannot represent a ratio are rejected without losing the valid source or frame. Composition guides follow the artwork, including its letterboxing.
 
@@ -50,39 +49,40 @@ Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. 
 | Print | Ordered Bayer halftone shading with the compact measured ramp; a stationary pattern rather than diffusion. |
 | Outline | Directional contours with empty interiors; intentionally sparse rather than a full photographic rendering. |
 
-**Adjust** is collapsed initially. Midtones, auto contrast, sharpness and inversion change source luminance **before** shading/edge processing. A manually changed recipe is marked **Adjusted**. Selecting any recipe again resets these processing adjustments; it does not reset framing, resolution, tint or glow. Photo and Print disable the unused sigma/edge controls in Studio while retaining their values for Original and Outline.
+**Tune** holds the tone controls (midtones, auto contrast, sharpness, inversion) and the numeric sigma/edge fields. Tone controls change source luminance **before** shading/edge processing. A manually changed recipe is marked **ADJUSTED**. Selecting any recipe again resets these processing adjustments; it does not reset framing, resolution, tint or glow. Photo and Print disable the unused sigma/edge fields while retaining their values for Original and Outline.
 
-Auto contrast can recover a flat photo, but recomputes the brightness range every frame: a moving highlight can cause live brightness pumping. It is off by default, with a warning in the sheet. Midtones below 1 lighten; above 1 darken. Sharpness uses a bounded unsharp mask and also affects Outline contours.
+Auto contrast can recover a flat photo, but recomputes the brightness range every frame: a moving highlight can cause live brightness pumping. It is off by default. Midtones below 1 lighten; above 1 darken. Sharpness uses a bounded unsharp mask and also affects Outline contours.
 
-Text color (Default, White, Amber, Green or the native custom-color picker) and **Soft text glow** are presentation-only: they work in both layouts without requesting another ASCII render. Default preserves each layout's existing warm-white appearance. Glow is off initially, reserves a small halo gutter in Fit/Detail, and is not a claim of GPU acceleration.
+**Ink** sets text color (Paper, White, Amber, Green or the native custom-color picker) and **Soft glow**; both are presentation-only and never request another ASCII render. Glow is off initially, reserves a small halo gutter in Fit/1:1, and is not a claim of GPU acceleration.
 
-**Tune the detail** applies the numeric resolution and edge controls; invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The source preview in Studio stays unmodified for every frame, look and presentation choice.
+**Grid** holds the density presets and width/height sliders; the sliders are range-bounded, so the numeric invalid-value path applies only to the Tune fields. Invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The Camera tab's source monitor stays unmodified for every frame, look and presentation choice.
 
-**Fit** initially shows the complete proportional grid. The camera's **1×** button (Studio: **1:1 detail**) restores readable glyphs with two-dimensional scrolling. Fit changes presentation only—not text, resolution, or aspect ratio. The camera view fills the phone viewport, with side-mounted controls in landscape; primary controls have at least 44 CSS-pixel touch targets and respect safe areas. Studio retains the more detailed scrolling layout.
+**FIT** initially shows the complete proportional grid; **1:1** restores readable glyphs with two-dimensional scrolling. Fit changes presentation only—not text, resolution, or aspect ratio. One layout serves every screen from 280px up; primary controls have at least 44 CSS-pixel touch targets and respect safe areas.
 
 ### Recording ASCII video
 
-Choose **Video**, then tap the red shutter. Mode selection alone never requests the camera. The shutter starts recording only after the selected processing/framing configuration has committed; tap it again, or use Stop, to finish. The viewfinder shows a red recording indicator and elapsed timer. Video is silent: no microphone permission or audio track is requested. Studio's **Record ASCII video** shortcut opens this same camera mode.
+Choose **Video**, then activate the red recording shutter. Mode selection alone never requests camera access. Recording starts only after the selected processing/framing configuration has committed; activate the shutter again, or use Stop, to finish. A recording indicator and elapsed timer remain visible. Video is silent: no microphone permission or audio track is requested. The Camera drawer's **Record ASCII video** shortcut selects Video and closes the drawer without starting capture.
 
-The recording canvas receives the committed ASCII glyph grid with the bundled font, uniform character proportions, selected tint and optional glow. It does **not** receive the raw camera stream or screen-capture the interface. Look, framing, detail, source and presentation controls lock while starting, recording and finishing. Output dimensions stay fixed for the clip; a camera-frame dimension change finishes the existing recording rather than stretching it. Viewport/layout resizing alone is presentation-only.
+The recording canvas receives committed ASCII glyphs with the bundled font, uniform character proportions, selected tint and optional glow. It does **not** receive the raw camera stream or screen-capture the interface. Look, framing, density, tuning, preset, source, presentation and photo-export controls lock while starting, recording and finishing. Presets and restored settings remain available before recording; their exact committed configuration is used. Output dimensions stay fixed for a clip; a camera-frame dimension change finishes the existing recording rather than stretching it. Viewport resizing alone does not change the encoded grid.
 
 After recording, the camera is released and **Your ASCII video** opens with real playback, actual format, duration and dimensions:
 
 | Action | Behavior |
 |---|---|
-| Save video | Requests a browser download with the encoder's actual `.mp4` or `.webm` extension. It does not automatically write to iPhone Photos; use the browser's file handling or native share sheet. |
-| Share video | Opens native file sharing only when the browser reports the file is shareable. Otherwise it is disabled with Save offered instead. Canceling sharing keeps the clip. No sharing happens automatically. |
+| Save video | Requests a browser download with the encoder's actual `.mp4` or `.webm` extension. It does not automatically write to iPhone Photos; use browser file handling or native sharing. |
+| Share video | Opens native file sharing only when the browser reports that the file is shareable. Otherwise it is disabled and Save remains available. Canceling sharing retains the clip; nothing is shared automatically. |
 | Done / Review | Closes or reopens playback without discarding the clip. Opening review also releases any later live Photo preview; capture does not continue behind the dialog. |
-| Discard & retake | Discards the current unsaved clip and releases its object URL, then returns to a live viewfinder. A new recording requires another shutter tap. |
+| Discard & retake | Discards the current clip and revokes its object URL, then returns to a live viewfinder. A new recording requires another shutter activation. |
 
-Only one clip is retained in this tab's memory. Refreshing or leaving the page can discard it. Backgrounding releases the camera and requests finalization; review opens after returning if the encoder succeeds. Encoder failures, empty output or the encoded-byte limit produce an error and release capture rather than offer a corrupt/truncated file.
+Only one clip is retained in this tab's memory. Refreshing or leaving the page can discard it. Backgrounding releases the camera and requests finalization; review opens after returning if encoding succeeds. Encoder failures, empty output or encoded-byte overflow produce an error and release capture rather than offer a corrupt/truncated file.
 
-AVC/H.264 MP4 is preferred where supported; native MP4 and WebM capabilities are detected at runtime, and the actual encoder result determines the extension. There is no disguised WebM-as-MP4 conversion or bundled transcoder. Browsers without `MediaRecorder`/canvas capture keep Photo/import usable and explain why Video is unavailable.
+AVC/H.264 MP4 is preferred where supported; MP4/WebM capabilities are detected at runtime, and the actual encoder result determines the extension. No disguised WebM-as-MP4 conversion or bundled transcoder. Browsers without `MediaRecorder`/canvas capture retain Photo/import and explain why Video is unavailable.
 
-The Linux Playwright WebKit binary used here exposes canvas capture but **no `MediaRecorder` API**. Its unmodified Photo/layout and unavailable-recording gates still run. Full native recording/review tests run separately in Chromium at iPhone 14 Plus dimensions; this is **not physical iPhone Safari validation**. Safari's own [MediaRecorder support](https://webkit.org/blog/11353/mediarecorder-api/) does not make the Linux port equivalent. Test recording, playback, Save and native sharing on the target physical iPhone over trusted HTTPS before claiming device compatibility.
+Recording/review acceptance tests run in native Chromium at iPhone 14 Plus dimensions. Linux WebKit still covers Photo/layout and unavailable-recording behavior; it is not a physical Safari substitute. Safari's [MediaRecorder support](https://webkit.org/blog/11353/mediarecorder-api/) does not make its Linux port equivalent. Physical iPhone Safari recording, playback, Save and successful OS sharing require target-device validation over trusted HTTPS.
 
+**Issue [#3](https://github.com/bhoot1234567890/webcam-to-ascii/issues/3) scope:** this implementation keeps bounded, latest-frame-wins, clock-sampled recording at at most 15 fps—not `requestFrame()` for every committed render. PNG and video still use separate artwork layout/background paths, so they are not pixel-identical exports. Native Firefox recording remains unverified. The video PR references the issue rather than claiming every acceptance criterion is complete.
 
-Camera access requires HTTPS or localhost. Camera options in Studio offers Front / selfie, Back / scene and specific browser device IDs; a facing preference does not guarantee a particular lens. Backgrounding the page stops capture, including pending permission requests; returning requires an explicit restart. Cached navigation returns leave Start usable.
+Camera access requires HTTPS or localhost. The Camera tab offers Front / selfie, Back / scene and specific browser device IDs; a facing preference does not guarantee a particular lens. Backgrounding stops capture, including pending permission requests; returning requires an explicit restart. Cached navigation returns leave CAMERA usable.
 
 Processing stays on device: no upload endpoints, external fonts, analytics or frame-processing services. Video is recorded only after an explicit Record action and leaves the tab only through the user's Save/Share choice. Roboto Mono is bundled locally; its measured cell geometry preserves image proportions.
 
@@ -101,9 +101,9 @@ Deploy **`frontend/dist/`** to a static HTTPS host. No Python service is needed.
 
 ### Brand assets
 
-The name and wordmark are lowercase **clack**; the tagline is **“A camera with character.”** An amber cursor connects the camera identity to character art. Camera and Studio share an ink-black, warm-white and amber (`#ffd663`) palette, with the locally bundled Roboto Mono wordmark.
+The name and wordmark are lowercase **clack**; the tagline is **“A camera with character.”** The blinking amber cursor connects the camera identity to character art. The whole interface is terminal-native: ink-black, one warm-white ink, amber (`#ffd663`) reserved for live/active states, square edges, and the locally bundled Roboto Mono everywhere.
 
-- [`frontend/public/clack-icon.svg`](frontend/public/clack-icon.svg): vector `c_` viewfinder mark, also used in the Studio header.
+- [`frontend/public/clack-icon.svg`](frontend/public/clack-icon.svg): vector `c_` viewfinder mark.
 - `frontend/public/clack-icon-32.png`: browser favicon fallback.
 - `frontend/public/apple-touch-icon.png`: opaque 180×180 iPhone home-screen icon.
 
@@ -160,11 +160,13 @@ The scripts recognize those local libraries. WebKit's bundled wrapper replaces `
 
 **Branding verification:** a fresh `bun run --cwd frontend test:production` passed all four desktop/mobile production checks after the identity cutover. Direct browser interaction and screenshot inspection covered Camera and Studio, iPhone 14 Plus emulation, and the 280px minimum-width camera. Review caught a toolbar-label overlap at 280px; the corrected label now has a permanent geometry regression check. Layout switching retained identical source identity and ASCII text, all three icon URLs decoded successfully with HTTP 200, and no browser console errors were observed. These are emulated mobile checks, not physical iPhone testing.
 
-**Video verification:** `bash qa/run-tests.sh` passed **13 Python, 429 Bun, 95 browser and 10 fresh-production checks**. Native-browser checks record real animated public-fixture streams through the app's worker and recorder, decode changing tinted frames, download the actual file, and inspect codec/container/dimensions/audio tracks with `ffprobe`. They cover AVC MP4, actual VP8 WebM fallback, the full duration limit, pending-start cancellation, fresh-configuration gating, source rotation, encoder failure/recovery, background finalization, clip URL release, share cancellation, and camera release when reopening review. No successful encoded result is mocked.
+**Integrated video verification:** `bash qa/run-tests.sh` passed **13 Python, 444 Bun, 123 browser and 10 fresh-production checks**, plus strict validation of 20 A/B cases and 20 fixed crop triplets after merging current `main`. Native-browser checks record real animated public-fixture streams through the worker and recorder, decode changing tinted frames, download the actual file, and inspect codec/container/dimensions/audio tracks with `ffprobe`. Coverage includes AVC MP4, actual VP8 WebM fallback, the full duration limit, pending-start cancellation, fresh-configuration gating, restored density/presets and locked controls, source rotation, encoder failure/recovery, background finalization, URL release, share cancellation, and camera release on review. No successful encoded result is mocked.
 
-The approved physical C930e check recorded a five-second silent AVC clip using Photo look and story framing. The 640×480 source committed 150 live ASCII frames during the measured interval; its recorded file played as 718×1280 video, about 5.01 seconds and 855,218 bytes. Both camera and canvas-capture tracks ended after Stop. Discard & retake released the old clip; stopping the new preview ended the second camera stream. Camera permission was revoked, and no private clip or camera pixels were sent to image review. This remains desktop Chromium hardware evidence, not an iPhone encoding or sharing benchmark.
+An earlier approved physical C930e check on the original feature branch recorded a five-second silent AVC clip using Photo look and story framing. The 640×480 source committed 150 live ASCII frames during the measured interval; its file played as 718×1280 video, about 5.01 seconds and 855,218 bytes. Camera and canvas-capture tracks ended after Stop. Discard & retake released the clip; stopping the new preview ended the second camera stream. Permission was revoked, and no private clip or camera pixels were sent to image review. This is desktop Chromium evidence, not a post-integration hardware rerun or an iPhone encoding/sharing benchmark.
 
 Video evidence is kept under `qa/artifacts/video/`, including native-encoded public clips, production screenshots, initial failure evidence, capability findings, and physical lifecycle metadata. QA caught and corrected an unavailable-browser caption reducing the narrow viewfinder, capture continuing behind a reopened saved-video review, and a stale-configuration recording start stalling an already-live camera. These behaviors have regression coverage.
+
+Current stage/rail/drawer smoke evidence is under `qa/artifacts/pr-video/`. Direct browser interaction recorded and played a silent AVC MP4 at the retained Balanced default, verified configuration locks and ended tracks, and hit-tested the active drawer tab at 280×568 with a 140px artwork pane and no horizontal document overflow. Screenshots use a public fixture and native DPR 3. Integration fixed a collapsed narrow drawer, capability notices shifting the viewfinder, and focus targeting a disabled recording control. The strict A/B profile validator now matches upstream's already-updated 50×65 default exporter; schema/hash/source validation and frozen answers are unchanged.
 
 **Camera-feature verification:** `bash qa/run-tests.sh` passed **13 Python, 417 Bun, 82 browser and 6 fresh-production checks**, including unchanged frozen Original answers, 20 legacy A/B cases, center landmarks, neutral-look restoration, tiny-crop rejection, held worker replies, capture/reframing, shared-sheet focus, tint consistency and glow bounds. Native-DPR iPhone 14 Plus screenshots were inspected in the production app; WebKit production coverage includes 280/320/428px, landscape, complete Fit and Detail's last glyph. This remains desktop emulation, not physical iPhone/Safari validation.
 
@@ -267,32 +269,34 @@ Each frame is printed as a complete block of glyphs. Landscape sources use twice
 
 ## ⚙️ Configuration
 
-The Python scripts are tuned in source. The browser's shared Frame/Looks sheet and Studio numeric controls expose:
+The Python scripts are tuned in source. The browser exposes everything through the settings drawer:
 
 | Constant | Default | Where | Description |
 |---|---|---|---|
-| `MAX_WIDTH_CHARS` / Max width | `150` | Python scripts; browser `20–150` | Landscape width before column doubling; not a strict grid limit. |
-| `MAX_HEIGHT_LINES` / Max height | `200` (`63` in old offline script) | Python scripts; browser `20–200` | Portrait/square grid height. |
+| `MAX_WIDTH_CHARS` / Max width | `150` Python / `50` browser (Balanced) | Python scripts; browser `20–150` | Landscape width before column doubling; not a strict grid limit. |
+| `MAX_HEIGHT_LINES` / Max height | `200` Python / `65` browser (Balanced) | Python scripts; browser `20–200` | Portrait/square grid height. |
 | `cv2.VideoCapture(0)` / Camera | `0` / browser default device | Python viewers / browser selector | Python device index or browser video-input device ID. |
-| Camera view | `Back / scene` preference | Camera Flip button; Studio Camera options | Requests the rear camera when available; a specific device selection overrides the preference. |
-| Interface | `Camera` | Camera Studio-controls button / Studio Camera-view button | Switch presentation without changing or restarting the source. |
-| Capture mode | `Photo` | Camera Photo / Video buttons; Studio Record ASCII video shortcut | Mode selection does not request permission. Video's red shutter explicitly starts camera/recording after a current frame is ready. |
-| Video duration / encoded bytes | `30 seconds` / `16 MiB` | `RECORDING_LIMITS` in `frontend/src/ascii-recorder.js` | Duration finalizes the clip; byte overflow discards it with an error rather than truncate the encoded file. |
-| Video size / draw rate | Longest edge ≤`1280`, even dimensions / at most `15 fps` | Recording engine | Uniform glyph scaling and bounded latest-frame drawing. Delivery/encoding rate remains device-dependent. |
-| Video format | AVC MP4 preferred; runtime MP4/WebM negotiation | Browser `MediaRecorder` | Actual returned MIME/container sets the filename; no transcoding or misleading extension. |
+| Camera facing | `Back / scene` preference | Drawer Camera tab, FLIP CAMERA | Requests the rear camera when available; a specific device selection overrides the preference. |
+| Capture mode | `Photo` | PHOTO / VIDEO in the rail; Camera drawer video shortcut | Selecting a mode does not request permission; the recording shutter explicitly starts camera/recording after a current frame is ready. |
+| Video duration / encoded bytes | `30 seconds` / `16 MiB` | `RECORDING_LIMITS` in `frontend/src/ascii-recorder.js` | Duration finalizes the clip; byte overflow discards it with an error rather than truncate an encoded file. |
+| Video size / draw rate | Longest edge ≤`1280`, even dimensions / at most `15 fps` | Recording engine | Downscale-only, uniform glyph geometry and bounded latest-frame drawing; delivery and encoding rates remain device-dependent. |
+| Video format | AVC MP4 preferred; runtime MP4/WebM negotiation | Browser `MediaRecorder` | Actual returned MIME/container determines the extension; no transcoding or misleading filenames. |
 | Video audio | None | Recording canvas stream | No microphone request, audio track or audio toggle. |
-| Composition guides | `Off` | Camera grid button | Viewfinder overlay only; no effect on ASCII or captured source pixels. |
-| ASCII display size | `Fit` | Camera Fit / 1×; Studio Fit / 1:1 detail | Presentation-only scale; unchanged grid, characters and aspect ratio. The selected mode persists through resizing and layout changes until changed. |
-| Frame | `Full` | Frame / Looks sheet | Full, 1:1, 3:4, 9:16, 4:3 or 16:9; exact centered whole-pixel crop before Lanczos/grid sizing, with the full source retained. |
-| Look | `Original` | Looks sheet | Original / Photo / Print / Outline; choosing a recipe resets processing adjustments only. |
-| Auto contrast | `Off` | Looks → Adjust | Per-frame extrema stretching, safe on flat images. Moving highlights can cause brightness pumping. |
-| Midtones | `1` | Looks → Adjust; `0.5–2` in `0.05` steps | Gamma exponent; below 1 lightens, above 1 darkens. |
-| Sharpness | `0` | Looks → Adjust; `0–1.5` in `0.05` steps | Bounded 2D binomial unsharp mask before shading and contours. |
-| Invert tones | `Off` | Looks → Adjust | Invert processed luminance, not the page or selected text color. |
-| Text color | `Default` | Looks → Adjust | Default / White / Amber / Green / native custom picker; presentation-only and shared across layouts. |
-| Soft text glow | `Off` | Looks → Adjust | Bounded text shadow with an 8 CSS-pixel halo gutter; presentation-only. |
-| `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; Studio `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. Browser uses these only for Original/Outline. |
-| `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; Studio integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. Retained but disabled for Photo/Print. |
+| Composition guides | `Off` | GUIDES (top bar) | Viewfinder overlay only; no effect on ASCII or captured source pixels. |
+| ASCII display size | `Fit` (mobile) / `1:1` (desktop) | FIT / 1:1 in the rail | Presentation-only scale; unchanged grid, characters and aspect ratio. The selected mode persists through resizing until changed. |
+| Frame | `Full` | Drawer Frame tab | Full, 1:1, 3:4, 9:16, 4:3 or 16:9; exact centered whole-pixel crop before Lanczos/grid sizing, with the full source retained. |
+| Look | `Original` | Drawer Look tab | Original / Photo / Print / Outline; choosing a recipe resets processing adjustments only. |
+| Density | `Balanced` | Drawer Grid tab | Chunky (~60 cols) / Balanced (~100 cols) / Fine (~150 cols) / Detailed (~300 cols) presets, or the width/height sliders for a custom grid; applies live. |
+| Auto contrast | `Off` | Drawer Tune tab | Per-frame extrema stretching, safe on flat images. Moving highlights can cause brightness pumping. |
+| Midtones | `1` | Drawer Tune tab; `0.5–2` in `0.05` steps | Gamma exponent; below 1 lightens, above 1 darkens. |
+| Sharpness | `0` | Drawer Tune tab; `0–1.5` in `0.05` steps | Bounded 2D binomial unsharp mask before shading and contours. |
+| Invert tones | `Off` | Drawer Tune tab | Invert processed luminance, not the page or selected text color. |
+| Text color | `Paper` | Drawer Ink tab | Paper / White / Amber / Green / native custom picker; presentation-only. |
+| Soft text glow | `Off` | Drawer Ink tab | Bounded text shadow with an 8 CSS-pixel halo gutter; presentation-only. |
+| Named presets | none saved | Drawer Presets tab | Up to 24 case-sensitive names of 1-24 characters in `clack:presets:v1`. A preset captures look, tone, sigma/threshold, density, frame, tint and glow; camera device, FIT/1:1 view and guides are excluded. Reusing a name replaces it in place, and stored entries that fail validation are dropped. |
+| Saved settings | n/a | `localStorage` `clack:settings:v1` | Look, tone, frame, ink, glow, density, the Tune values (`sigma1`, `sigma2`, edge threshold), facing, view and guides restore on reload. Persistence is best-effort; private mode never blocks rendering. |
+| `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; browser Tune `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. Browser uses these only for Original/Outline. |
+| `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; browser Tune integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. Retained but disabled for Photo/Print. |
 | `ord('q')` | `q` | `webcam ascii.py`, `web ascii cv2.py` | Key that stops the loop and releases the camera. |
 
 ## 🧱 How it works

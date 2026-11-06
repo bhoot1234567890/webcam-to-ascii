@@ -87,11 +87,29 @@ export const test = base.extend({
   }, { auto: true }],
 });
 
-export async function openApp(page, { layout = 'studio' } = {}) {
+let storageResetId = 0;
+
+export async function openApp(page) {
+  // Reset before application initialization, once per openApp, not on reloads
+  // that intentionally exercise persistence. Older init scripts remain inert.
+  const resetKey = `qa:storage-reset:${++storageResetId}`;
+  await page.addInitScript((key) => {
+    if (sessionStorage.getItem(key)) return;
+    localStorage.clear();
+    sessionStorage.setItem(key, '1');
+  }, resetKey);
   await page.goto('/');
   await expect(page.locator('#status')).toContainText('Ready');
   expect(await page.evaluate(() => document.fonts.check('400 12px "Roboto Mono"', 'M@ '))).toBe(true);
-  if (layout === 'studio') await page.locator('#open-studio').click();
+}
+
+/** Opens the settings drawer on a named tab: camera, looks, grid, framing, tune, or style. */
+export async function openPanel(page, tab) {
+  if (await page.locator('#look-sheet').evaluate((sheet) => sheet.hidden)) {
+    await page.locator('#open-looks').click();
+  }
+  await page.locator(`#tab-${tab}`).click();
+  await expect(page.locator(`#panel-${tab}`)).toBeVisible();
 }
 
 export async function readCommit(page) {
@@ -109,7 +127,11 @@ async function currentSettings(page) {
   return page.locator('#settings-form').evaluate((form) => {
     const values = {};
     for (const input of form.querySelectorAll('[data-field]')) values[input.dataset.field] = input.valueAsNumber;
-    return values;
+    return {
+      maxWidthChars: form.querySelector('#grid-max-width').valueAsNumber,
+      maxHeightLines: form.querySelector('#grid-max-height').valueAsNumber,
+      sigma1: values.sigma1, sigma2: values.sigma2, edgeIndexThreshold: values.edgeIndexThreshold,
+    };
   });
 }
 
@@ -134,17 +156,29 @@ export async function uploadFixture(page, id) {
 }
 
 export async function changeSettings(page, patch) {
-  if (!await page.locator('#settings-panel').evaluate((panel) => panel.open)) {
-    await page.locator('#settings-panel > summary').click();
+  const sliders = { maxWidthChars: '#grid-max-width', maxHeightLines: '#grid-max-height' };
+  const numbers = { sigma1: '#sigma1', sigma2: '#sigma2', edgeIndexThreshold: '#edge-threshold' };
+  const tabs = new Set();
+  for (const name of Object.keys(patch)) {
+    if (sliders[name]) tabs.add('grid');
+    else if (numbers[name]) tabs.add('tune');
+    else throw new Error(`Unknown UI setting: ${name}`);
   }
+  for (const tab of tabs) await openPanel(page, tab);
   const before = await readCommit(page);
   const next = { ...await currentSettings(page), ...patch };
   const key = JSON.stringify(next);
-  const selectors = { maxWidthChars: '#max-width', maxHeightLines: '#max-height', sigma1: '#sigma1', sigma2: '#sigma2', edgeIndexThreshold: '#edge-threshold' };
   for (const [name, value] of Object.entries(patch)) {
-    if (!selectors[name]) throw new Error(`Unknown UI setting: ${name}`);
-    await page.locator(selectors[name]).fill(String(value));
-    await page.locator(selectors[name]).dispatchEvent('change');
+    const selector = sliders[name] || numbers[name];
+    if (sliders[name]) {
+      await page.locator(selector).evaluate((slider, nextValue) => {
+        slider.value = String(nextValue);
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+      }, value);
+    } else {
+      await page.locator(selector).fill(String(value));
+      await page.locator(selector).dispatchEvent('change');
+    }
   }
   if (!before.renderId) return null;
   await page.waitForFunction(({ before, key }) => {

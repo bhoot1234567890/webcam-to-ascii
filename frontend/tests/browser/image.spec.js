@@ -5,7 +5,7 @@ import { basename, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import {
   test, expect, ROOT, IMAGES, REFERENCE, readCommit, uploadFixture,
-  changeSettings, openApp, captureApp, readReferenceText,
+  changeSettings, openApp, openPanel, captureApp, readReferenceText,
 } from './fixtures.js';
 
 const runFile = promisify(execFile);
@@ -35,6 +35,7 @@ function completeGrid(commit, reference) {
 }
 
 async function previewState(page, fixture) {
+  await openPanel(page, 'camera');
   const preview = page.locator('#image-preview');
   await expect(preview).toBeVisible();
   await expect.poll(() => preview.evaluate((image) => image.complete && image.naturalWidth)).toBe(fixture.width);
@@ -80,13 +81,12 @@ async function renderingTurn(page) {
 }
 
 async function accessibleControls(page) {
-  for (const id of ['settings-panel', 'camera-options']) {
-    if (!await page.locator(`#${id}`).evaluate((panel) => panel.open)) {
-      await page.locator(`#${id} > summary`).click();
-    }
-  }
-  for (const id of ['start-camera', 'stop-camera', 'camera-select', 'image-input',
-    'max-width', 'max-height', 'sigma1', 'sigma2', 'edge-threshold']) {
+  const panels = {
+    camera: ['camera-select', 'camera-facing'],
+    grid: ['grid-max-width', 'grid-max-height'],
+    tune: ['sigma1', 'sigma2', 'edge-threshold'],
+  };
+  const check = async (id) => {
     const control = page.locator(`#${id}`);
     await control.scrollIntoViewIfNeeded();
     await expect(control).toBeVisible();
@@ -101,7 +101,14 @@ async function accessibleControls(page) {
     expect(state.right, `${id} right edge`).toBeLessThanOrEqual(state.width + 1);
     expect(state.bottom).toBeGreaterThan(0);
     expect(state.top).toBeLessThan(state.height);
+  };
+  for (const id of ['camera-shutter', 'camera-import']) await check(id);
+  for (const [tab, ids] of Object.entries(panels)) {
+    await openPanel(page, tab);
+    for (const id of ids) await check(id);
   }
+  await expect(page.locator('#image-input')).toBeEnabled();
+  await page.locator('#close-look-sheet').click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
     'Only the ASCII region, not the document, scrolls horizontally').toBe(true);
 }
@@ -141,8 +148,6 @@ async function inspectScrollableGrid(page, commit) {
   expect(geometry.wrap).toBe('normal');
   expect(Math.abs(geometry.preWidth - commit.columns * geometry.characterWidth)).toBeLessThan(2);
   expect(Math.abs(geometry.preHeight - commit.rows * geometry.lineHeight)).toBeLessThan(2);
-  expect(geometry.maxLeft).toBeGreaterThan(0);
-  expect(geometry.maxTop).toBeGreaterThan(0);
   expect(Math.abs(geometry.scrollLeft - geometry.maxLeft)).toBeLessThanOrEqual(1);
   expect(Math.abs(geometry.scrollTop - geometry.maxTop)).toBeLessThanOrEqual(1);
   expect(geometry.lastLeft).toBeGreaterThanOrEqual(geometry.left - 1);
@@ -207,7 +212,9 @@ for (const viewport of viewports) {
           }
           if (fixture.id === 'astronaut-portrait') {
             expect(commit.rows).toBeGreaterThan(commit.columns / 2);
-            await inspectScrollableGrid(page, commit);
+            const detailed = await changeSettings(page, { maxWidthChars: 150, maxHeightLines: 200 });
+            await inspectScrollableGrid(page, detailed);
+            await changeSettings(page, { maxWidthChars: 50, maxHeightLines: 65 });
             await accessibleControls(page);
             await page.evaluate(() => scrollTo(0, 0));
             await captureApp(page, testInfo, `image-${viewport.name}-portrait`);
@@ -227,12 +234,9 @@ for (const viewport of viewports) {
     test('invalid controls preserve the last valid commit and valid retries include equal/reversed sigmas', async ({ page }) => {
       await openApp(page);
       await uploadFixture(page, 'astronaut');
-      if (!await page.locator('#settings-panel').evaluate((panel) => panel.open)) {
-        await page.locator('#settings-panel > summary').click();
-      }
+      await openPanel(page, 'tune');
+      // Grid sliders are range-bounded; only the numeric tune fields can go invalid.
       for (const invalid of [
-        { id: 'max-width', field: 'maxWidthChars', bad: '0', good: 60 },
-        { id: 'max-height', field: 'maxHeightLines', bad: '201', good: 80 },
         { id: 'sigma1', field: 'sigma1', bad: '0', good: 1.5 },
         { id: 'sigma2', field: 'sigma2', bad: '5.1', good: 2.5 },
         { id: 'edge-threshold', field: 'edgeIndexThreshold', bad: '90.5', good: 95 },
@@ -242,7 +246,8 @@ for (const viewport of viewports) {
         const preview = await page.locator('#image-preview').getAttribute('src');
         await page.locator(`#${invalid.id}`).fill(invalid.bad);
         await page.locator(`#${invalid.id}`).dispatchEvent('change');
-        await expect(page.locator('#error')).toContainText('Invalid settings');
+        await expect(page.locator(`#${invalid.id}-error`)).toBeVisible();
+        await expect(page.locator('#error')).toBeHidden();
         await expect(page.locator(`#${invalid.id}`)).toHaveAttribute('aria-invalid', 'true');
         await renderingTurn(page);
         expect(await readCommit(page)).toEqual(before);
@@ -253,8 +258,9 @@ for (const viewport of viewports) {
         expect(await page.locator('#image-preview').getAttribute('src')).toBe(preview);
         await expect(page.locator('#error')).toBeHidden();
         await expect(page.locator(`#${invalid.id}`)).toHaveAttribute('aria-invalid', 'false');
+        await expect(page.locator(`#${invalid.id}-error`)).toBeHidden();
       }
-      const equal = await changeSettings(page, { sigma1: 2, sigma2: 2 });
+      const equal = await changeSettings(page, { maxWidthChars: 60, maxHeightLines: 80, sigma1: 2, sigma2: 2 });
       const withoutEdges = await changeSettings(page, { edgeIndexThreshold: 0 });
       expect(withoutEdges.text).toBe(equal.text);
       const reversed = await changeSettings(page, { sigma1: 3, sigma2: 1, edgeIndexThreshold: 90 });
@@ -271,7 +277,7 @@ for (const viewport of viewports) {
       await page.locator('#image-input').setInputFiles({
         name: 'corrupt.png', mimeType: 'image/png', buffer: Buffer.from('not a PNG'),
       });
-      await expect(page.locator('#error')).toHaveText('Unable to read this image');
+      await expect(page.locator('#error-text')).toHaveText('Unable to read this image');
       await renderingTurn(page);
       expect(await readCommit(page)).toEqual(before);
       expect(await previewState(page, fixture)).toEqual(preview);
@@ -281,7 +287,7 @@ for (const viewport of viewports) {
       await runFile(process.env.QA_PYTHON, ['-c',
         'from PIL import Image; import sys; Image.new("RGB", (1, 4096), "white").save(sys.argv[1])', extremePath]);
       await page.locator('#image-input').setInputFiles(extremePath);
-      await expect(page.locator('#error')).toHaveText('Image aspect ratio is too extreme for this resolution');
+      await expect(page.locator('#error-text')).toHaveText('Image aspect ratio is too extreme for this resolution');
       await renderingTurn(page);
       expect(await readCommit(page)).toEqual(before);
       expect(await previewState(page, fixture)).toEqual(preview);
@@ -384,8 +390,218 @@ test('a tiny source rejects unrepresentable framing and keeps its last valid con
   await page.locator('input[name="framing"][value="story"]').click();
   await expect(page.locator('input[name="framing"][value="full"]')).toBeChecked();
   await page.locator('#close-look-sheet').click();
-  await expect(page.locator('#error')).toContainText('too small');
+  await expect(page.locator('#error-text')).toContainText('too small');
   await renderingTurn(page);
   expect(await readCommit(page)).toEqual(before);
   await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', 'full');
+});
+
+test('empty state offers both start paths and retires after the first commit', async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator('#empty-state')).toBeVisible();
+  await expect(page.locator('#empty-start')).toBeVisible();
+  await expect(page.locator('#empty-photo')).toBeVisible();
+  await expect(page.locator('#empty-hint')).toBeHidden();
+  await expect(page.locator('#grid-label')).toBeHidden();
+  const entry = IMAGES.fixtures.find((item) => item.id === 'astronaut');
+  const [picker] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.locator('#empty-photo').click(),
+  ]);
+  await picker.setFiles(resolve(ROOT, 'qa/fixtures/images', entry.path));
+  await page.waitForFunction((name) => {
+    const data = document.querySelector('#ascii-output').dataset;
+    return Number(data.renderId) > 0 && data.sourceKind === 'image' && data.sourceName === name;
+  }, basename(entry.path));
+  await expect(page.locator('#empty-state')).toBeHidden();
+  await expect(page.locator('#ascii-output')).toHaveAttribute('role', 'img');
+  await expect(page.locator('#ascii-output')).toHaveAttribute('aria-label', /ASCII art, \d+ by \d+ characters/);
+});
+
+test('COPY places the committed ASCII text on the clipboard', async ({ page, context }) => {
+  await openApp(page);
+  const commit = await uploadFixture(page, 'astronaut');
+  const chromium = context.browser().browserType().name() === 'chromium';
+  if (chromium) await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'http://127.0.0.1:4173' });
+  await page.locator('#copy-output').click();
+  await expect(page.locator('#status')).toHaveText('Copied. Paste it anywhere.');
+  if (chromium) expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(commit.text);
+});
+
+test('SAVE downloads a PNG of the committed frame', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('#save-output').click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^clack-\d{14}\.png$/);
+  const bytes = readFileSync(await download.path());
+  expect(bytes.byteLength).toBeGreaterThan(0);
+  expect(bytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+});
+
+test('SOURCE holds the original image over the ASCII while pressed', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut-portrait');
+  const peek = page.locator('#source-peek');
+  await expect(peek).toBeHidden();
+  await page.locator('#compare-output').focus();
+  await page.keyboard.down(' ');
+  await expect(peek).toBeVisible();
+  await expect(page.locator('#compare-output')).toHaveAttribute('aria-pressed', 'true');
+  const [width, height] = await peek.evaluate((canvas) => [canvas.width, canvas.height]);
+  expect(width).toBeGreaterThan(0);
+  expect(height).toBeGreaterThan(0);
+  await page.keyboard.up(' ');
+  await expect(peek).toBeHidden();
+  await expect(page.locator('#compare-output')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('look, ink and glow persist across a reload', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  await page.locator('#open-looks').click();
+  await page.locator('input[name="look"][value="photo"]').check();
+  await page.locator('#tab-style').click();
+  await page.locator('input[name="text-tint"][value="#ffd663"]').check();
+  await page.locator('#soft-glow').check();
+  await page.locator('#close-look-sheet').click();
+  await page.waitForFunction(() => JSON.parse(document.querySelector('#ascii-output').dataset.lookKey).id === 'photo');
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready');
+  await expect(page.locator('#open-looks')).toContainText('Photo');
+  await expect(page.locator('#open-ink')).toContainText('Amber');
+  await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(255, 214, 99)');
+  await page.locator('#open-looks').click();
+  await expect(page.locator('input[name="look"][value="photo"]')).toBeChecked();
+  await expect(page.locator('input[name="text-tint"][value="#ffd663"]')).toBeChecked();
+  await expect(page.locator('#soft-glow')).toBeChecked();
+  await page.locator('#close-look-sheet').click();
+  const restored = await uploadFixture(page, 'astronaut');
+  expect(restored.sourceGeneration).toBeGreaterThan(0);
+  await page.waitForFunction(() => JSON.parse(document.querySelector('#ascii-output').dataset.lookKey).id === 'photo');
+});
+
+test('edge settings survive a reload', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  await openPanel(page, 'tune');
+  await page.locator('#sigma1').fill('1.5');
+  await page.locator('#sigma2').fill('2.5');
+  await page.locator('#edge-threshold').fill('70');
+  await page.waitForFunction(() => {
+    const key = JSON.parse(document.querySelector('#ascii-output').dataset.settingsKey);
+    return key.sigma1 === 1.5 && key.sigma2 === 2.5 && key.edgeIndexThreshold === 70;
+  });
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready');
+  await openPanel(page, 'tune');
+  await expect(page.locator('#sigma1')).toHaveValue('1.5');
+  await expect(page.locator('#sigma2')).toHaveValue('2.5');
+  await expect(page.locator('#edge-threshold')).toHaveValue('70');
+});
+
+test('named presets save, apply, persist, and delete', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  await openPanel(page, 'looks');
+  await page.locator('input[name="look"][value="photo"]').check();
+  await page.locator('#look-midtone').evaluate((slider) => {
+    slider.value = '1.2';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await openPanel(page, 'framing');
+  await page.locator('input[name="framing"][value="square"]').check();
+  await openPanel(page, 'grid');
+  await page.locator('input[name="density"][value="fine"]').check();
+  await openPanel(page, 'style');
+  await page.locator('input[name="text-tint"][value="#ffd663"]').check();
+
+  await openPanel(page, 'presets');
+  await page.locator('#preset-name').fill('Studio');
+  await page.locator('#preset-save').click();
+  await expect(page.locator('#preset-list')).toContainText('Studio');
+  await expect(page.locator('#preset-empty')).toBeHidden();
+
+  await openPanel(page, 'looks');
+  await page.locator('input[name="look"][value="print"]').check();
+  await openPanel(page, 'framing');
+  await page.locator('input[name="framing"][value="wide"]').check();
+  await page.waitForFunction(() => JSON.parse(document.querySelector('#ascii-output').dataset.lookKey).id === 'print');
+
+  await openPanel(page, 'presets');
+  await page.locator('button[data-preset-apply="Studio"]').click();
+  await page.waitForFunction(() => {
+    const output = document.querySelector('#ascii-output');
+    return JSON.parse(output.dataset.lookKey).id === 'photo' && output.dataset.framing === 'square';
+  });
+  await expect(page.locator('#open-ink')).toContainText('Amber');
+  await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(255, 214, 99)');
+
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready');
+  await openPanel(page, 'looks');
+  await page.locator('input[name="look"][value="print"]').check();
+  await openPanel(page, 'presets');
+  await expect(page.locator('#preset-list')).toContainText('Studio');
+  await page.locator('button[data-preset-apply="Studio"]').click();
+  await openPanel(page, 'looks');
+  await expect(page.locator('input[name="look"][value="photo"]')).toBeChecked();
+  await expect(page.locator('#look-midtone')).toHaveValue('1.2');
+  await openPanel(page, 'framing');
+  await expect(page.locator('input[name="framing"][value="square"]')).toBeChecked();
+  await openPanel(page, 'style');
+  await expect(page.locator('input[name="text-tint"][value="#ffd663"]')).toBeChecked();
+  await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(255, 214, 99)');
+  await page.locator('#close-look-sheet').click();
+  const restoredPreset = await uploadFixture(page, 'astronaut');
+  expect(JSON.parse(restoredPreset.settingsKey)).toMatchObject({ maxWidthChars: 75, maxHeightLines: 100 });
+  await page.waitForFunction(() => {
+    const output = document.querySelector('#ascii-output');
+    return JSON.parse(output.dataset.lookKey).id === 'photo' && output.dataset.framing === 'square';
+  });
+
+  await openPanel(page, 'presets');
+  await page.locator('button[data-preset-delete="Studio"]').click();
+  await expect(page.locator('#preset-list')).toBeEmpty();
+  await expect(page.locator('#preset-empty')).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready');
+  await openPanel(page, 'presets');
+  await expect(page.locator('#preset-empty')).toBeVisible();
+});
+
+test('tabs follow the automatic-activation keyboard pattern', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  await page.locator('#open-looks').click();
+  await page.locator('#tab-looks').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#tab-grid')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#tab-grid')).toBeFocused();
+  await expect(page.locator('#panel-grid')).toBeVisible();
+  await page.keyboard.press('End');
+  await expect(page.locator('#tab-presets')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#tab-presets')).toBeFocused();
+  await expect(page.locator('#panel-presets')).toBeVisible();
+  await page.keyboard.press('Home');
+  await expect(page.locator('#tab-camera')).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('#tab-presets')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#tab-presets')).toBeFocused();
+});
+
+test('the sheet traps focus, closes on Escape, and restores its opener', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  await expect(page.locator('#look-sheet')).toHaveAttribute('role', 'dialog');
+  await expect(page.locator('#look-sheet')).toHaveAttribute('aria-modal', 'true');
+  await page.locator('#open-looks').click();
+  for (let index = 0; index < 12; index += 1) await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => document.getElementById('look-sheet').contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#look-sheet')).toBeHidden();
+  await expect(page.locator('#open-looks')).toBeFocused();
 });

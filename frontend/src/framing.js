@@ -18,7 +18,7 @@ export function computeCropRect(sourceWidth, sourceHeight, frameId = 'full') {
   if (frame.id === 'full') return { x: 0, y: 0, width: sourceWidth, height: sourceHeight };
   // Integer multiples avoid a subtly stretched ratio after Canvas pixel rounding.
   const multiple = Math.floor(Math.min(sourceWidth / frame.width, sourceHeight / frame.height));
-  if (multiple < 1) throw new RangeError('Image is too small for this frame — choose Full or a larger image');
+  if (multiple < 1) throw new RangeError('Image is too small for this frame. Choose Full or a larger image');
   const width = multiple * frame.width;
   const height = multiple * frame.height;
   return { x: Math.floor((sourceWidth - width) / 2), y: Math.floor((sourceHeight - height) / 2), width, height };
