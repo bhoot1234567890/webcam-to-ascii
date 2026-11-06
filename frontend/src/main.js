@@ -10,7 +10,8 @@ import { normalizeLook } from './looks.js';
 import { createLookControls } from './look-controls.js';
 import { findDensity, findDensityBySettings } from './density.js';
 import { copyAscii, asciiToPng } from './export.js';
-import { loadSaved, save } from './persist.js';
+import { loadSaved, save, loadPresets, savePresets } from './persist.js';
+import { normalizePreset, normalizePresetList, upsertPreset, removePreset } from './presets.js';
 
 const byId = (id) => document.getElementById(id);
 const output = byId('ascii-output');
@@ -37,6 +38,7 @@ let framing = 'full';
 let tint = 'default';
 let glow = false;
 let lookControls = null;
+let presets = [];
 let source = null;
 let sourceGeneration = 0;
 let decodeToken = 0;
@@ -490,6 +492,7 @@ function changeSettings() {
     if (source?.kind === 'image') renderStill();
     else if (source?.kind === 'camera' && source.active) submitRender();
     syncLookControls();
+    persist();
   } catch (error) {
     showError(error.message);
   }
@@ -503,6 +506,11 @@ function persist() {
     tint,
     glow,
     density: { maxWidthChars: settings.maxWidthChars, maxHeightLines: settings.maxHeightLines },
+    tuning: {
+      sigma1: settings.sigma1,
+      sigma2: settings.sigma2,
+      edgeIndexThreshold: settings.edgeIndexThreshold,
+    },
     facing: facingSelect.value,
     view: document.querySelector('.ascii-viewport').dataset.view,
     guides: byId('toggle-guides').getAttribute('aria-pressed') === 'true',
@@ -583,6 +591,15 @@ function changeFraming(proposed) {
   syncLookControls();
 }
 
+function applyPresentation({ tint: nextTint, glow: nextGlow }) {
+  tint = nextTint;
+  glow = nextGlow;
+  if (tint === 'default') document.body.style.removeProperty('--ascii-tint');
+  else document.body.style.setProperty('--ascii-tint', tint);
+  document.body.dataset.glow = glow ? 'on' : 'off';
+  outputView.update();
+}
+
 function changePresentation(proposed) {
   if ((proposed.tint !== 'default' && !/^#[0-9a-f]{6}$/i.test(proposed.tint)) ||
       typeof proposed.glow !== 'boolean') {
@@ -590,14 +607,48 @@ function changePresentation(proposed) {
     syncLookControls();
     return;
   }
-  tint = proposed.tint;
-  glow = proposed.glow;
-  if (tint === 'default') document.body.style.removeProperty('--ascii-tint');
-  else document.body.style.setProperty('--ascii-tint', tint);
-  document.body.dataset.glow = glow ? 'on' : 'off';
-  outputView.update();
+  applyPresentation({ tint: proposed.tint, glow: proposed.glow });
   syncLookControls();
   persist();
+}
+
+function savePreset(name) {
+  try {
+    const preset = normalizePreset({ name, settings, look, framing, tint, glow });
+    presets = upsertPreset(presets, preset);
+    savePresets(presets);
+    lookControls?.syncPresets(presets);
+    setStatus(`Saved ${preset.name}.`, true);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error.message };
+  }
+}
+
+function deletePreset(name) {
+  presets = removePreset(presets, name);
+  savePresets(presets);
+  lookControls?.syncPresets(presets);
+  setStatus('Preset deleted.', true);
+}
+
+function applyPreset(name) {
+  const preset = presets.find((entry) => entry.name === name);
+  if (!preset || disposed) return;
+  settings = preset.settings;
+  settingsKey = JSON.stringify(settings);
+  look = preset.look;
+  lookKey = JSON.stringify(look);
+  framing = preset.framing;
+  renderEpoch++;
+  applyPresentation({ tint: preset.tint, glow: preset.glow });
+  syncSettingsInputs();
+  syncLookControls();
+  updateControls();
+  if (source?.kind === 'image') renderStill();
+  else if (source?.kind === 'camera' && source.active) submitRender();
+  persist();
+  setStatus(`Applied ${preset.name}.`, true);
 }
 
 function dispose() {
@@ -629,11 +680,12 @@ try {
     if (saved.tint === 'default' || /^#[0-9a-f]{6}$/i.test(saved.tint)) tint = saved.tint;
     if (typeof saved.glow === 'boolean') glow = saved.glow;
     try {
-      settings = normalizeSettings({ ...settings, ...saved.density });
+      settings = normalizeSettings({ ...settings, ...saved.density, ...saved.tuning });
       settingsKey = JSON.stringify(settings);
     } catch { /* keep the default density */ }
     if (['', 'user', 'environment'].includes(saved.facing)) facingSelect.value = saved.facing;
   }
+  presets = normalizePresetList(loadPresets());
   await configureAsciiText(output);
   outputView = createOutputView(document.querySelector('.ascii-viewport'), output, byId('fit-output'), byId('detail-output'));
   if (saved?.view === 'detail') byId('detail-output').click();
@@ -648,10 +700,14 @@ try {
     onFramingChange: changeFraming,
     onPresentationChange: changePresentation,
     onDensityChange: changeDensity,
+    onSavePreset: savePreset,
+    onApplyPreset: applyPreset,
+    onDeletePreset: deletePreset,
   });
   changePresentation({ tint, glow });
   syncSettingsInputs();
   syncLookControls();
+  lookControls.syncPresets(presets);
   byId('camera-shutter').addEventListener('click', shutterAction);
   byId('camera-stop').addEventListener('click', stopCamera);
   byId('camera-import').addEventListener('click', () => imageInput.click());

@@ -485,6 +485,96 @@ test('look, ink and glow persist across a reload', async ({ page }) => {
   await page.waitForFunction(() => JSON.parse(document.querySelector('#ascii-output').dataset.lookKey).id === 'photo');
 });
 
+test('edge settings survive a reload', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  await openPanel(page, 'tune');
+  await page.locator('#sigma1').fill('1.5');
+  await page.locator('#sigma2').fill('2.5');
+  await page.locator('#edge-threshold').fill('70');
+  await page.waitForFunction(() => {
+    const key = JSON.parse(document.querySelector('#ascii-output').dataset.settingsKey);
+    return key.sigma1 === 1.5 && key.sigma2 === 2.5 && key.edgeIndexThreshold === 70;
+  });
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready');
+  await openPanel(page, 'tune');
+  await expect(page.locator('#sigma1')).toHaveValue('1.5');
+  await expect(page.locator('#sigma2')).toHaveValue('2.5');
+  await expect(page.locator('#edge-threshold')).toHaveValue('70');
+});
+
+test('named presets save, apply, persist, and delete', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  await openPanel(page, 'looks');
+  await page.locator('input[name="look"][value="photo"]').check();
+  await page.locator('#look-midtone').evaluate((slider) => {
+    slider.value = '1.2';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await openPanel(page, 'framing');
+  await page.locator('input[name="framing"][value="square"]').check();
+  await openPanel(page, 'grid');
+  await page.locator('input[name="density"][value="fine"]').check();
+  await openPanel(page, 'style');
+  await page.locator('input[name="text-tint"][value="#ffd663"]').check();
+
+  await openPanel(page, 'presets');
+  await page.locator('#preset-name').fill('Studio');
+  await page.locator('#preset-save').click();
+  await expect(page.locator('#preset-list')).toContainText('Studio');
+  await expect(page.locator('#preset-empty')).toBeHidden();
+
+  await openPanel(page, 'looks');
+  await page.locator('input[name="look"][value="print"]').check();
+  await openPanel(page, 'framing');
+  await page.locator('input[name="framing"][value="wide"]').check();
+  await page.waitForFunction(() => JSON.parse(document.querySelector('#ascii-output').dataset.lookKey).id === 'print');
+
+  await openPanel(page, 'presets');
+  await page.locator('button[data-preset-apply="Studio"]').click();
+  await page.waitForFunction(() => {
+    const output = document.querySelector('#ascii-output');
+    return JSON.parse(output.dataset.lookKey).id === 'photo' && output.dataset.framing === 'square';
+  });
+  await expect(page.locator('#open-ink')).toContainText('Amber');
+  await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(255, 214, 99)');
+
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready');
+  await openPanel(page, 'looks');
+  await page.locator('input[name="look"][value="print"]').check();
+  await openPanel(page, 'presets');
+  await expect(page.locator('#preset-list')).toContainText('Studio');
+  await page.locator('button[data-preset-apply="Studio"]').click();
+  await openPanel(page, 'looks');
+  await expect(page.locator('input[name="look"][value="photo"]')).toBeChecked();
+  await expect(page.locator('#look-midtone')).toHaveValue('1.2');
+  await openPanel(page, 'framing');
+  await expect(page.locator('input[name="framing"][value="square"]')).toBeChecked();
+  await openPanel(page, 'style');
+  await expect(page.locator('input[name="text-tint"][value="#ffd663"]')).toBeChecked();
+  await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(255, 214, 99)');
+  await page.locator('#close-look-sheet').click();
+  const restoredPreset = await uploadFixture(page, 'astronaut');
+  expect(JSON.parse(restoredPreset.settingsKey)).toMatchObject({ maxWidthChars: 75, maxHeightLines: 100 });
+  await page.waitForFunction(() => {
+    const output = document.querySelector('#ascii-output');
+    return JSON.parse(output.dataset.lookKey).id === 'photo' && output.dataset.framing === 'square';
+  });
+
+  await openPanel(page, 'presets');
+  await page.locator('button[data-preset-delete="Studio"]').click();
+  await expect(page.locator('#preset-list')).toBeEmpty();
+  await expect(page.locator('#preset-empty')).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready');
+  await openPanel(page, 'presets');
+  await expect(page.locator('#preset-empty')).toBeVisible();
+});
+
 test('tabs follow the automatic-activation keyboard pattern', async ({ page }) => {
   await openApp(page);
   await uploadFixture(page, 'astronaut');
@@ -495,12 +585,14 @@ test('tabs follow the automatic-activation keyboard pattern', async ({ page }) =
   await expect(page.locator('#tab-grid')).toBeFocused();
   await expect(page.locator('#panel-grid')).toBeVisible();
   await page.keyboard.press('End');
-  await expect(page.locator('#tab-style')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#tab-presets')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#tab-presets')).toBeFocused();
+  await expect(page.locator('#panel-presets')).toBeVisible();
   await page.keyboard.press('Home');
   await expect(page.locator('#tab-camera')).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('ArrowLeft');
-  await expect(page.locator('#tab-style')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('#panel-style')).toBeVisible();
+  await expect(page.locator('#tab-presets')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#tab-presets')).toBeFocused();
 });
 
 test('the sheet traps focus, closes on Escape, and restores its opener', async ({ page }) => {

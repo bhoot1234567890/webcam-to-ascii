@@ -6,7 +6,10 @@ const TINT_LABELS = { default: 'Paper', '#ffffff': 'White', '#ffd663': 'Amber', 
 const FIELD_HELP = { sigma1: 'sigma1-help', sigma2: 'sigma2-help', 'edge-threshold': 'edge-threshold-help' };
 
 /** Settings drawer. Only the owner (main.js) commits processing and presentation state. */
-export function createLookControls({ onLookChange, onFramingChange, onPresentationChange, onDensityChange }) {
+export function createLookControls({
+  onLookChange, onFramingChange, onPresentationChange, onDensityChange,
+  onSavePreset, onApplyPreset, onDeletePreset,
+}) {
   const byId = (id) => document.getElementById(id);
   const sheet = byId('look-sheet');
   const listeners = [];
@@ -182,6 +185,67 @@ export function createLookControls({ onLookChange, onFramingChange, onPresentati
   listen(byId('text-color'), 'input', (event) => onPresentationChange({ tint: event.target.value, glow: state.glow }));
   listen(byId('soft-glow'), 'change', (event) => onPresentationChange({ tint: state.tint, glow: event.target.checked }));
 
+  // Presets: rebuilt only when the saved list changes, so slider input never steals list focus.
+  function syncPresets(presets) {
+    const list = byId('preset-list');
+    list.replaceChildren();
+    byId('preset-empty').hidden = presets.length > 0;
+    for (const preset of presets) {
+      const item = document.createElement('li');
+      const name = document.createElement('span');
+      name.className = 'preset-name';
+      name.textContent = preset.name;
+      const apply = document.createElement('button');
+      apply.type = 'button';
+      apply.textContent = 'APPLY';
+      apply.dataset.presetApply = preset.name;
+      apply.setAttribute('aria-label', `Apply preset ${preset.name}`);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = 'DELETE';
+      remove.dataset.presetDelete = preset.name;
+      remove.setAttribute('aria-label', `Delete preset ${preset.name}`);
+      item.append(name, apply, remove);
+      list.append(item);
+    }
+  }
+
+  function savePresetFromInput() {
+    const input = byId('preset-name');
+    const error = byId('preset-error');
+    const result = onSavePreset(input.value);
+    if (result.ok) {
+      error.hidden = true;
+      input.removeAttribute('aria-invalid');
+      input.value = '';
+    } else {
+      error.textContent = result.message;
+      error.hidden = false;
+      input.setAttribute('aria-invalid', 'true');
+      input.focus();
+    }
+  }
+
+  listen(byId('preset-list'), 'click', (event) => {
+    const apply = event.target.closest('button[data-preset-apply]');
+    if (apply) {
+      onApplyPreset(apply.dataset.presetApply);
+      return;
+    }
+    const remove = event.target.closest('button[data-preset-delete]');
+    if (remove) {
+      onDeletePreset(remove.dataset.presetDelete);
+      // Rebuilding the list detaches the pressed button; keep focus inside the modal.
+      byId('preset-name').focus();
+    }
+  });
+  listen(byId('preset-save'), 'click', savePresetFromInput);
+  listen(byId('preset-name'), 'keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    savePresetFromInput();
+  });
+
   function sync(next) {
     state = { ...next, look: normalizeLook(next.look) };
     const recipe = LOOKS.find((look) => look.id === state.look.id);
@@ -239,9 +303,11 @@ export function createLookControls({ onLookChange, onFramingChange, onPresentati
   sync(state);
   return {
     sync,
+    syncPresets,
     dispose() {
       tabsObserver.disconnect();
       sheet.hidden = true;
+      byId('preset-list').replaceChildren();
       for (const fieldset of [byId('look-choices'), byId('framing-choices'), byId('density-choices')].filter(Boolean)) {
         for (const label of fieldset.querySelectorAll('.choice')) label.remove();
       }

@@ -165,6 +165,15 @@ select { width: 100%; }
 .ink-row.custom-selected label { color: var(--ink); }
 .ink-row.custom-selected input[type="color"] { border-color: var(--ink); }
 input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid var(--border); border-radius: 0; background: var(--panel-2); }
+.preset-save { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.preset-save label { color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0.14em; }
+.preset-save input { flex: 1; min-width: 120px; min-height: 44px; padding: 0 10px; border: 1px solid var(--border); border-radius: 0; background: var(--panel-2); color: var(--ink); font-size: 12px; }
+.preset-save button, .preset-list button { min-height: 44px; padding: 0 12px; border: 1px solid var(--border); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; }
+.preset-save button:hover:not(:disabled), .preset-list button:hover { border-color: var(--muted); }
+.preset-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.preset-list li { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.preset-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.preset-empty { margin: 0; color: var(--muted); font-size: 12px; }
 
 /* ————— control rail ————— */
 .rail { flex-shrink: 0; border-top: 1px solid var(--border); background: var(--bg); padding: 10px 16px max(10px, env(safe-area-inset-bottom)); display: grid; gap: 8px; }

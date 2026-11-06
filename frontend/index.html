@@ -54,6 +54,7 @@
               <button role="tab" id="tab-framing" aria-selected="false" aria-controls="panel-framing" class="tab" tabindex="-1" type="button">Frame</button>
               <button role="tab" id="tab-tune" aria-selected="false" aria-controls="panel-tune" class="tab" tabindex="-1" type="button">Edges</button>
               <button role="tab" id="tab-style" aria-selected="false" aria-controls="panel-style" class="tab" tabindex="-1" type="button">Ink</button>
+              <button role="tab" id="tab-presets" aria-selected="false" aria-controls="panel-presets" class="tab" tabindex="-1" type="button">Presets</button>
             </nav>
             <button id="close-look-sheet" type="button">CLOSE</button>
           </div>
@@ -112,6 +113,16 @@
               </fieldset>
               <div class="ink-row"><label for="text-color">CUSTOM</label><input id="text-color" type="color" value="#ffffff" /></div>
               <label class="check" for="soft-glow"><input id="soft-glow" type="checkbox" />SOFT GLOW</label>
+            </section>
+            <section role="tabpanel" id="panel-presets" aria-labelledby="tab-presets" class="panel" hidden>
+              <div class="preset-save">
+                <label for="preset-name">NAME</label>
+                <input id="preset-name" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="Name" aria-describedby="preset-error" />
+                <button id="preset-save" type="button">SAVE PRESET</button>
+              </div>
+              <p id="preset-error" class="field-error" hidden></p>
+              <p id="preset-empty" class="preset-empty">No saved presets.</p>
+              <ul id="preset-list" class="preset-list" aria-label="Saved presets"></ul>
             </section>
           </div>
         </section>

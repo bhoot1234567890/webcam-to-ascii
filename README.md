@@ -15,6 +15,7 @@
 - **Live ASCII viewfinder** — see the camera feed rendered in characters, freeze a frame, or import a local photo. The Python viewer prints frames to the terminal; quit it with `q`.
 - **Nondestructive framing** — Full, 1:1, 3:4, 9:16, 4:3 and 16:9 center crops, shared by live frames, frozen shots and imported photos.
 - **Curated looks and opt-in adjustments** — Original, Photo, Print and Outline, with advanced tone controls, text tint and optional soft glow in one inline settings drawer.
+- **Named presets** — save the current look, tone, edges, density, frame, tint and glow under a name, then apply or delete it; up to 24, stored only on this device.
 - **Directional edge glyphs** — the original ordered angle-selection rule chooses `/ - \ |`, including its historical negative-angle quirks.
 - **95-character luminance ramp** — Original maps shading through the full measured printable ASCII set. Photo and Print use a compact ramp with the same real ink measurements, not assumed equal brightness steps.
 - **Ink-weighted character ramp** — glyphs are ranked by their real rendered "ink" (dark-pixel count in a font), not by a hand-tuned guess, so brightness maps perceptually.
@@ -255,6 +256,8 @@ The Python scripts are tuned in source. The browser exposes everything through t
 | Invert tones | `Off` | Drawer Tune tab | Invert processed luminance, not the page or selected text color. |
 | Text color | `Paper` | Drawer Ink tab | Paper / White / Amber / Green / native custom picker; presentation-only. |
 | Soft text glow | `Off` | Drawer Ink tab | Bounded text shadow with an 8 CSS-pixel halo gutter; presentation-only. |
+| Named presets | none saved | Drawer Presets tab | Up to 24 case-sensitive names of 1-24 characters in `clack:presets:v1`. A preset captures look, tone, sigma/threshold, density, frame, tint and glow; camera device, FIT/1:1 view and guides are excluded. Reusing a name replaces it in place, and stored entries that fail validation are dropped. |
+| Saved settings | n/a | `localStorage` `clack:settings:v1` | Look, tone, frame, ink, glow, density, the Tune values (`sigma1`, `sigma2`, edge threshold), facing, view and guides restore on reload. Persistence is best-effort; private mode never blocks rendering. |
 | `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; browser Tune `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. Browser uses these only for Original/Outline. |
 | `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; browser Tune integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. Retained but disabled for Photo/Print. |
 | `ord('q')` | `q` | `webcam ascii.py`, `web ascii cv2.py` | Key that stops the loop and releases the camera. |
