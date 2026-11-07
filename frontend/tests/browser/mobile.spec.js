@@ -406,10 +406,10 @@ test('Photo and Video modes keep the mobile camera geometry and do not request p
     await expect(page.locator('#camera-shutter')).not.toHaveCSS('color', photoColor);
     await expect(page.locator('#recording-indicator')).toBeHidden();
     await expect(page.locator('#review-video')).toBeHidden();
-    await containedTouchTargets(page, ['#photo-mode', '#video-mode', '#camera-shutter', '#camera-import'], viewport);
+    await containedTouchTargets(page, ['#photo-mode', '#video-mode', '#camera-shutter', '#camera-import', '#copy-output', '#save-output', '#fit-output'], viewport);
     const videoBounds = await page.locator('.ascii-viewport').boundingBox();
     expect(videoBounds, 'Video uses the existing viewfinder, not a smaller surface').toEqual(photoBounds);
-    await containedTouchTargets(page, ['#flip-camera'], viewport);
+    await expect(page.locator('#flip-camera')).toBeHidden();
     await openPanel(page, 'camera');
     await page.locator('#studio-video').scrollIntoViewIfNeeded();
     await containedTouchTargets(page, ['#studio-video'], viewport);

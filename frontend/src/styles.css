@@ -71,11 +71,12 @@ button:active:not(:disabled), .choice:active { transform: scale(0.97); transitio
 .stage { display: flex; flex: 1; flex-direction: column; min-height: 140px; flex-shrink: 0; overflow: hidden; }
 .ascii-viewport { position: relative; display: flex; flex: 1; width: 100%; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-color: #3c3c44 var(--bg); background: var(--bg); padding: 20px; }
 .ascii-viewport:focus-visible { outline-offset: -2px; }
+/* Scroll affordance for the 100% view: edge fades where the grid overflows.
+   Backgrounds on a scroll container stay fixed to the padding box; static. */
+.ascii-viewport[data-pannable="true"] { background-image: linear-gradient(to left, var(--bg), transparent 28px), linear-gradient(to top, var(--bg), transparent 28px); }
 
 .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
 .empty-title, .empty-hint { margin: 0; color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0.12em; line-height: 2; white-space: pre-line; }
-.empty-state button { min-height: 44px; padding: 0 16px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
-.empty-state #empty-start { border-color: var(--accent); color: var(--accent); }
 .source-peek { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--bg); }
 
 .flip-row button { min-height: 44px; padding: 0 16px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
@@ -186,31 +187,36 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
 
 /* ————— control rail ————— */
 .rail { flex-shrink: 0; border-top: 1px solid var(--border); background: var(--bg); padding: 10px 16px max(10px, env(safe-area-inset-bottom)); display: grid; gap: 8px; }
-.rail-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.rail-main > button, .view-controls button { min-height: 48px; padding: 0 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
-.rail-main > button:hover:not(:disabled), .view-controls button:hover { border-color: var(--muted); }
+/* Row system: four deliberate rows, never mid-row wrapping. No color declared
+   here on purpose — rail buttons inherit ink from :root, which keeps the
+   shutter's accent color and the mode chips' muted color winning the cascade. */
+.rail-row { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; min-width: 0; }
+.rail-row button { min-height: 44px; padding: 0 14px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
+.rail-row button:hover:not(:disabled) { border-color: var(--muted); }
+.rail-row button:disabled { border-style: dashed; opacity: 0.55; }
 .shutter { flex: 1; max-width: 280px; border-color: var(--accent) !important; color: var(--accent); }
 .shutter[data-state="requesting"] { border-color: var(--muted) !important; color: var(--ink); }
 .shutter[data-state="live"] { background: var(--accent); color: var(--accent-ink); }
 .shutter:disabled { opacity: 0.4; }
-.view-controls { display: flex; margin-left: auto; }
+.view-controls { display: flex; }
 .view-controls button { min-width: 56px; border-left-width: 0; }
 .view-controls button:first-child { border-left-width: 1px; }
 .view-controls button[aria-pressed="true"] { background: var(--panel-2); color: var(--ink); }
+.view-controls button[aria-pressed="true"]:disabled { background: transparent; color: var(--muted); }
 
-.readout { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; margin: 0; font-size: 11px; letter-spacing: 0.06em; }
-.readout button { min-height: 44px; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; }
-.readout button:hover { color: var(--ink); }
-.readout button span, .readout .readout-static { color: var(--ink); }
-.readout .readout-static { overflow-wrap: anywhere; }
-.readout #grid-label:empty { display: none; }
+.readout-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.readout-tiles button { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; }
+.readout-tiles button:hover { border-color: var(--muted); }
+.readout-tiles button span { color: var(--ink); }
+.readout-meta { display: flex; justify-content: space-between; gap: 8px; margin: 0; font-size: 11px; letter-spacing: 0.06em; color: var(--muted); }
+.readout-meta #grid-label { color: var(--ink); }
+.readout-meta #grid-label:empty { display: none; }
+.readout-meta .readout-static { text-align: right; }
 
 /* Video uses the existing labeled rail rather than a second camera shell. */
-.capture-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; min-width: 0; }
-.capture-modes { display: flex; flex-wrap: wrap; gap: 4px; }
-.capture-modes button, .capture-action { min-width: 44px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; }
-.capture-modes button { min-width: 56px; }
-.capture-modes button:hover:not(:disabled), .capture-action:hover:not(:disabled) { border-color: var(--muted); }
+.capture-modes { display: flex; gap: 4px; }
+.capture-modes button { min-width: 56px; padding: 0 12px; font-size: 11px; color: var(--muted); }
+.rail-capture .capture-action { padding: 0 12px; font-size: 11px; }
 .capture-modes button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); background: var(--panel-2); }
 .shutter { min-width: 112px; }
 .shutter[data-mode="video"] { border-color: var(--error-ink) !important; color: var(--error-ink); background: transparent; }
@@ -245,11 +251,24 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
 @media (max-width: 760px) {
   .topbar { padding: 4px 12px; gap: 12px; }
   .topbar-caption { display: none; }
-  .rail { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
-  .rail-main { flex-wrap: wrap; }
+  .statusline { min-height: 28px; }
+  /* Phone budget: a 428x746 viewport must keep the viewfinder over half the
+     screen, so the rail stacks six rows — help shares row 1 beside the mode
+     chips, tiles become one 4-across row, and telemetry keeps its own line. */
+  .rail {
+    padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px;
+  }
+  .rail-modes { grid-row: 1; grid-column: 1; }
+  #shutter-help { grid-row: 1; grid-column: 2; align-self: center; }
+  .rail-capture { grid-row: 2; grid-column: 1 / -1; }
+  .rail-output { grid-row: 3; grid-column: 1 / -1; }
+  .rail-display { grid-row: 4; grid-column: 1 / -1; }
+  .readout-tiles { grid-row: 5; grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .readout-meta { grid-row: 6; grid-column: 1 / -1; }
+  .readout-tiles button { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 6px; font-size: 10px; }
   .shutter { flex: 1; max-width: none; }
-  .rail-main > button:not(.shutter) { padding: 0 14px; }
-  .view-controls button { min-width: 64px; }
   .ascii-viewport { padding: 12px; }
   .drawer-body { padding: 12px 12px 16px; }
   .flip-row { box-shadow: 0 16px 0 var(--panel); }
@@ -263,6 +282,13 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   .camera-fields { grid-template-columns: minmax(0, 1fr); }
 }
 
+@media (min-width: 761px) {
+  .rail { display: flex; flex-wrap: wrap; align-items: center; column-gap: 16px; row-gap: 8px; }
+  .rail-capture .shutter { flex: 0 1 auto; min-width: 112px; max-width: 280px; }
+  .readout-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #shutter-help, .readout-meta, .readout-tiles { flex-basis: 100%; }
+}
+
 @media (min-width: 480px) and (max-height: 500px) and (orientation: landscape) {
   .app { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 36%); grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
   .topbar, .statusline, .errorline { grid-column: 1 / -1; }
@@ -271,11 +297,9 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   .errorline { grid-row: 3; }
   .stage { grid-column: 1; grid-row: 4; min-height: 0; min-width: 0; }
   #settings-form { grid-column: 1; grid-row: 5; min-width: 0; }
-  .rail { grid-column: 2; grid-row: 4 / 6; min-height: 0; border-top: 0; border-left: 1px solid var(--border); overflow-y: auto; overscroll-behavior: contain; align-content: start; }
-  .rail-main > .shutter { flex-basis: 100%; }
-  .rail .view-controls { margin-left: 0; }
+  .rail { grid-column: 2; grid-row: 4 / 6; min-height: 0; border-top: 0; border-left: 1px solid var(--border); overflow-y: auto; overscroll-behavior: contain; align-content: start; gap: 6px; }
+  .readout-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .rail .view-controls button { min-width: 44px; padding-inline: 10px; }
-  .rail .readout { gap: 4px 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

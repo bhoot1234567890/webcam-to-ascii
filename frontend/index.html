@@ -22,7 +22,6 @@
         <span class="topbar-caption">ASCII CAMERA · LOCAL ONLY</span>
         <div class="topbar-actions">
           <button id="toggle-guides" type="button" aria-pressed="false" title="Composition grid">GUIDES</button>
-          <button id="camera-stop" type="button" disabled hidden title="Stop camera">STOP</button>
         </div>
       </header>
 
@@ -30,12 +29,10 @@
       <div id="error" class="errorline" role="alert" hidden><span id="error-text"></span><button id="error-action" type="button" hidden>USE A PHOTO</button></div>
 
       <main class="stage">
-        <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output. FIT scales the image to the pane; 1:1 scrolls the full grid.">
+        <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output. FIT scales the image to the pane; 100% shows every pixel.">
           <div class="ascii-stage"><pre id="ascii-output" role="img" aria-label="Rendered ASCII art"></pre><div class="composition-grid" aria-hidden="true"></div></div>
           <div id="empty-state" class="empty-state" hidden>
             <p class="empty-title">NO SIGNAL</p>
-            <button id="empty-start" type="button">START CAMERA</button>
-            <button id="empty-photo" type="button">USE A PHOTO</button>
             <p id="empty-hint" class="empty-hint" hidden>WAITING FOR CAMERA PERMISSION. Allow access in the browser prompt.</p>
           </div>
           <canvas id="source-peek" class="source-peek" hidden aria-hidden="true"></canvas>
@@ -129,36 +126,43 @@
       </form>
 
       <footer class="rail" aria-label="Camera controls">
-        <div class="capture-controls">
+        <div class="rail-row rail-modes">
           <div class="capture-modes" role="group" aria-label="Capture mode">
             <button id="photo-mode" type="button" aria-pressed="true" disabled>PHOTO</button>
             <button id="video-mode" type="button" aria-pressed="false" disabled>VIDEO</button>
-            <button id="review-video" type="button" aria-label="Review recorded ASCII video" hidden>REVIEW</button>
           </div>
           <span id="recording-indicator" role="status" aria-live="polite" hidden><span class="recording-dot" aria-hidden="true"></span><span id="recording-label">Recording</span> <time id="recording-timer" datetime="PT0S" aria-label="Recording elapsed time">00:00</time></span>
-          <button id="flip-camera" class="capture-action" type="button" aria-label="Switch camera and start it" title="Switch camera" disabled>FLIP</button>
+          <button id="review-video" type="button" aria-label="Review recorded ASCII video" hidden>REVIEW</button>
         </div>
-        <div class="rail-main">
+        <div class="rail-row rail-capture">
           <button id="camera-shutter" class="shutter" type="button" data-mode="photo" data-state="idle" aria-label="Start camera" title="Start camera" aria-describedby="shutter-help" disabled><span>CAMERA</span></button>
+          <button id="flip-camera" class="capture-action" type="button" aria-label="Switch front and back camera" title="Switch camera" hidden>FLIP</button>
+          <button id="camera-stop" type="button" disabled hidden title="Stop camera">STOP</button>
+        </div>
+        <div class="rail-row rail-output">
           <button id="camera-import" type="button" aria-label="Choose photo from this device" title="Choose photo" disabled>IMPORT</button>
           <button id="copy-output" type="button" disabled title="Copy ASCII text">COPY</button>
           <button id="save-output" type="button" disabled title="Download PNG">SAVE</button>
           <input id="image-input" type="file" accept="image/*" hidden />
+        </div>
+        <div class="rail-row rail-display">
           <div class="view-controls" role="group" aria-label="ASCII display size">
             <button id="fit-output" type="button" aria-pressed="false" aria-controls="ascii-output">FIT</button>
-            <button id="detail-output" type="button" aria-pressed="false" aria-controls="ascii-output">1:1</button>
+            <button id="detail-output" type="button" aria-pressed="false" aria-controls="ascii-output">100%</button>
             <button id="compare-output" type="button" aria-pressed="false" title="Hold to compare with the source">SOURCE</button>
           </div>
         </div>
         <p id="shutter-help" class="shutter-help">Loading the viewfinder…</p>
-        <p class="readout">
+        <div class="readout-tiles">
           <button id="open-looks" type="button">LOOK <span id="look-label">Original</span></button>
           <button id="open-grid" type="button">DETAIL <span id="grid-density-label">Balanced</span></button>
           <button id="open-framing" type="button">FRAME <span id="framing-label">Full</span></button>
           <button id="open-ink" type="button">INK <span id="ink-label">Paper</span></button>
-          <span id="grid-label" class="readout-static"></span>
+        </div>
+        <div class="readout-meta">
+          <span id="grid-label"></span>
           <span class="readout-static">nothing leaves this device</span>
-        </p>
+        </div>
       </footer>
     </div>
     <dialog id="video-review" aria-labelledby="video-review-title" aria-describedby="video-review-privacy">

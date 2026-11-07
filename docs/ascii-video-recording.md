@@ -272,7 +272,7 @@ capture immediately, the latter first asks the recorder to finish and lets
 | Element / attribute | Purpose |
 |---|---|
 | `#photo-mode`, `#video-mode` | Rail `aria-pressed` mode chips; selecting a mode never requests permission |
-| `#flip-camera` | Rail camera switch next to the mode chips; disabled while requesting, recording or busy, and idle selection starts the other facing |
+| `#flip-camera` | Rail camera switch beside the shutter; hidden while the camera is idle, disabled while requesting, recording or busy |
 | `#review-video` | Appears when `hasClip`; reopens the dialog |
 | `#studio-video` | Camera-tab shortcut: selects video mode, closes the drawer and focuses the shutter |
 | `#recording-indicator` + `#recording-label` + `#recording-timer` | Replaces the status text while locked; label reads `Starting`, `Recording` or `Finishing` |
@@ -410,7 +410,8 @@ Decisions visible in current code:
 
 - Mode chips (`#photo-mode`, `#video-mode`) live in the camera rail.
 - The drawer's Camera tab keeps the `RECORD ASCII VIDEO` shortcut, and the rail
-  also holds `#flip-camera`, so a flip or a recording never requires the drawer.
+  also holds `#flip-camera` next to the shutter, so flipping or recording never
+  requires the drawer.
 - `body[data-capture-mode]` and `body[data-recording-state]` remain as styling and
   test hooks.
 - Recorder drawing was extracted to `frontend/src/artwork.js` and is shared with

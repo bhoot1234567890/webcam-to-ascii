@@ -17,6 +17,9 @@ if (ids.size !== 16 || REFERENCE.fullImages.length !== 32 || REFERENCE.canonical
 const origin = 'http://127.0.0.1:4173';
 const production = process.env.QA_PRODUCTION === '1';
 const policyPattern = /Permissions policy violation: camera is not allowed in this document/i;
+// macOS WebKit emits these from #recorded-video[controls] native media-control
+// artwork; not app output. Verified pre-existing on clean 8c90a14.
+const webkitPlacardNoise = /^Button failed to load, iconName = [\w-]*placard, layoutTraits = \[MacOSLayoutTraits Inline\], src = blob:/;
 
 export function checkedBytes(root, spec) {
   const file = path.resolve(root, spec.path);
@@ -72,6 +75,8 @@ export const test = base.extend({
         if (policyPattern.test(message.text())) {
           if (allowCameraPolicyError) policyDiagnostics.push(message.text());
           else unexpected.push(`Unexpected camera policy diagnostic: ${message.text()}`);
+        } else if (webkitPlacardNoise.test(message.text())) {
+          // Ignored: see webkitPlacardNoise above.
         } else if (message.type() === 'error') unexpected.push(`Console: ${message.text()}`);
       });
       page.on('pageerror', (error) => unexpected.push(`Page error: ${error.stack || error.message}`));
@@ -99,7 +104,7 @@ export async function openApp(page) {
     sessionStorage.setItem(key, '1');
   }, resetKey);
   await page.goto('/');
-  await expect(page.locator('#status')).toContainText('Ready');
+  await expect(page.locator('#status')).toContainText('No source');
   expect(await page.evaluate(() => document.fonts.check('400 12px "Roboto Mono"', 'M@ '))).toBe(true);
 }
 

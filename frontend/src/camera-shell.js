@@ -46,10 +46,8 @@ export function createCameraShell() {
       byId('camera-stop').hidden = cameraState === 'idle' && !locked || disposed;
       byId('camera-stop').disabled = disposed || (!locked && (cameraState === 'idle' || busy));
       const flip = byId('flip-camera');
+      flip.hidden = cameraState === 'idle' && !locked || disposed;
       flip.disabled = locked || requesting || busy || disposed;
-      const flipLabel = live ? 'Switch front and back camera' : 'Switch camera and start it';
-      flip.setAttribute('aria-label', flipLabel);
-      flip.title = live ? 'Switch camera' : 'Switch camera and start it';
       byId('camera-import').disabled = locked || busy || disposed;
       for (const id of ['photo-mode', 'video-mode', 'studio-video']) {
         byId(id).disabled = locked || requesting || busy || disposed;

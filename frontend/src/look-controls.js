@@ -254,7 +254,7 @@ export function createLookControls({
     disabled = next;
     const edges = LOOKS.find((recipe) => recipe.id === state.look.id).edges;
     for (const control of sheet.querySelectorAll('button, input, select')) {
-      if (control.id === 'close-look-sheet' || control.id === 'camera-stop') continue;
+      if (control.id === 'close-look-sheet') continue;
       control.disabled = disabled || (Object.hasOwn(FIELD_HELP, control.id) && !edges);
     }
   }

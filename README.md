@@ -36,9 +36,9 @@ bun run --cwd frontend dev
 
 Open **http://127.0.0.1:4173**. clack is a terminal-native ASCII camera: one full-width instrument panel with actual rendered characters as the viewfinder—not a raw camera feed or prerecorded effect. **Photo** is the default capture mode. Press **CAMERA** to request camera access, then use the same shutter to freeze a real frame. Capture releases the camera and renders the snapshot through the shared pipeline; activate the shutter again to return live. During a pending permission request the shutter cancels, releasing any stream that resolves late. Photo mode preserves the accidental-double-tap protection after cancellation.
 
-The **PHOTO/library** button opens the local image picker without camera permission; video-file import is not included. **STOP** releases capture and, during video recording, finishes the clip. **GUIDES** changes only composition overlays. The status line reports state; the readout shows the active look, density, framing, grid size and processing time.
+The **PHOTO/library** button opens the local image picker without camera permission; video-file import is not included. **STOP** sits in the capture row beside **FLIP**; it releases capture and, during video recording, finishes the clip. **GUIDES** changes only composition overlays. The status line reports state; the readout shows the active look, density, framing, grid size and processing time.
 
-Every setting lives in one inline drawer opened from the readout (**LOOK / GRID / FRAME**) or any of its seven tabs: **Camera · Look · Grid · Frame · Tune · Ink · Presets**. The Camera tab holds facing and device selection plus the unmodified source monitor, and **RECORD ASCII VIDEO**. **FLIP** lives in the camera rail above the shutter so it is always reachable; it switches the front/back preference and, when no camera is running, starts the other one. Choices apply immediately; **CLOSE**, Escape or opening another tab keeps the artwork visible above the drawer, so every choice can be judged live. The drawer is part of the page, not a modal sheet.
+Every setting lives in one inline drawer opened from the readout (**LOOK / GRID / FRAME**) or any of its seven tabs: **Camera · Look · Grid · Frame · Tune · Ink · Presets**. The Camera tab holds facing and device selection plus the unmodified source monitor, and **RECORD ASCII VIDEO**. **FLIP** appears in the capture row once a camera runs; it switches the front/back preference and restarts the capture on the other facing. Choices apply immediately; **CLOSE**, Escape or opening another tab keeps the artwork visible above the drawer, so every choice can be judged live. The drawer is part of the page, not a modal sheet.
 
 Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. Wide ratios can deliberately cut off the top and bottom of a portrait; use Full to restore every source pixel. A frozen shot keeps the full-resolution PNG in page memory, so reframing never crops an already-cropped result. Very small images that cannot represent a ratio are rejected without losing the valid source or frame. Composition guides follow the artwork, including its letterboxing.
 
@@ -53,11 +53,11 @@ Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. 
 
 Auto contrast can recover a flat photo, but recomputes the brightness range every frame: a moving highlight can cause live brightness pumping. It is off by default. Midtones below 1 lighten; above 1 darken. Sharpness uses a bounded unsharp mask and also affects Outline contours.
 
-**Ink** sets text color (Paper, White, Amber, Green or the native custom-color picker) and **Soft glow**; both are presentation-only and never request another ASCII render. Glow is off initially, reserves a small halo gutter in Fit/1:1, and is not a claim of GPU acceleration.
+**Ink** sets text color (Paper, White, Amber, Green or the native custom-color picker) and **Soft glow**; both are presentation-only and never request another ASCII render. Glow is off initially, reserves a small halo gutter in Fit/100%, and is not a claim of GPU acceleration.
 
 **Grid** holds the density presets and width/height sliders; the sliders are range-bounded, so the numeric invalid-value path applies only to the Tune fields. Invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The Camera tab's source monitor stays unmodified for every frame, look and presentation choice.
 
-**FIT** initially shows the complete proportional grid; **1:1** restores readable glyphs with two-dimensional scrolling. Fit changes presentation only—not text, resolution, or aspect ratio. One layout serves every screen from 280px up; primary controls have at least 44 CSS-pixel touch targets and respect safe areas.
+**FIT** initially shows the complete proportional grid; **100%** restores readable glyphs with two-dimensional scrolling. Fit changes presentation only—not text, resolution, or aspect ratio. One layout serves every screen from 280px up; primary controls have at least 44 CSS-pixel touch targets and respect safe areas.
 
 ### Recording ASCII video
 
@@ -295,14 +295,14 @@ The Python scripts are tuned in source. The browser exposes everything through t
 | `MAX_WIDTH_CHARS` / Max width | `150` Python / `50` browser (Balanced) | Python scripts; browser `20–150` | Landscape width before column doubling; not a strict grid limit. |
 | `MAX_HEIGHT_LINES` / Max height | `200` Python / `65` browser (Balanced) | Python scripts; browser `20–200` | Portrait/square grid height. |
 | `cv2.VideoCapture(0)` / Camera | `0` / browser default device | Python viewers / browser selector | Python device index or browser video-input device ID. |
-| Camera facing | `Back / scene` preference | Drawer Camera tab, rail FLIP | Requests the rear camera when available; a specific device selection overrides the preference. FLIP toggles the preference, starts the camera when it is idle and restarts live capture when it is already running. |
+| Camera facing | `Back / scene` preference | Drawer Camera tab, rail FLIP | Requests the rear camera when available; a specific device selection overrides the preference. FLIP toggles the preference and restarts the live capture on the other facing. |
 | Capture mode | `Photo` | PHOTO / VIDEO in the rail; Camera drawer video shortcut | Selecting a mode does not request permission; the recording shutter explicitly starts camera/recording after a current frame is ready. |
 | Video duration / encoded bytes | `30 seconds` / `16 MiB` | `RECORDING_LIMITS` in `frontend/src/ascii-recorder.js` | Duration finalizes the clip; byte overflow discards it with an error rather than truncate an encoded file. |
 | Video size / draw rate | Longest edge ≤`1280`, even dimensions / at most `15 fps` | Recording engine | Downscale-only, uniform glyph geometry and bounded latest-frame drawing; delivery and encoding rates remain device-dependent. |
 | Video format | AVC MP4 preferred; runtime MP4/WebM negotiation | Browser `MediaRecorder` | Actual returned MIME/container determines the extension; no transcoding or misleading filenames. |
 | Video audio | None | Recording canvas stream | No microphone request, audio track or audio toggle. |
 | Composition guides | `Off` | GUIDES (top bar) | Viewfinder overlay only; no effect on ASCII or captured source pixels. |
-| ASCII display size | `Fit` (mobile) / `1:1` (desktop) | FIT / 1:1 in the rail | Presentation-only scale; unchanged grid, characters and aspect ratio. The selected mode persists through resizing until changed. |
+| ASCII display size | `Fit` (mobile) / `100%` (desktop) | FIT / 100% in the rail | Presentation-only scale; unchanged grid, characters and aspect ratio. The selected mode persists through resizing until changed. |
 | Frame | `Full` | Drawer Frame tab | Full, 1:1, 3:4, 9:16, 4:3 or 16:9; exact centered whole-pixel crop before Lanczos/grid sizing, with the full source retained. |
 | Look | `Original` | Drawer Look tab | Original / Photo / Print / Outline; choosing a recipe resets processing adjustments only. |
 | Density | `Balanced` | Drawer Grid tab | Chunky (~60 cols) / Balanced (~100 cols) / Fine (~150 cols) / Detailed (~300 cols) presets, or the width/height sliders for a custom grid; applies live. |
@@ -312,7 +312,7 @@ The Python scripts are tuned in source. The browser exposes everything through t
 | Invert tones | `Off` | Drawer Tune tab | Invert processed luminance, not the page or selected text color. |
 | Text color | `Paper` | Drawer Ink tab | Paper / White / Amber / Green / native custom picker; presentation-only. |
 | Soft text glow | `Off` | Drawer Ink tab | Bounded text shadow with an 8 CSS-pixel halo gutter; presentation-only. |
-| Named presets | none saved | Drawer Presets tab | Up to 24 case-sensitive names of 1-24 characters in `clack:presets:v1`. A preset captures look, tone, sigma/threshold, density, frame, tint and glow; camera device, FIT/1:1 view and guides are excluded. Reusing a name replaces it in place, and stored entries that fail validation are dropped. |
+| Named presets | none saved | Drawer Presets tab | Up to 24 case-sensitive names of 1-24 characters in `clack:presets:v1`. A preset captures look, tone, sigma/threshold, density, frame, tint and glow; camera device, FIT/100% view and guides are excluded. Reusing a name replaces it in place, and stored entries that fail validation are dropped. |
 | Saved settings | n/a | `localStorage` `clack:settings:v1` | Look, tone, frame, ink, glow, density, the Tune values (`sigma1`, `sigma2`, edge threshold), facing, view and guides restore on reload. Persistence is best-effort; private mode never blocks rendering. |
 | `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; browser Tune `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. Browser uses these only for Original/Outline. |
 | `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; browser Tune integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. Retained but disabled for Photo/Print. |
