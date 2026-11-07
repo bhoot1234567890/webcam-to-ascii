@@ -150,6 +150,8 @@ for (const viewport of viewports) {
       await page.locator('#tab-style').click();
       for (const [value, color] of [
         ['#ffffff', 'rgb(255, 255, 255)'], ['#ffd663', 'rgb(255, 214, 99)'], ['#9be5a2', 'rgb(155, 229, 162)'],
+        ['#3aff81', 'rgb(58, 255, 129)'], ['#6ce4ff', 'rgb(108, 228, 255)'], ['#ffe14d', 'rgb(255, 225, 77)'],
+        ['#ff5c5c', 'rgb(255, 92, 92)'], ['#ff6bd6', 'rgb(255, 107, 214)'],
       ]) {
         await page.locator(`input[name="text-tint"][value="${value}"]`).check();
         await expect(page.locator('#ascii-output')).toHaveCSS('color', color);

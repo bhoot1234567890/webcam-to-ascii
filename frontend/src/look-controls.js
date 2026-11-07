@@ -2,7 +2,10 @@ import { LOOKS, normalizeLook } from './looks.js';
 import { FRAMINGS } from './framing.js';
 import { DENSITIES, findDensity, findDensityBySettings } from './density.js';
 
-const TINT_LABELS = { default: 'Paper', '#ffffff': 'White', '#ffd663': 'Amber', '#9be5a2': 'Green' };
+const TINT_LABELS = {
+  default: 'Paper', '#ffffff': 'White', '#ffd663': 'Amber', '#9be5a2': 'Green',
+  '#3aff81': 'Phosphor', '#6ce4ff': 'Ice', '#ffe14d': 'Yellow', '#ff5c5c': 'Red', '#ff6bd6': 'Magenta',
+};
 const FIELD_HELP = { sigma1: 'sigma1-help', sigma2: 'sigma2-help', 'edge-threshold': 'edge-threshold-help' };
 
 /** Settings drawer. Only the owner (main.js) commits processing and presentation state. */
