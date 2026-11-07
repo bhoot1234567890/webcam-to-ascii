@@ -45,7 +45,11 @@ export function createCameraShell() {
       shutter.setAttribute('aria-busy', String(stopping || (!video && busy)));
       byId('camera-stop').hidden = cameraState === 'idle' && !locked || disposed;
       byId('camera-stop').disabled = disposed || (!locked && (cameraState === 'idle' || busy));
-      byId('flip-camera').disabled = locked || cameraState === 'idle' || requesting || busy || disposed;
+      const flip = byId('flip-camera');
+      flip.disabled = locked || requesting || busy || disposed;
+      const flipLabel = live ? 'Switch front and back camera' : 'Switch camera and start it';
+      flip.setAttribute('aria-label', flipLabel);
+      flip.title = live ? 'Switch camera' : 'Switch camera and start it';
       byId('camera-import').disabled = locked || busy || disposed;
       for (const id of ['photo-mode', 'video-mode', 'studio-video']) {
         byId(id).disabled = locked || requesting || busy || disposed;

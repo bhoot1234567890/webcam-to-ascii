@@ -154,7 +154,7 @@ test('detail reaches the last glyph, Fit restores the whole result, and tuning r
   await page.locator('#close-look-sheet').tap();
   await capture(page, testInfo, 'iphone-14-plus-tuned', {});
   await openPanel(page, 'camera');
-  for (const selector of ['#camera-facing', '#camera-select', '#flip-camera']) {
+  for (const selector of ['#camera-facing', '#camera-select']) {
     const bounds = await page.locator(selector).boundingBox();
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(428);
@@ -409,9 +409,10 @@ test('Photo and Video modes keep the mobile camera geometry and do not request p
     await containedTouchTargets(page, ['#photo-mode', '#video-mode', '#camera-shutter', '#camera-import'], viewport);
     const videoBounds = await page.locator('.ascii-viewport').boundingBox();
     expect(videoBounds, 'Video uses the existing viewfinder, not a smaller surface').toEqual(photoBounds);
-    await openPanel(page, 'camera');
-    await page.locator('#flip-camera').scrollIntoViewIfNeeded();
     await containedTouchTargets(page, ['#flip-camera'], viewport);
+    await openPanel(page, 'camera');
+    await page.locator('#studio-video').scrollIntoViewIfNeeded();
+    await containedTouchTargets(page, ['#studio-video'], viewport);
     await page.locator('#close-look-sheet').tap();
     await page.locator('#photo-mode').tap();
     await expect(page.locator('#camera-shutter')).toBeEnabled();
