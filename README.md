@@ -36,9 +36,9 @@ bun run --cwd frontend dev
 
 Open **http://127.0.0.1:4173**. clack is a terminal-native ASCII camera: one full-width instrument panel with actual rendered characters as the viewfinder—not a raw camera feed or prerecorded effect. **Photo** is the default capture mode. Press **CAMERA** to request camera access, then use the same shutter to freeze a real frame. Capture releases the camera and renders the snapshot through the shared pipeline; activate the shutter again to return live. During a pending permission request the shutter cancels, releasing any stream that resolves late. Photo mode preserves the accidental-double-tap protection after cancellation. **COPY** and **SAVE** export the viewfinder's current grid at any time — live or held.
 
-The **PHOTO/library** button opens the local image picker without camera permission; video-file import is not included. **STOP** sits in the capture row beside **FLIP**; it releases capture and, during video recording, finishes the clip. **GUIDES** changes only composition overlays. The status line reports state; the readout shows the active look, density, framing, grid size and processing time.
+The rail **IMPORT** button (and **USE A PHOTO** in the error banner) opens the local image picker without camera permission; video-file import is not included. **STOP** sits in the capture row beside **FLIP**; it releases capture and, during video recording, finishes the clip. **GUIDES** changes only composition overlays. The status line reports state; the readout shows the active look, density, framing, ink and grid size.
 
-Every setting lives in one inline drawer opened from the readout (**LOOK / GRID / FRAME**) or any of its seven tabs: **Camera · Look · Grid · Frame · Tune · Ink · Presets**. The Camera tab holds facing and device selection plus the unmodified source monitor, and **RECORD ASCII VIDEO**. **FLIP** appears in the capture row once a camera runs; it switches the front/back preference and restarts the capture on the other facing. Choices apply immediately; **CLOSE**, Escape or opening another tab keeps the artwork visible above the drawer, so every choice can be judged live. The drawer is part of the page, not a modal sheet.
+Every setting lives in one inline drawer opened from the readout tiles (**LOOK / DETAIL / FRAME / INK**) or any of its seven tabs: **Camera · Look · Detail · Frame · Edges · Ink · Presets**. The Camera tab holds facing and device selection plus the unmodified source monitor, and **RECORD ASCII VIDEO**. The Look tab holds the recipes and the tone controls (midtones, auto contrast, sharpness, inversion); Detail holds density; Edges holds the numeric sigma/edge fields. **FLIP** appears in the capture row once a camera runs; it switches the front/back preference and restarts the capture on the other facing. Choices apply immediately, and the artwork stays visible above the drawer while it is open — CLOSE, Escape or switching tabs never disturbs it. The drawer has dialog semantics (it is a labelled `role="dialog"` with a focus trap) but sits as an in-page layout row, not an overlay sheet.
 
 Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. Wide ratios can deliberately cut off the top and bottom of a portrait; use Full to restore every source pixel. A frozen shot keeps the full-resolution PNG in page memory, so reframing never crops an already-cropped result. Very small images that cannot represent a ratio are rejected without losing the valid source or frame. Composition guides follow the artwork, including its letterboxing.
 
@@ -49,15 +49,15 @@ Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. 
 | Print | Ordered Bayer halftone shading with the compact measured ramp; a stationary pattern rather than diffusion. |
 | Outline | Directional contours with empty interiors; intentionally sparse rather than a full photographic rendering. |
 
-**Tune** holds the tone controls (midtones, auto contrast, sharpness, inversion) and the numeric sigma/edge fields. Tone controls change source luminance **before** shading/edge processing. A manually changed recipe is marked **ADJUSTED**. Selecting any recipe again resets these processing adjustments; it does not reset framing, resolution, tint or glow. Photo and Print disable the unused sigma/edge fields while retaining their values for Original and Outline.
+The **Look** tab holds the tone controls (midtones, auto contrast, sharpness, inversion) beside the recipes; the **Edges** tab holds the numeric sigma/edge fields. Tone controls change source luminance **before** shading/edge processing. A manually changed recipe is marked **ADJUSTED**. Selecting any recipe again resets these processing adjustments; it does not reset framing, resolution, tint or glow. Photo and Print disable the unused sigma/edge fields while retaining their values for Original and Outline.
 
 Auto contrast can recover a flat photo, but recomputes the brightness range every frame: a moving highlight can cause live brightness pumping. It is off by default. Midtones below 1 lighten; above 1 darken. Sharpness uses a bounded unsharp mask and also affects Outline contours.
 
 **Ink** sets text color — nine swatches: Paper, White, Amber, Green, Phosphor, Ice, Yellow, Red and Magenta, plus the native custom-color picker — and **Soft glow**; both are presentation-only and never request another ASCII render. The phosphor set (Phosphor, Ice, Yellow, Red, Magenta) keeps the full-saturation CRT register: hot terminal greens and Tron-cyan on the ink-black stage, softened just off raw CGA values so dense glyphs do not vibrate. Glow is off initially, reserves a small halo gutter in Fit/100%, and is not a claim of GPU acceleration. **CRT** adds the old-school tube: on screen it overlays scanlines and a subtle chromatic fringe on the live text; saved PNGs and recorded video run one WebGL pass that also adds barrel bulge and a curved, row-locked raster locked to glyph rows — layered in the same order emulator CRT shaders use (warp, channel split, beam, bezel). CRT needs WebGL and is disabled without it; like tint and glow it never triggers a re-render.
 
-**Grid** holds the density presets and width/height sliders; the sliders are range-bounded, so the numeric invalid-value path applies only to the Tune fields. Invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The Camera tab's source monitor stays unmodified for every frame, look and presentation choice.
+**Detail** holds the density presets and width/height sliders; the sliders are range-bounded, so the numeric invalid-value path applies only to the Edges fields. Invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The Camera tab's source monitor stays unmodified for every frame, look and presentation choice.
 
-**FIT** initially shows the complete proportional grid; **100%** restores readable glyphs with two-dimensional scrolling. Fit changes presentation only—not text, resolution, or aspect ratio. One layout serves every screen from 280px up; primary controls have at least 44 CSS-pixel touch targets and respect safe areas.
+**FIT** initially shows the complete proportional grid; **100%** restores readable glyphs with two-dimensional scrolling; **SOURCE** holds the raw source over the artwork for comparison while pressed. Fit changes presentation only—not text, resolution, or aspect ratio. One layout serves every screen from 280px up; primary controls have at least 44 CSS-pixel touch targets and respect safe areas.
 
 ### Recording ASCII video
 
@@ -308,7 +308,7 @@ The Python scripts are tuned in source. The browser exposes everything through t
 | `MAX_WIDTH_CHARS` / Max width | `150` Python / `50` browser (Balanced) | Python scripts; browser `20–150` | Landscape width before column doubling; not a strict grid limit. |
 | `MAX_HEIGHT_LINES` / Max height | `200` Python / `65` browser (Balanced) | Python scripts; browser `20–200` | Portrait/square grid height. |
 | `cv2.VideoCapture(0)` / Camera | `0` / browser default device | Python viewers / browser selector | Python device index or browser video-input device ID. |
-| Camera facing | `Back / scene` preference | Drawer Camera tab, rail FLIP | Requests the rear camera when available; a specific device selection overrides the preference. FLIP toggles the preference and restarts the live capture on the other facing. |
+| Camera facing | `Front / selfie` preference | Drawer Camera tab, rail FLIP | Requests the front camera when available; a specific device selection overrides the preference. FLIP toggles the preference and restarts the live capture on the other facing. |
 | Capture mode | `Photo` | PHOTO / VIDEO in the rail; Camera drawer video shortcut | Selecting a mode does not request permission; the recording shutter explicitly starts camera/recording after a current frame is ready. |
 | Video duration / encoded bytes | `30 seconds` / `16 MiB` | `RECORDING_LIMITS` in `frontend/src/ascii-recorder.js` | Duration finalizes the clip; byte overflow discards it with an error rather than truncate an encoded file. |
 | Video size / draw rate | Longest edge ≤`1280`, even dimensions / at most `15 fps` | Recording engine | Downscale-only, uniform glyph geometry and bounded latest-frame drawing; delivery and encoding rates remain device-dependent. |
@@ -318,18 +318,18 @@ The Python scripts are tuned in source. The browser exposes everything through t
 | ASCII display size | `Fit` (mobile) / `100%` (desktop) | FIT / 100% in the rail | Presentation-only scale; unchanged grid, characters and aspect ratio. The selected mode persists through resizing until changed. |
 | Frame | `Full` | Drawer Frame tab | Full, 1:1, 3:4, 9:16, 4:3 or 16:9; exact centered whole-pixel crop before Lanczos/grid sizing, with the full source retained. |
 | Look | `Original` | Drawer Look tab | Original / Photo / Print / Outline; choosing a recipe resets processing adjustments only. |
-| Density | `Balanced` | Drawer Grid tab | Chunky (~60 cols) / Balanced (~100 cols) / Fine (~150 cols) / Detailed (~300 cols) presets, or the width/height sliders for a custom grid; applies live. |
-| Auto contrast | `Off` | Drawer Tune tab | Per-frame extrema stretching, safe on flat images. Moving highlights can cause brightness pumping. |
-| Midtones | `1` | Drawer Tune tab; `0.5–2` in `0.05` steps | Gamma exponent; below 1 lightens, above 1 darkens. |
-| Sharpness | `0` | Drawer Tune tab; `0–1.5` in `0.05` steps | Bounded 2D binomial unsharp mask before shading and contours. |
-| Invert tones | `Off` | Drawer Tune tab | Invert processed luminance, not the page or selected text color. |
+| Density | `Balanced` | Drawer Detail tab | Chunky (~60 cols) / Balanced (~100 cols) / Fine (~150 cols) / Detailed (~300 cols) presets, or the width/height sliders for a custom grid; applies live. |
+| Auto contrast | `Off` | Drawer Look tab | Per-frame extrema stretching, safe on flat images. Moving highlights can cause brightness pumping. |
+| Midtones | `1` | Drawer Look tab; `0.5–2` in `0.05` steps | Gamma exponent; below 1 lightens, above 1 darkens. |
+| Sharpness | `0` | Drawer Look tab; `0–1.5` in `0.05` steps | Bounded 2D binomial unsharp mask before shading and contours. |
+| Invert tones | `Off` | Drawer Look tab | Invert processed luminance, not the page or selected text color. |
 | Text color | `Paper` | Drawer Ink tab | Paper / White / Amber / Green / Phosphor / Ice / Yellow / Red / Magenta / native custom picker; presentation-only. |
 | Soft text glow | `Off` | Drawer Ink tab | Bounded text shadow with an 8 CSS-pixel halo gutter; presentation-only. |
 | CRT filter | `Off` | Drawer Ink tab | Old-school tube over the finished artifact: one WebGL pass (barrel warp, chromatic split, row-locked scanlines, bezel) on saved PNGs and recorded video; scanlines plus chromatic text fringe on screen. Needs WebGL; presentation-only and never a re-render. |
-| Named presets | none saved | Drawer Presets tab | Up to 24 case-sensitive names of 1-24 characters in `clack:presets:v1`. A preset captures look, tone, sigma/threshold, density, frame, tint and glow; camera device, FIT/100% view and guides are excluded. Reusing a name replaces it in place, and stored entries that fail validation are dropped. |
-| Saved settings | n/a | `localStorage` `clack:settings:v1` | Look, tone, frame, ink, glow, CRT, density, the Tune values (`sigma1`, `sigma2`, edge threshold), facing, view and guides restore on reload. Persistence is best-effort; private mode never blocks rendering. |
-| `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; browser Tune `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. Browser uses these only for Original/Outline. |
-| `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; browser Tune integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. Retained but disabled for Photo/Print. |
+| Named presets | none saved | Drawer Presets tab | Up to 24 case-sensitive names of 1-24 characters in `clack:presets:v1`. A preset captures look, tone, sigma/threshold, density, frame, tint and glow; camera device, CRT state, FIT/100% view and guides are excluded. Reusing a name replaces it in place, and stored entries that fail validation are dropped. |
+| Saved settings | n/a | `localStorage` `clack:settings:v1` | Look, tone, frame, ink, glow, CRT, density, the Edges values (`sigma1`, `sigma2`, edge threshold), facing, view and guides restore on reload. Persistence is best-effort; private mode never blocks rendering. |
+| `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; browser Edges `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. Browser uses these only for Original/Outline. |
+| `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; browser Edges integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. Retained but disabled for Photo/Print. |
 | `ord('q')` | `q` | `webcam ascii.py`, `web ascii cv2.py` | Key that stops the loop and releases the camera. |
 
 ## 🧱 How it works
@@ -384,6 +384,7 @@ The Lanczos port retains Pillow's MIT-CMU notice in `frontend/public/Pillow-LICE
 | Document | Covers |
 |---|---|
 | [`docs/ascii-video-recording.md`](docs/ascii-video-recording.md) | The silent ASCII video recorder: what it records, limits, capture pacing, shared artwork pipeline, layout math, state machine, error catalog, test strategy, and the branch integration history. |
+| [`docs/video-review-modal.md`](docs/video-review-modal.md) | The review modal: markup, opening rules, enablement, clip lifetime, actions, focus management, playback notes, styling, edge cases, and the specs that pin them. |
 
 ## 🤝 Contributing
 
