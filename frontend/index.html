@@ -69,7 +69,7 @@
                 <img id="image-preview" alt="Selected local image, unmodified" hidden />
                 <figcaption id="source-label">No source</figcaption>
               </figure>
-              <div class="flip-row"><button id="flip-camera" type="button" aria-label="Switch front and back camera" title="Switch camera" disabled>FLIP CAMERA</button><button id="studio-video" type="button" disabled>RECORD ASCII VIDEO</button></div>
+              <div class="flip-row"><button id="studio-video" type="button" disabled>RECORD ASCII VIDEO</button></div>
             </section>
             <section role="tabpanel" id="panel-looks" aria-labelledby="tab-looks" class="panel">
               <fieldset id="look-choices" class="choices"><legend>LOOK <span id="look-adjusted" class="adjusted-tag" hidden>ADJUSTED</span></legend></fieldset>
@@ -136,6 +136,7 @@
             <button id="review-video" type="button" aria-label="Review recorded ASCII video" hidden>REVIEW</button>
           </div>
           <span id="recording-indicator" role="status" aria-live="polite" hidden><span class="recording-dot" aria-hidden="true"></span><span id="recording-label">Recording</span> <time id="recording-timer" datetime="PT0S" aria-label="Recording elapsed time">00:00</time></span>
+          <button id="flip-camera" class="capture-action" type="button" aria-label="Switch camera and start it" title="Switch camera" disabled>FLIP</button>
         </div>
         <div class="rail-main">
           <button id="camera-shutter" class="shutter" type="button" data-mode="photo" data-state="idle" aria-label="Start camera" title="Start camera" aria-describedby="shutter-help" disabled><span>CAMERA</span></button>

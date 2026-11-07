@@ -80,7 +80,9 @@ button:active:not(:disabled), .choice:active { transform: scale(0.97); transitio
 
 .flip-row button { min-height: 44px; padding: 0 16px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
 .flip-row button:hover:not(:disabled) { border-color: var(--muted); }
-.flip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Stays pinned to the bottom of the scrolling drawer body, so the record
+   shortcut remains reachable on short phones where the panel overflows. */
+.flip-row { display: flex; flex-wrap: wrap; gap: 8px; position: sticky; bottom: 0; z-index: 1; padding: 8px 0; border-top: 1px solid var(--border); background: var(--panel); }
 .ascii-stage { position: relative; flex-shrink: 0; margin: auto; overflow: hidden; }
 #ascii-output { position: absolute; top: 0; left: 0; display: block; width: max-content; min-width: 0; margin: 0; padding: 0; border: 0; color: var(--ascii-tint, #e2e9e7); background: transparent; font-family: "Roboto Mono", ui-monospace, monospace; font-weight: 400; font-size: 12px; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; white-space: pre; overflow-wrap: normal; word-break: normal; tab-size: 4; transform-origin: top left; }
 /* First render: one fade when the grid goes from empty to populated. A one-shot
@@ -138,6 +140,10 @@ body[data-glow="on"] #ascii-output { text-shadow: 0 0 3px currentColor, 0 0 6px 
 .camera-fields label { display: block; margin: 0 0 6px; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0.14em; }
 .monitor { margin: 0; display: grid; gap: 6px; justify-items: start; }
 .monitor video, .monitor img { display: block; max-width: min(320px, 100%); max-height: 180px; border: 1px solid var(--border); background: var(--bg); object-fit: contain; }
+/* The camera tab sits inside a height-capped drawer body. The live monitor is
+   the tallest child, so keep it short enough that the panel actions stay in
+   view without scrolling. */
+#panel-camera .monitor video, #panel-camera .monitor img { max-height: 120px; }
 .monitor figcaption { color: var(--muted); font-size: 11px; letter-spacing: 0.06em; max-width: 320px; overflow-wrap: anywhere; }
 .monitor:not(:has(video:not([hidden]), img:not([hidden])))::before { content: "NO SOURCE"; display: grid; place-items: center; width: 160px; height: 90px; border: 1px dashed var(--border); color: var(--muted); font-size: 11px; letter-spacing: 0.12em; }
 
@@ -200,8 +206,9 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
 /* Video uses the existing labeled rail rather than a second camera shell. */
 .capture-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; min-width: 0; }
 .capture-modes { display: flex; flex-wrap: wrap; gap: 4px; }
-.capture-modes button { min-width: 56px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; }
-.capture-modes button:hover:not(:disabled) { border-color: var(--muted); }
+.capture-modes button, .capture-action { min-width: 44px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; }
+.capture-modes button { min-width: 56px; }
+.capture-modes button:hover:not(:disabled), .capture-action:hover:not(:disabled) { border-color: var(--muted); }
 .capture-modes button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); background: var(--panel-2); }
 .shutter { min-width: 112px; }
 .shutter[data-mode="video"] { border-color: var(--error-ink) !important; color: var(--error-ink); background: transparent; }

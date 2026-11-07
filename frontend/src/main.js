@@ -558,7 +558,9 @@ function flipCamera() {
   if (disposed || captureBusy || videoBusy() || cameraState === 'requesting') return;
   facingSelect.value = facingSelect.value === 'environment' ? 'user' : 'environment';
   deviceSelect.value = '';
-  if (cameraState === 'live') void startCamera('');
+  persist();
+  // Live capture restarts on the new facing; an idle or held source opens it.
+  void startCamera('');
 }
 
 let peeking = false;

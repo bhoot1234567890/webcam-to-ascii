@@ -1159,3 +1159,61 @@ test('empty state starts the camera and retires once a frame commits', async ({ 
   await expectRetainedEnded(page, retained.index);
   await expect(page.locator('#empty-state')).toBeHidden();
 });
+
+test('flip lives in the rail and starts the other camera from idle', async ({ page }) => {
+  await openApp(page);
+  const flip = page.locator('#flip-camera');
+  await expect(flip).toBeVisible();
+  await expect(flip).toBeEnabled();
+  await expect(flip).toHaveAttribute('aria-label', 'Switch camera and start it');
+  expect(await page.locator('#look-sheet').evaluate((sheet) => sheet.hidden), 'Flip is reachable without opening the drawer').toBe(true);
+
+  await flip.click();
+  await expect(page.locator('#camera-facing')).toHaveValue('environment');
+  const first = await waitCameraCommit(page);
+  await expect(flip).toHaveAttribute('aria-label', 'Switch front and back camera');
+  const firstStream = await retainCamera(page);
+
+  await flip.click();
+  await expect(page.locator('#camera-facing')).toHaveValue('user');
+  const second = await waitCameraCommit(page, first);
+  expect(second.sourceGeneration).toBeGreaterThan(first.sourceGeneration);
+  await expectRetainedEnded(page, firstStream.index, false);
+
+  await page.locator('#camera-stop').click();
+  await expect(page.locator('#status')).toHaveText('Camera stopped');
+  await expect(flip).toBeEnabled();
+  await expect(flip).toHaveAttribute('aria-label', 'Switch camera and start it');
+});
+
+test('the camera panel keeps its record shortcut in view while the monitor is live', async ({ page }) => {
+  await openApp(page);
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.locator('#camera-shutter').click();
+  await waitCameraCommit(page);
+  await openPanel(page, 'camera');
+
+  const monitorHeight = await page.locator('#panel-camera .monitor video')
+    .evaluate((video) => video.getBoundingClientRect().height);
+  expect(monitorHeight).toBeGreaterThan(0);
+  expect(monitorHeight).toBeLessThanOrEqual(120);
+
+  const layout = await page.evaluate(() => {
+    const body = document.querySelector('.drawer-body').getBoundingClientRect();
+    const shortcut = document.getElementById('studio-video').getBoundingClientRect();
+    const flip = document.getElementById('flip-camera').getBoundingClientRect();
+    return {
+      shortcutInsideDrawer: shortcut.top >= body.top && shortcut.bottom <= body.bottom,
+      flipInsideViewport: flip.top >= 0 && flip.bottom <= innerHeight,
+      flipInDrawer: document.getElementById('look-sheet').contains(document.getElementById('flip-camera')),
+      pageOverflowX: document.documentElement.scrollWidth - innerWidth,
+    };
+  });
+  expect(layout).toEqual({
+    shortcutInsideDrawer: true, flipInsideViewport: true, flipInDrawer: false, pageOverflowX: 0,
+  });
+
+  await page.locator('#studio-video').click();
+  await expect(page.locator('#look-sheet')).toBeHidden();
+  await expect(page.locator('#video-mode')).toHaveAttribute('aria-pressed', 'true');
+});
