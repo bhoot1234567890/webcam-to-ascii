@@ -13,6 +13,7 @@ import { createRecordingView } from './recording-view.js';
 import { findDensity, findDensityBySettings } from './density.js';
 import { copyAscii, asciiToPng } from './export.js';
 import { readAsciiArtwork } from './artwork.js';
+import { crtSupported } from './crt/compose.js';
 import { loadSaved, save, loadPresets, savePresets } from './persist.js';
 import { normalizePreset, normalizePresetList, upsertPreset, removePreset } from './presets.js';
 
@@ -40,6 +41,8 @@ let lookKey = JSON.stringify(look);
 let framing = 'full';
 let tint = 'default';
 let glow = false;
+let crt = false;
+const crtUnsupported = !crtSupported();
 let lookControls = null;
 let presets = [];
 let source = null;
@@ -103,6 +106,8 @@ function syncLookControls() {
     framing,
     tint,
     glow,
+    crt,
+    crtUnsupported,
     settings,
     density: currentDensity ? currentDensity.id : null,
   });
@@ -134,7 +139,7 @@ function startRecording() {
   byId('camera-shutter').focus({ preventScroll: true });
   pendingRecording = false;
   showError('');
-  recording.start(readAsciiArtwork(output, { glow }));
+  recording.start(readAsciiArtwork(output, { glow, crt }));
   updateControls();
 }
 
@@ -681,6 +686,7 @@ function persist() {
     framing,
     tint,
     glow,
+    crt,
     density: { maxWidthChars: settings.maxWidthChars, maxHeightLines: settings.maxHeightLines },
     tuning: {
       sigma1: settings.sigma1,
@@ -770,24 +776,26 @@ function changeFraming(proposed) {
   syncLookControls();
 }
 
-function applyPresentation({ tint: nextTint, glow: nextGlow }) {
+function applyPresentation({ tint: nextTint, glow: nextGlow, crt: nextCrt }) {
   tint = nextTint;
   glow = nextGlow;
+  crt = nextCrt === true;
   if (tint === 'default') document.body.style.removeProperty('--ascii-tint');
   else document.body.style.setProperty('--ascii-tint', tint);
   document.body.dataset.glow = glow ? 'on' : 'off';
+  document.body.dataset.crt = crt ? 'on' : 'off';
   outputView.update();
 }
 
 function changePresentation(proposed) {
   if (videoBusy()) { syncLookControls(); return; }
   if ((proposed.tint !== 'default' && !/^#[0-9a-f]{6}$/i.test(proposed.tint)) ||
-      typeof proposed.glow !== 'boolean') {
-    showError('Choose a valid text color and glow setting');
+      typeof proposed.glow !== 'boolean' || typeof proposed.crt !== 'boolean') {
+    showError('Choose a valid text color, glow and CRT setting');
     syncLookControls();
     return;
   }
-  applyPresentation({ tint: proposed.tint, glow: proposed.glow });
+  applyPresentation({ tint: proposed.tint, glow: proposed.glow, crt: proposed.crt });
   syncLookControls();
   persist();
 }
@@ -826,7 +834,7 @@ function applyPreset(name) {
   lookKey = JSON.stringify(look);
   framing = preset.framing;
   renderEpoch++;
-  applyPresentation({ tint: preset.tint, glow: preset.glow });
+  applyPresentation({ tint: preset.tint, glow: preset.glow, crt });
   syncSettingsInputs();
   syncLookControls();
   updateControls();
@@ -866,6 +874,7 @@ try {
     if (FRAMINGS.some((frame) => frame.id === saved.framing)) framing = saved.framing;
     if (saved.tint === 'default' || /^#[0-9a-f]{6}$/i.test(saved.tint)) tint = saved.tint;
     if (typeof saved.glow === 'boolean') glow = saved.glow;
+    if (typeof saved.crt === 'boolean' && !crtUnsupported) crt = saved.crt;
     try {
       settings = normalizeSettings({ ...settings, ...saved.density, ...saved.tuning });
       settingsKey = JSON.stringify(settings);
@@ -904,7 +913,7 @@ try {
     onApplyPreset: applyPreset,
     onDeletePreset: deletePreset,
   });
-  changePresentation({ tint, glow });
+  changePresentation({ tint, glow, crt });
   syncSettingsInputs();
   syncLookControls();
   lookControls.syncPresets(presets);
@@ -934,7 +943,7 @@ try {
     if (videoBusy() || captureBusy || disposed || !hasCurrentFrame()) return;
     let frame;
     try {
-      frame = readAsciiArtwork(output, { glow });
+      frame = readAsciiArtwork(output, { glow, crt });
     } catch {
       showError('Unable to save the frame');
       return;

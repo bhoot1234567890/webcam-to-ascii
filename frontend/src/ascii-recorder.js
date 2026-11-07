@@ -1,4 +1,5 @@
 import { createAsciiArtwork } from './artwork.js';
+import { createCrtStage } from './crt/compose.js';
 
 export const RECORDING_LIMITS = Object.freeze({
   maxDurationMs: 30_000,
@@ -17,7 +18,7 @@ const MIME_TYPES = [
 ];
 const FRAME_INTERVAL = 1000 / RECORDING_LIMITS.frameRate;
 const PAINT_FENCE_TIMEOUT = 250;
-const PRESENTATION_KEYS = ['columns', 'rows', 'fontFamily', 'fontSize', 'lineHeight', 'color', 'background', 'glow'];
+const PRESENTATION_KEYS = ['columns', 'rows', 'fontFamily', 'fontSize', 'lineHeight', 'color', 'background', 'glow', 'crt'];
 
 /** The encoder's actual container, not the requested codec, determines the filename. */
 export function recordingExtension(mimeType) {
@@ -107,9 +108,10 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
       active.canvas.width = 0;
       active.canvas.height = 0;
     }
-    active.chunks.length = 0;
-    active.artwork = null;
-    active.canvas = null;
+    if (active.crt) {
+      active.crt.dispose();
+      active.crt = null;
+    }
     active.stream = null;
     active.captureTrack = null;
     active.recorder = null;
@@ -136,6 +138,7 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
 
   function draw(active, text) {
     active.artwork.draw(text);
+    if (active.crt) active.crt.render(active.artwork.canvas, { rows: active.frame.rows });
     // Request on the actual stream track, after painting and after the encoder has started.
     // A request is a capture opportunity, not a promise of one encoded frame per commit.
     if (active.captureTrack) active.captureTrack.requestFrame();
@@ -260,6 +263,11 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
       active.frame = Object.fromEntries(PRESENTATION_KEYS.map((key) => [key, frame[key]]));
       active.artwork = createAsciiArtwork(frame, { maxEdge: RECORDING_LIMITS.maxEdge });
       active.canvas = active.artwork.canvas;
+      if (frame.crt) {
+        // The recorded surface becomes the filtered one; the artwork canvas is only the source.
+        active.crt = createCrtStage({ width: active.artwork.canvas.width, height: active.artwork.canvas.height });
+        active.canvas = active.crt.canvas;
+      }
       active.layout = active.artwork.layout;
       active.stream = active.canvas.captureStream(0);
       if (!active.stream.getVideoTracks().length || active.stream.getVideoTracks().some((track) => track.readyState !== 'live')) {

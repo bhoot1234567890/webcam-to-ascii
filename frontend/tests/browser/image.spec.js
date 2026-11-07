@@ -438,6 +438,62 @@ test('SAVE downloads a PNG of the committed frame', async ({ page }) => {
   expect(bytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 });
 
+test('CRT previews presentation-only and filters the saved PNG through the tube', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  const readRenderId = () => page.evaluate(() => Number(document.querySelector('#ascii-output').dataset.renderId));
+  const baseline = await readRenderId();
+  await page.locator('#open-looks').click();
+  await page.locator('#tab-style').click();
+  await page.locator('#crt-effect').check();
+  await expect(page.locator('body')).toHaveAttribute('data-crt', 'on');
+  await expect(page.locator('#ascii-output')).toHaveCSS('text-shadow', /255, 60, 60/);
+  await expect(page.locator('.ascii-viewport')).toHaveCSS('background-image', /repeating-linear-gradient/);
+  await page.locator('#close-look-sheet').click();
+  // Panning and the toggle itself must never request processing: presentation only.
+  await page.evaluate(() => { document.querySelector('.ascii-viewport').scrollTop = 48; });
+  await expect.poll(readRenderId).toBe(baseline);
+  // Return to the plain presentation before sampling the unfiltered export.
+  await page.locator('#open-looks').click();
+  await page.locator('#tab-style').click();
+  await page.locator('#crt-effect').uncheck();
+  await expect(page.locator('body')).toHaveAttribute('data-crt', 'off');
+  await page.locator('#close-look-sheet').click();
+
+  const readCorner = async () => {
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('#save-output').click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^clack-\d{14}\.png$/);
+    const dataUrl = 'data:image/png;base64,' + readFileSync(await download.path()).toString('base64');
+    return page.evaluate(async (url) => {
+      const bitmap = await createImageBitmap(await (await fetch(url)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(bitmap, 0, 0);
+      const corner = ctx.getImageData(0, 0, 1, 1).data;
+      return [...corner];
+    }, dataUrl);
+  };
+  // The plain export keeps ink gutters; the CRT bezel drives the very corner to black.
+  const plainCorner = await readCorner();
+  expect(plainCorner[0]).toBeGreaterThan(0);
+  await page.locator('#open-looks').click();
+  await page.locator('#tab-style').click();
+  await page.locator('#crt-effect').check();
+  await page.locator('#close-look-sheet').click();
+  const crtCorner = await readCorner();
+  expect(crtCorner[0]).toBe(0);
+
+  // The toggle persists with the other presentation state.
+  await page.reload();
+  await expect(page.locator('body')).toHaveAttribute('data-crt', 'on');
+  await page.locator('#open-looks').click();
+  await page.locator('#tab-style').click();
+  await expect(page.locator('#crt-effect')).toBeChecked();
+});
+
 test('SOURCE holds the original image over the ASCII while pressed', async ({ page }) => {
   await openApp(page);
   await uploadFixture(page, 'astronaut-portrait');

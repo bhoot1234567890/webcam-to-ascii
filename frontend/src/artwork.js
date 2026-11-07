@@ -15,7 +15,8 @@ function validateFrame(frame) {
       typeof frame.fontFamily !== 'string' ||
       !frame.fontFamily.split(',').some((family) => family.trim().replace(/^["']|["']$/g, '') === 'Roboto Mono') ||
       typeof frame.color !== 'string' || !frame.color.trim() ||
-      typeof frame.background !== 'string' || !frame.background.trim() || typeof frame.glow !== 'boolean') {
+      typeof frame.background !== 'string' || !frame.background.trim() || typeof frame.glow !== 'boolean' ||
+      (frame.crt !== undefined && typeof frame.crt !== 'boolean')) {
     throw new Error('The ASCII frame is not ready. Wait for the preview and try again.');
   }
   validateText(frame.text, frame.columns, frame.rows);
@@ -34,7 +35,7 @@ function isOpaque(color) {
 }
 
 /** Snapshot the committed grid and its untransformed presentation, not the camera or fitted DOM size. */
-export function readAsciiArtwork(element, { glow = false } = {}) {
+export function readAsciiArtwork(element, { glow = false, crt = false } = {}) {
   if (!element?.dataset || typeof element.textContent !== 'string') {
     throw new TypeError('Expected the committed ASCII output element.');
   }
@@ -51,6 +52,7 @@ export function readAsciiArtwork(element, { glow = false } = {}) {
     color: style.color,
     background: isOpaque(background) ? background : ARTWORK_BACKGROUND,
     glow,
+    crt,
   };
   validateFrame(frame);
   return Object.freeze(frame);
