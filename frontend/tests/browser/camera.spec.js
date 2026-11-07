@@ -1261,8 +1261,29 @@ test('the rail keeps deliberate rows and a stable topbar across camera state', a
   await expect(page.locator('#detail-output')).toBeEnabled();
   expect((await page.locator('#toggle-guides').boundingBox()).x, 'starting the camera never shifts GUIDES').toBe(guidesX);
 
-  await expect(page.locator('#copy-output'), 'live grid is not exportable; FREEZE is the path in').toBeDisabled();
-  await expect(page.locator('#save-output')).toBeDisabled();
+  const liveSeams = await page.evaluate(() => {
+    const rect = (id) => document.getElementById(id).getBoundingClientRect();
+    const modes = document.querySelector('.rail-modes').getBoundingClientRect();
+    return {
+      shutterRight: rect('camera-shutter').right,
+      importRight: rect('camera-import').right,
+      flipLeft: rect('flip-camera').left,
+      copyLeft: rect('copy-output').left,
+      chipSeam: rect('video-mode').left,
+      modesCenter: (modes.left + modes.right) / 2,
+      modesRight: modes.right,
+      tilesRight: document.querySelector('.readout-tiles').getBoundingClientRect().right,
+    };
+  });
+  expect(liveSeams.shutterRight, 'FREEZE shares IMPORT right edge').toBeCloseTo(liveSeams.importRight, 1);
+  expect(liveSeams.flipLeft, 'FLIP sits on COPY left edge').toBeCloseTo(liveSeams.copyLeft, 1);
+  expect(liveSeams.modesRight, 'chips fill row 1 at steady live').toBeCloseTo(liveSeams.tilesRight, 1);
+  // The 4px chip gap shifts the VIDEO border half a gap right of center; its
+  // hole is centered on the row like every other seam.
+  expect(liveSeams.chipSeam, 'chips split row 1 half and half').toBeCloseTo(liveSeams.modesCenter + 2, 0);
+
+  await expect(page.locator('#copy-output'), 'live grid exports the committed frame').toBeEnabled();
+  await expect(page.locator('#save-output')).toBeEnabled();
   await expect(page.locator('#shutter-help')).toHaveText('');
 
   await page.locator('#camera-stop').click();
