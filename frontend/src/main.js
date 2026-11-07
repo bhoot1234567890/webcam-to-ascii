@@ -88,6 +88,11 @@ function hasCurrentFrame() {
     output.dataset.sourceHeight === String(source.height);
 }
 
+function exportableNow() {
+  // Exports take a held frame; while the camera streams live, FREEZE is the path in.
+  return hasCurrentFrame() && !(cameraState === 'live' && source?.kind === 'camera');
+}
+
 function syncSettingsInputs() {
   for (const input of inputs) {
     if (Object.hasOwn(settings, input.dataset.field)) {
@@ -241,7 +246,7 @@ function updateControls() {
     recordingState, pendingRecording, recordingSupported: recordingSupport.supported,
     hasClip: Boolean(recording?.clip),
   });
-  const exportable = hasCurrentFrame();
+  const exportable = exportableNow();
   byId('copy-output').disabled = !exportable || locked;
   byId('save-output').disabled = !exportable || locked;
   byId('compare-output').disabled = locked || !source || (source.kind === 'camera' && !source.active);
@@ -922,7 +927,7 @@ try {
   });
   byId('error-action').addEventListener('click', () => imageInput.click());
   byId('copy-output').addEventListener('click', async () => {
-    if (videoBusy() || captureBusy || disposed || !hasCurrentFrame()) return;
+    if (videoBusy() || captureBusy || disposed || !exportableNow()) return;
     try {
       await copyAscii(output.textContent);
       setStatus('Copied. Paste it anywhere.', true);
@@ -931,7 +936,7 @@ try {
     }
   });
   byId('save-output').addEventListener('click', () => {
-    if (videoBusy() || captureBusy || disposed || !hasCurrentFrame()) return;
+    if (videoBusy() || captureBusy || disposed || !exportableNow()) return;
     let frame;
     try {
       frame = readAsciiArtwork(output, { glow });
