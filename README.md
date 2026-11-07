@@ -168,59 +168,16 @@ The scripts recognize those local libraries. WebKit's bundled wrapper replaces `
 
 Every shipped feature carries frozen verification: historical gate counts (Python regressions, Bun parity, browser acceptance, production smoke), physical-camera baselines, independent vision-review adjudications, same-host performance samples, and the full artifact inventory under `qa/artifacts/`. These point-in-time records are archived verbatim in [docs/qa-evidence.md](docs/qa-evidence.md); the gates themselves are re-run, not re-quoted, for every change. At the CRT-filter merge the observed totals were 13 Python regressions, 504 unit, and 74 browser checks across four projects.
 
-## Python terminal viewer installation
+## Python terminal viewer
 
-**Prerequisites:** Python 3.9+, a working webcam, and (on macOS) Terminal granted camera access in *System Settings → Privacy & Security → Camera*.
-
-Clone the repository:
-
-```bash
-git clone <your-repo-url>/webcam-to-ascii.git
-cd webcam-to-ascii
-```
-
-Create and activate a virtual environment (recommended):
-
-```bash
-python -m venv .venv
-source .venv/bin/activate        # macOS / Linux
-# .venv\Scripts\activate         # Windows
-```
-
-Install the dependencies:
+The original surface still ships: live ASCII frames printed to the terminal with the raw feed in an OpenCV window, sharing the measured ramp and numerical oracle with the browser app.
 
 ```bash
 pip install -r requirements.txt
+python "webcam ascii.py"   # press q in the preview window to stop
 ```
 
-> **Note on `skimage`:** `requirements.txt` lists `skimage>=0.0`, the legacy alias package for **scikit-image**. If pip cannot resolve it, install the real package directly: `pip install scikit-image`.
-
-The full dependency set is OpenCV (`opencv-python`, `opencv-contrib-python`, `opencv-python-headless`), NumPy, Pillow, scikit-image, and Matplotlib.
-
-## 🚀 Usage
-
-Run the main viewer (note the space in the filename — quotes are required):
-
-```bash
-python "webcam ascii.py"
-```
-
-The terminal fills with the live ASCII render; a separate *Webcam Feed* window shows the source frame. **Press `q`** (with the preview window focused) to stop and release the camera.
-
-Using a different camera? Find its index first, then point the viewer at it:
-
-```bash
-python "list webcams.py"
-```
-
-```python
-# In "webcam ascii.py", change the device index on this line:
-cap = cv2.VideoCapture(0)   # ← 0 is the default webcam
-```
-
-### What you'll see
-
-Each frame is printed as a complete block of glyphs. Landscape sources use twice the width setting; portrait and square sources use the height setting and derive doubled columns from their aspect ratio. Flat regions range from space (dark) toward `@` (bright). The terminal scrolls continuously.
+Prerequisites (Python 3.9+, camera access, the `skimage` alias note), camera-index selection, and what the output looks like are documented in [docs/python-viewer.md](docs/python-viewer.md).
 
 ## ⚙️ Configuration
 
@@ -309,6 +266,7 @@ The Lanczos port retains Pillow's MIT-CMU notice in `frontend/public/Pillow-LICE
 | [`docs/ascii-video-recording.md`](docs/ascii-video-recording.md) | The silent ASCII video recorder: what it records, limits, capture pacing, shared artwork pipeline, layout math, state machine, error catalog, test strategy, and the branch integration history. |
 | [`docs/video-review-modal.md`](docs/video-review-modal.md) | The review modal: markup, opening rules, enablement, clip lifetime, actions, focus management, playback notes, styling, edge cases, and the specs that pin them. |
 | [`docs/qa-evidence.md`](docs/qa-evidence.md) | Frozen verification archive: historical gate counts, physical-camera baselines, vision-review adjudications, performance samples, and artifact inventories. |
+| [`docs/python-viewer.md`](docs/python-viewer.md) | The Python terminal viewer: prerequisites, virtual-environment setup, dependency notes (including the `skimage` alias), camera-index selection, and output description. |
 
 ## 🤝 Contributing
 
