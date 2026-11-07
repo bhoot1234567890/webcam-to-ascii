@@ -65,6 +65,10 @@ Choose **Video**, then activate the red recording shutter. Mode selection alone 
 
 PNG and video share one artwork painter: committed grid, font metrics, alphabetic baseline, ink gutters, opaque viewfinder background, tint and optional glow. PNG retains its 2× export resolution; video remains downscale-only with an even-dimension, 1280-pixel longest-edge cap. This is consistent artwork, not a promise of pixel-identical output from different resolutions or a lossy video codec.
 
+When the clip finishes encoding, the review modal opens with playback, **SAVE**, **SHARE** and
+**DISCARD & RETAKE**; its full contract is documented in
+[docs/video-review-modal.md](docs/video-review-modal.md).
+
 The recording canvas receives only ASCII artwork, never the raw camera stream or a screen capture of the interface. Look, framing, density, tuning, preset, source, presentation and photo-export controls lock while starting, recording and finishing. Presets and restored settings remain available before recording; their exact committed configuration is used. Output dimensions stay fixed for a clip; a camera-frame dimension change finishes the existing recording rather than stretching it. Viewport resizing alone does not change the encoded grid.
 
 After recording, the camera is released and **Your ASCII video** opens with real playback, actual format, duration and dimensions:

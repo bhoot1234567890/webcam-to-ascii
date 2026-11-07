@@ -269,6 +269,9 @@ capture immediately, the latter first asks the recorder to finish and lets
 
 ### UI contract
 
+The review dialog's markup, state, actions, focus, and edge cases are documented in detail in
+the companion doc, video-review-modal.md; the table below is the short form.
+
 | Element / attribute | Purpose |
 |---|---|
 | `#photo-mode`, `#video-mode` | Rail `aria-pressed` mode chips; selecting a mode never requests permission |
