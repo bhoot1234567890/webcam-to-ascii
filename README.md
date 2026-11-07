@@ -105,6 +105,15 @@ bun run --cwd frontend preview
 
 Deploy **`frontend/dist/`** to a static HTTPS host. No Python service is needed. QA pages, source fixtures, and generated artifacts are not production build inputs.
 
+The live deployment is **Cloudflare Pages**, project **`clack`**: [clack.chaitanyamalhotra.com](https://clack.chaitanyamalhotra.com/) (also `clack-1qo.pages.dev`), Production branch `main`, deployed by direct upload with the Wrangler CLI:
+
+```sh
+bun run --cwd frontend build
+bunx wrangler pages deploy frontend/dist --project-name=clack --branch=main
+```
+
+The `clack` project already exists in the account, which hosts many unrelated Pages projects — run `bunx wrangler pages project list` before touching Pages and never create a new project for this app. A GitHub Pages mirror created during PR #6 verification lives at `bhoot1234567890.github.io/webcam-to-ascii/` (branch `gh-pages`); it is not the canonical host.
+
 ### Brand assets
 
 The name and wordmark are lowercase **clack**; the tagline is **“A camera with character.”** The blinking amber cursor connects the camera identity to character art. The whole interface is terminal-native: ink-black, one warm-white ink, amber (`#ffd663`) reserved for live/active states, square edges, and the locally bundled Roboto Mono everywhere.

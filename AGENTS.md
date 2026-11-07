@@ -125,6 +125,7 @@ Python:
 - The Python viewer needs Python 3.9+, a camera, and `skimage` (install `scikit-image` if the legacy alias fails).
 - Camera access requires HTTPS or localhost. Do not commit `.tools/`, `.venv-qa/`, `frontend/node_modules/`, `frontend/dist/`, or `qa/artifacts/`.
 - There is no CI workflow; gates are the local scripts above.
+- Deployment is a direct upload of `frontend/dist/` to the existing Cloudflare Pages project `clack` (canonical URL `clack.chaitanyamalhotra.com`, Production branch `main`): `bun run --cwd frontend build && bunx wrangler pages deploy frontend/dist --project-name=clack --branch=main`. The Wrangler account hosts many unrelated Pages projects; run `bunx wrangler pages project list` first and never create a new project for this app. The `gh-pages` branch mirror on GitHub Pages is not the canonical host.
 
 ## Design-System Kit (Vendored)
 
