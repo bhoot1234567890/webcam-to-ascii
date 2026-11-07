@@ -64,11 +64,11 @@ export function createCameraShell() {
       }
       byId('shutter-help').textContent = video ?
         pendingRecording ? 'Tap CANCEL to cancel video start' : recording ? 'Silent · Tap STOP · Up to 30s' :
-          stopping ? 'Finishing your video…' : requesting ? 'Tap CANCEL to cancel camera access' :
+          stopping ? '' : requesting ? 'Tap CANCEL to cancel camera access' :
             hasClip ? 'Tap REVIEW · Silent · Up to 30s' :
               !recordingSupported ? 'Video unavailable · Use Photo' : 'Silent · Up to 30s · Tap RECORD' :
-        busy ? 'Developing your frame…' : requesting ? 'Tap CANCEL to cancel camera access' :
-          live ? 'Tap FREEZE to hold a frame' : held ? 'Tap RESUME to return to live' : 'Tap CAMERA to open your camera';
+        busy ? '' : requesting ? 'Tap CANCEL to cancel camera access' :
+          live ? '' : held ? 'COPY or SAVE the frame' : 'Tap CAMERA to open your camera';
       byId('status').dataset.camera = locked ? pendingRecording ? 'pending' : recordingState :
         busy ? 'capturing' : requesting ? 'requesting' : live ? 'live' : 'idle';
     },

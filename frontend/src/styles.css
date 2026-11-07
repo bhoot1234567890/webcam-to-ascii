@@ -199,10 +199,13 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
 .shutter[data-state="live"] { background: var(--accent); color: var(--accent-ink); }
 .shutter:disabled { opacity: 0.4; }
 .view-controls { display: flex; }
-.view-controls button { min-width: 56px; border-left-width: 0; }
+/* Same selected/unselected language as the capture-mode chips: unselected is
+   muted, selected adds the ink border and panel fill. Topology stays joined
+   (shared borders) as the affordance distinction from the gapped chips. */
+.view-controls button { min-width: 56px; border-left-width: 0; color: var(--muted); }
 .view-controls button:first-child { border-left-width: 1px; }
-.view-controls button[aria-pressed="true"] { background: var(--panel-2); color: var(--ink); }
-.view-controls button[aria-pressed="true"]:disabled { background: transparent; color: var(--muted); }
+.view-controls button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); background: var(--panel-2); }
+.view-controls button[aria-pressed="true"]:disabled { background: transparent; border-color: var(--border); color: var(--muted); }
 
 .readout-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .readout-tiles button { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; }
@@ -224,6 +227,7 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
 .shutter[data-mode="video"][data-state="pending"],
 .shutter[data-mode="video"][data-state="stopping"] { background: var(--error-bg); }
 .shutter-help { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.shutter-help:empty { display: none; }
 #recording-indicator { display: inline-flex; align-items: center; gap: 7px; min-height: 28px; color: var(--error-ink); font-size: 11px; }
 .recording-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: var(--error-ink); }
 #recording-timer { min-width: 5ch; font-variant-numeric: tabular-nums; }
@@ -266,6 +270,14 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   .rail-output { grid-row: 3; grid-column: 1 / -1; }
   .rail-display { grid-row: 4; grid-column: 1 / -1; }
   .readout-tiles { grid-row: 5; grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* Shared deck grid: rows 3/4 borrow the tiles' exact 4-track system so every
+     strip shares the 25/50/75% seams; long labels own two tracks. */
+  .rail-output, .view-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rail-output { gap: 8px; }
+  .view-controls { gap: 0; }
+  .rail-display .view-controls { flex: 1; }
+  #camera-import, #compare-output { grid-column: span 2; }
+  .rail-output button, .view-controls button { padding-inline: 8px; }
   .readout-meta { grid-row: 6; grid-column: 1 / -1; }
   .readout-tiles button { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 6px; font-size: 10px; }
   .shutter { flex: 1; max-width: none; }
@@ -300,6 +312,12 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   .rail { grid-column: 2; grid-row: 4 / 6; min-height: 0; border-top: 0; border-left: 1px solid var(--border); overflow-y: auto; overscroll-behavior: contain; align-content: start; gap: 6px; }
   .readout-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .rail .view-controls button { min-width: 44px; padding-inline: 10px; }
+  .rail-output, .rail-display { flex-basis: 100%; }
+  .rail-output, .view-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rail-output { gap: 8px; }
+  .view-controls { gap: 0; }
+  .rail-display .view-controls { flex: 1; }
+  #camera-import, #compare-output { grid-column: span 2; }
 }
 
 @media (prefers-reduced-motion: reduce) {

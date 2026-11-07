@@ -1242,6 +1242,13 @@ test('the rail keeps deliberate rows and a stable topbar across camera state', a
   expect(rows.output, 'output row follows capture').toBeLessThan(rows.display);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
 
+  const seams = await page.evaluate(() => {
+    const right = (selector) => document.querySelector(selector).getBoundingClientRect().right;
+    return { output: right('.rail-output'), display: right('.view-controls'), tiles: right('.readout-tiles') };
+  });
+  expect(seams.output, 'output row shares the tiles right edge').toBeCloseTo(seams.tiles, 1);
+  expect(seams.display, 'view row shares the tiles right edge').toBeCloseTo(seams.tiles, 1);
+
   await page.locator('#camera-shutter').click();
   await waitCameraCommit(page);
   const flip = page.locator('#flip-camera');
@@ -1254,10 +1261,23 @@ test('the rail keeps deliberate rows and a stable topbar across camera state', a
   await expect(page.locator('#detail-output')).toBeEnabled();
   expect((await page.locator('#toggle-guides').boundingBox()).x, 'starting the camera never shifts GUIDES').toBe(guidesX);
 
+  await expect(page.locator('#copy-output'), 'live grid is not exportable; FREEZE is the path in').toBeDisabled();
+  await expect(page.locator('#save-output')).toBeDisabled();
+  await expect(page.locator('#shutter-help')).toHaveText('');
+
   await page.locator('#camera-stop').click();
   await expect(page.locator('#status')).toHaveText('Camera stopped');
   await expect(flip).toBeHidden();
   await expect(page.locator('#camera-stop')).toBeHidden();
+  expect((await page.locator('#toggle-guides').boundingBox()).x, 'stopping the camera never shifts GUIDES').toBe(guidesX);
+
+  await page.locator('#camera-shutter').click();
+  await waitCameraCommit(page);
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('#status')).toHaveText('Frame captured');
+  await expect(page.locator('#shutter-help')).toHaveText('COPY or SAVE the frame');
+  await expect(page.locator('#copy-output')).toBeEnabled();
+  await expect(page.locator('#save-output')).toBeEnabled();
   expect((await page.locator('#toggle-guides').boundingBox()).x, 'stopping the camera never shifts GUIDES').toBe(guidesX);
 });
 
