@@ -198,12 +198,11 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
 .shutter[data-state="requesting"] { border-color: var(--muted) !important; color: var(--ink); }
 .shutter[data-state="live"] { background: var(--accent); color: var(--accent-ink); }
 .shutter:disabled { opacity: 0.4; }
-.view-controls { display: flex; }
-/* Same selected/unselected language as the capture-mode chips: unselected is
-   muted, selected adds the ink border and panel fill. Topology stays joined
-   (shared borders) as the affordance distinction from the gapped chips. */
-.view-controls button { min-width: 56px; border-left-width: 0; color: var(--muted); }
-.view-controls button:first-child { border-left-width: 1px; }
+.view-controls { display: flex; gap: 8px; }
+/* One deck system: every row is gapped with full borders. The view buttons
+   share the capture-modes state language — muted unselected, ink border plus
+   panel fill selected. */
+.view-controls button { min-width: 56px; color: var(--muted); }
 .view-controls button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); background: var(--panel-2); }
 .view-controls button[aria-pressed="true"]:disabled { background: transparent; border-color: var(--border); color: var(--muted); }
 
@@ -266,15 +265,24 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   }
   .rail-modes { grid-row: 1; grid-column: 1; }
   #shutter-help { grid-row: 1; grid-column: 2; align-self: center; }
-  .rail-capture { grid-row: 2; grid-column: 1 / -1; }
+  /* Row 1 fills only at steady live, when the help line is empty: chips go
+     half/half across the row. Constant seams AND no void in both help states
+     is impossible — idle must show the instruction beside the chips. */
+  .rail:has(#shutter-help:empty):has(#camera-shutter[data-state="live"]) .rail-modes { grid-column: 1 / -1; }
+  .rail:has(#shutter-help:empty):has(#camera-shutter[data-state="live"]) .capture-modes { flex: 1; display: grid; grid-template-columns: 1fr 1fr; }
+  .rail-capture { grid-row: 2; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  #camera-shutter { grid-column: span 2; }
+  #flip-camera { grid-column: 3; }
+  #camera-stop { grid-column: 4; }
+  .rail-capture:has(#flip-camera[hidden]) #camera-shutter { grid-column: 1 / -1; }
   .rail-output { grid-row: 3; grid-column: 1 / -1; }
   .rail-display { grid-row: 4; grid-column: 1 / -1; }
   .readout-tiles { grid-row: 5; grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  /* Shared deck grid: rows 3/4 borrow the tiles' exact 4-track system so every
-     strip shares the 25/50/75% seams; long labels own two tracks. */
+  /* Shared deck grid: rows 2-4 borrow the tiles' exact 4-track system, all
+     gapped the same 8px, so every strip's seams coincide pixel-exactly;
+     long labels and momentary hold controls own two tracks. */
   .rail-output, .view-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .rail-output { gap: 8px; }
-  .view-controls { gap: 0; }
+  .rail-output, .view-controls { gap: 8px; }
   .rail-display .view-controls { flex: 1; }
   #camera-import, #compare-output { grid-column: span 2; }
   .rail-output button, .view-controls button { padding-inline: 8px; }
@@ -315,9 +323,14 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   .rail-output, .rail-display { flex-basis: 100%; }
   .rail-output, .view-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .rail-output { gap: 8px; }
-  .view-controls { gap: 0; }
+  .view-controls { gap: 8px; }
   .rail-display .view-controls { flex: 1; }
   #camera-import, #compare-output { grid-column: span 2; }
+  .rail-capture { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  #camera-shutter { grid-column: span 2; }
+  #flip-camera { grid-column: 3; }
+  #camera-stop { grid-column: 4; }
+  .rail-capture:has(#flip-camera[hidden]) #camera-shutter { grid-column: 1 / -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
