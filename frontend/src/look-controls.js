@@ -18,7 +18,7 @@ export function createLookControls({
   const listeners = [];
   let opener = null;
   let disabled = false;
-  let state = { look: normalizeLook(), framing: 'full', tint: 'default', glow: false, density: 'balanced' };
+  let state = { look: normalizeLook(), framing: 'full', tint: 'default', glow: false, crt: false, density: 'balanced' };
 
   const listen = (node, event, handler) => {
     node.addEventListener(event, handler);
@@ -184,10 +184,11 @@ export function createLookControls({
     });
   }
   listen(byId('tint-choices'), 'change', (event) => {
-    if (event.target.name === 'text-tint') onPresentationChange({ tint: event.target.value, glow: state.glow });
+    if (event.target.name === 'text-tint') onPresentationChange({ tint: event.target.value, glow: state.glow, crt: state.crt });
   });
-  listen(byId('text-color'), 'input', (event) => onPresentationChange({ tint: event.target.value, glow: state.glow }));
-  listen(byId('soft-glow'), 'change', (event) => onPresentationChange({ tint: state.tint, glow: event.target.checked }));
+  listen(byId('text-color'), 'input', (event) => onPresentationChange({ tint: event.target.value, glow: state.glow, crt: state.crt }));
+  listen(byId('soft-glow'), 'change', (event) => onPresentationChange({ tint: state.tint, glow: event.target.checked, crt: state.crt }));
+  listen(byId('crt-effect'), 'change', (event) => onPresentationChange({ tint: state.tint, glow: state.glow, crt: event.target.checked }));
 
   // Presets: rebuilt only when the saved list changes, so slider input never steals list focus.
   function syncPresets(presets) {
@@ -258,7 +259,8 @@ export function createLookControls({
     const edges = LOOKS.find((recipe) => recipe.id === state.look.id).edges;
     for (const control of sheet.querySelectorAll('button, input, select')) {
       if (control.id === 'close-look-sheet') continue;
-      control.disabled = disabled || (Object.hasOwn(FIELD_HELP, control.id) && !edges);
+      control.disabled = disabled || (control.id === 'crt-effect' && state.crtUnsupported === true) ||
+        (Object.hasOwn(FIELD_HELP, control.id) && !edges);
     }
   }
 
@@ -282,6 +284,8 @@ export function createLookControls({
     for (const radio of sheet.querySelectorAll('input[name="text-tint"]')) radio.checked = radio.value === state.tint;
     if (state.tint !== 'default') byId('text-color').value = state.tint;
     byId('soft-glow').checked = state.glow;
+    byId('crt-effect').checked = state.crt === true;
+    byId('crt-effect').disabled = disabled || state.crtUnsupported === true;
     const inkLabel = TINT_LABELS[state.tint] ?? String(state.tint).toUpperCase();
     byId('ink-label').textContent = inkLabel;
     byId('open-ink').setAttribute('aria-label', `Ink, ${inkLabel}`);

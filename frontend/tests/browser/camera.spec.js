@@ -877,6 +877,40 @@ test('live ASCII recording saves a silent AVC clip with changing tinted artwork 
   await expectVideoReleased(page);
 });
 
+test('CRT recording runs the tube pass into the encoded clip', async ({ page }) => {
+  await installVideoCamera(page);
+  await openApp(page);
+  await page.locator('#open-looks').click();
+  await openPanel(page, 'style');
+  await page.locator('#crt-effect').check();
+  await expect(page.locator('body')).toHaveAttribute('data-crt', 'on');
+  await page.locator('#close-look-sheet').click();
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await waitRecording(page, 2);
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('#video-review')).toBeVisible();
+  await expectVideoReleased(page);
+  const video = page.locator('#recorded-video');
+  await expect.poll(() => video.evaluate((element) => element.readyState)).toBeGreaterThanOrEqual(2);
+  const sampled = await video.evaluate(async (element) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 64;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    await new Promise((resolve) => {
+      element.addEventListener('seeked', resolve, { once: true });
+      element.currentTime = 0.3;
+    });
+    context.drawImage(element, 0, 0, 64, 64);
+    const at = (x, y) => [...context.getImageData(x, y, 1, 1).data.slice(0, 3)];
+    const inner = [at(24, 24), at(32, 32), at(40, 28), at(28, 40)];
+    return { corner: at(0, 0), innerMax: Math.max(...inner.flat()) };
+  });
+  expect(sampled.corner.every((channel) => channel < 8), 'CRT bezel drives the encoded corner to black').toBe(true);
+  expect(sampled.innerMax, 'The tube interior keeps tinted glyphs').toBeGreaterThan(24);
+  await page.locator('#close-video-review').click();
+});
+
 test('canceling Video before its first committed reply never records stale artwork', async ({ page }) => {
   await installVideoCamera(page);
   await openApp(page);

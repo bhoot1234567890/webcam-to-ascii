@@ -53,7 +53,7 @@ Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. 
 
 Auto contrast can recover a flat photo, but recomputes the brightness range every frame: a moving highlight can cause live brightness pumping. It is off by default. Midtones below 1 lighten; above 1 darken. Sharpness uses a bounded unsharp mask and also affects Outline contours.
 
-**Ink** sets text color (Paper, White, Amber, Green or the native custom-color picker) and **Soft glow**; both are presentation-only and never request another ASCII render. Glow is off initially, reserves a small halo gutter in Fit/100%, and is not a claim of GPU acceleration.
+**Ink** sets text color (Paper, White, Amber, Green or the native custom-color picker) and **Soft glow**; both are presentation-only and never request another ASCII render. Glow is off initially, reserves a small halo gutter in Fit/100%, and is not a claim of GPU acceleration. **CRT** adds the old-school tube: on screen it overlays scanlines and a subtle chromatic fringe on the live text; saved PNGs and recorded video run one WebGL pass that also adds barrel bulge and a curved, row-locked raster locked to glyph rows — layered in the same order emulator CRT shaders use (warp, channel split, beam, bezel). CRT needs WebGL and is disabled without it; like tint and glow it never triggers a re-render.
 
 **Grid** holds the density presets and width/height sliders; the sliders are range-bounded, so the numeric invalid-value path applies only to the Tune fields. Invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The Camera tab's source monitor stays unmodified for every frame, look and presentation choice.
 

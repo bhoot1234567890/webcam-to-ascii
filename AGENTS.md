@@ -42,6 +42,10 @@ Invariants:
 - Model/UI split: child modules validate and emit; only `main.js` commits processing and presentation state.
 - No allocation in the per-frame render path. Planes are typed arrays allocated once per grid and configuration.
 
+### CRT effect
+
+`frontend/src/crt/` holds the old-school CRT filter: `bulge.js` (inverse barrel warp + bezel/vignette), `aberration.js` (radial per-channel sampling offsets), `scanlines.js` (row-locked beam modulation), and `compose.js` (the single WebGL1 pass + `createCrtStage`/`crtSupported`). Layer order is fixed: warp → chromatic sampling → scanline multiply → bezel. The stage is presentation-only: it post-processes the rasterized artwork canvas for PNG export and recorded video, and never touches the committed text or requests a render. The on-screen text preview uses a CSS subset (scrollport scanline background + chromatic text-shadow); barrel bulge exists only in the exported artifact. The three effect modules are pure math with JS mirrors tested in `frontend/tests/unit/crt-*.test.js`; shader composition is verified in the browser suite.
+
 ## Key Directories
 
 | Path | Contents |

@@ -95,6 +95,24 @@ button:active:not(:disabled), .choice:active { transform: scale(0.97); transitio
 .composition-grid { position: absolute; opacity: 0; visibility: hidden; transition: opacity var(--dur-press) var(--ease-out), visibility var(--dur-press) ease; pointer-events: none; background-image: linear-gradient(#ffffff30, #ffffff30), linear-gradient(#ffffff30, #ffffff30), linear-gradient(#ffffff30, #ffffff30), linear-gradient(#ffffff30, #ffffff30); background-size: 1px 100%, 1px 100%, 100% 1px, 100% 1px; background-position: 33.333% 0, 66.667% 0, 0 33.333%, 0 66.667%; background-repeat: no-repeat; }
 body[data-guides="on"] .composition-grid { opacity: 1; visibility: visible; }
 body[data-glow="on"] #ascii-output { text-shadow: 0 0 3px currentColor, 0 0 6px color-mix(in srgb, currentColor 35%, transparent); }
+/* CRT live preview: scanlines ride the scrollport background so they stay screen-fixed
+   while the grid pans; the chromatic pair fringes glyph edges like tube dispersion. */
+body[data-crt="on"] .ascii-viewport {
+  background-image: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px);
+}
+body[data-crt="on"] .ascii-viewport[data-pannable="true"] {
+  background-image:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0 1px, transparent 1px 3px),
+    linear-gradient(to left, var(--bg), transparent 28px),
+    linear-gradient(to top, var(--bg), transparent 28px);
+}
+body[data-crt="on"] #ascii-output {
+  text-shadow: 1px 0 rgba(255, 60, 60, 0.55), -1px 0 rgba(60, 180, 255, 0.55);
+}
+body[data-glow="on"][data-crt="on"] #ascii-output {
+  text-shadow: 1px 0 rgba(255, 60, 60, 0.55), -1px 0 rgba(60, 180, 255, 0.55),
+    0 0 3px currentColor, 0 0 6px color-mix(in srgb, currentColor 35%, transparent);
+}
 
 /* ————— settings drawer ————— */
 .drawer { display: flex; flex-direction: column; min-height: 0; flex-shrink: 1; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--panel); }
