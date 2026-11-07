@@ -13,7 +13,7 @@ Two trees share this repository and must not be confused:
 
 ## Project Overview
 
-- Browser app (`frontend/`): live camera, frozen frames, and imported photos rendered as ASCII with four looks (Original, Photo, Print, Outline), precise center crops, density presets, tone controls, tint, glow, copy, and PNG export.
+- Browser app (`frontend/`): live camera, frozen frames, imported photos, and silent ASCII video recording rendered as ASCII with four looks (Original, Photo, Print, Outline), precise center crops, density presets, tone controls, tint, glow, copy, PNG export, and local video review/save/share.
 - Python viewer (`webcam ascii.py` + `ascii_core.py`): prints frames to the terminal and shows the raw feed in an OpenCV window. `ascii_core.py` is import-safe and is the numerical oracle the browser is tested against.
 - `ink-usage.json` is the single measured 95-character luminance ramp shared by both implementations.
 
@@ -46,9 +46,10 @@ Invariants:
 
 | Path | Contents |
 |---|---|
-| `frontend/src/` | Product modules: `main.js` (owner), `camera.js`, `renderer.js`, `render-worker.js`, `ascii.js`, `effects.js`, `looks.js`, `density.js`, `framing.js`, `resample.js`, `presentation.js`, `output-view.js`, `look-controls.js`, `camera-shell.js`, `export.js`, `persist.js`, `styles.css` |
-| `frontend/tests/unit/` | Bun tests: renderer stages, ramp, dithering, framing, density, looks, and Python parity |
-| `frontend/tests/browser/` | Playwright specs: image pipeline, camera lifecycle, controller races, mobile layout, A/B evidence, production smoke |
+| `frontend/src/` | Product modules: `main.js` (owner), `camera.js`, `renderer.js`, `render-worker.js`, `ascii.js`, `effects.js`, `looks.js`, `density.js`, `framing.js`, `resample.js`, `presentation.js`, `output-view.js`, `look-controls.js`, `camera-shell.js`, `artwork.js`, `ascii-recorder.js`, `recording-view.js`, `export.js`, `persist.js`, `presets.js`, `styles.css` |
+| `frontend/tests/unit/` | Bun tests: renderer stages, ramp, dithering, framing, density, looks, presets, artwork/recording, and Python parity |
+| `frontend/tests/browser/` | Playwright specs: image pipeline, camera lifecycle, controller races, mobile layout, recording/review, A/B evidence, production smoke |
+| `docs/` | Feature references; currently the merged ASCII video recorder. |
 | `qa/` | Fixtures, frozen legacy answers, Python regressions, reference exporter, A/B aggregation, setup and gate scripts |
 | `scripts/` | Design-kit gates only (tokens, contrast, a11y, slop, accuracy report). Not product tests. |
 | `qa/artifacts/` | Generated, git-ignored evidence (reports, traces, screenshots, reference planes) |

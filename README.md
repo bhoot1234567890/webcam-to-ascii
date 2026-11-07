@@ -38,7 +38,7 @@ Open **http://127.0.0.1:4173**. clack is a terminal-native ASCII camera: one ful
 
 The **PHOTO/library** button opens the local image picker without camera permission; video-file import is not included. **STOP** releases capture and, during video recording, finishes the clip. **GUIDES** changes only composition overlays. The status line reports state; the readout shows the active look, density, framing, grid size and processing time.
 
-Every setting lives in one inline drawer opened from the readout (**LOOK / GRID / FRAME**) or any of its six tabs: **Camera · Look · Grid · Frame · Tune · Ink**. The Camera tab holds facing and device selection plus the unmodified source monitor, and **RECORD ASCII VIDEO**. **FLIP** lives in the camera rail above the shutter so it is always reachable; it switches the front/back preference and, when no camera is running, starts the other one. Choices apply immediately; **CLOSE**, Escape or opening another tab keeps the artwork visible above the drawer, so every choice can be judged live. The drawer is part of the page, not a modal sheet.
+Every setting lives in one inline drawer opened from the readout (**LOOK / GRID / FRAME**) or any of its seven tabs: **Camera · Look · Grid · Frame · Tune · Ink · Presets**. The Camera tab holds facing and device selection plus the unmodified source monitor, and **RECORD ASCII VIDEO**. **FLIP** lives in the camera rail above the shutter so it is always reachable; it switches the front/back preference and, when no camera is running, starts the other one. Choices apply immediately; **CLOSE**, Escape or opening another tab keeps the artwork visible above the drawer, so every choice can be judged live. The drawer is part of the page, not a modal sheet.
 
 Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. Wide ratios can deliberately cut off the top and bottom of a portrait; use Full to restore every source pixel. A frozen shot keeps the full-resolution PNG in page memory, so reframing never crops an already-cropped result. Very small images that cannot represent a ratio are rejected without losing the valid source or frame. Composition guides follow the artwork, including its letterboxing.
 
@@ -364,6 +364,12 @@ The Lanczos port retains Pillow's MIT-CMU notice in `frontend/public/Pillow-LICE
 | `ink-usage.json` | Original measured luminance ramp, shared by Python and JavaScript. |
 | `frontend/` | Static vanilla-JS app, reusable CPU stages, one rendering worker, and Playwright/Bun tests. |
 | `qa/` | Reproducible tooling, immutable pre-extraction answers, Python oracle/regressions, and A/B evidence generation. |
+
+## 📚 Documentation
+
+| Document | Covers |
+|---|---|
+| [`docs/ascii-video-recording.md`](docs/ascii-video-recording.md) | The silent ASCII video recorder: what it records, limits, capture pacing, shared artwork pipeline, layout math, state machine, error catalog, test strategy, and the branch integration history. |
 
 ## 🤝 Contributing
 
