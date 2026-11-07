@@ -1073,7 +1073,7 @@ test('restored density and preset configuration is recorded while pending and ac
   await expect.poll(async () => (await readCommit(page)).settingsKey).toBe(expectedSettings);
 
   await page.reload();
-  await expect(page.locator('#status')).toContainText('Ready');
+  await expect(page.locator('#status')).toContainText('No source');
   await openPanel(page, 'grid');
   await expect(page.locator('input[name="density"][value="fine"]')).toBeChecked();
   await expect(page.locator('#grid-max-width')).toHaveValue('75');
@@ -1149,8 +1149,7 @@ test('restored density and preset configuration is recorded while pending and ac
 test('empty state starts the camera and retires once a frame commits', async ({ page }) => {
   await openApp(page);
   await expect(page.locator('#empty-state')).toBeVisible();
-  await expect(page.locator('#empty-start')).toBeVisible();
-  await page.locator('#empty-start').click();
+  await page.locator('#camera-shutter').click();
   await waitCameraCommit(page);
   await expect(page.locator('#empty-state')).toBeHidden();
   await expect(page.locator('#camera-stop')).toBeVisible();
@@ -1160,30 +1159,34 @@ test('empty state starts the camera and retires once a frame commits', async ({ 
   await expect(page.locator('#empty-state')).toBeHidden();
 });
 
-test('flip lives in the rail and starts the other camera from idle', async ({ page }) => {
+test('flip stays hidden until a camera runs', async ({ page }) => {
   await openApp(page);
   const flip = page.locator('#flip-camera');
-  await expect(flip).toBeVisible();
-  await expect(flip).toBeEnabled();
-  await expect(flip).toHaveAttribute('aria-label', 'Switch camera and start it');
+  await expect(flip).toBeHidden();
+  await expect(page.locator('#camera-stop')).toBeHidden();
   expect(await page.locator('#look-sheet').evaluate((sheet) => sheet.hidden), 'Flip is reachable without opening the drawer').toBe(true);
 
-  await flip.click();
-  await expect(page.locator('#camera-facing')).toHaveValue('environment');
+  await page.locator('#camera-shutter').click();
   const first = await waitCameraCommit(page);
+  await expect(flip).toBeVisible();
+  await expect(flip).toBeEnabled();
   await expect(flip).toHaveAttribute('aria-label', 'Switch front and back camera');
   const firstStream = await retainCamera(page);
 
   await flip.click();
-  await expect(page.locator('#camera-facing')).toHaveValue('user');
+  await expect(page.locator('#camera-facing')).toHaveValue('environment');
   const second = await waitCameraCommit(page, first);
   expect(second.sourceGeneration).toBeGreaterThan(first.sourceGeneration);
   await expectRetainedEnded(page, firstStream.index, false);
 
+  await flip.click();
+  await expect(page.locator('#camera-facing')).toHaveValue('user');
+  const third = await waitCameraCommit(page, second);
+  expect(third.sourceGeneration).toBeGreaterThan(second.sourceGeneration);
+
   await page.locator('#camera-stop').click();
   await expect(page.locator('#status')).toHaveText('Camera stopped');
-  await expect(flip).toBeEnabled();
-  await expect(flip).toHaveAttribute('aria-label', 'Switch camera and start it');
+  await expect(flip).toBeHidden();
 });
 
 test('the camera panel keeps its record shortcut in view while the monitor is live', async ({ page }) => {
@@ -1216,4 +1219,82 @@ test('the camera panel keeps its record shortcut in view while the monitor is li
   await page.locator('#studio-video').click();
   await expect(page.locator('#look-sheet')).toBeHidden();
   await expect(page.locator('#video-mode')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('the rail keeps deliberate rows and a stable topbar across camera state', async ({ page }) => {
+  await page.setViewportSize({ width: 356, height: 784 });
+  await openApp(page);
+  await expect(page.locator('#status')).toHaveText('No source');
+  await expect(page.locator('#flip-camera')).toBeHidden();
+  await expect(page.locator('#camera-stop')).toBeHidden();
+  await expect(page.locator('#fit-output')).toBeDisabled();
+  await expect(page.locator('#detail-output')).toBeDisabled();
+
+  const guidesX = (await page.locator('#toggle-guides').boundingBox()).x;
+  const rows = await page.evaluate(() => ({
+    modes: document.querySelector('.rail-modes').getBoundingClientRect().top,
+    capture: document.querySelector('.rail-capture').getBoundingClientRect().top,
+    output: document.querySelector('.rail-output').getBoundingClientRect().top,
+    display: document.querySelector('.rail-display').getBoundingClientRect().top,
+  }));
+  expect(rows.modes, 'modes row leads the rail').toBeLessThan(rows.capture);
+  expect(rows.capture, 'capture row follows modes').toBeLessThan(rows.output);
+  expect(rows.output, 'output row follows capture').toBeLessThan(rows.display);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+
+  await page.locator('#camera-shutter').click();
+  await waitCameraCommit(page);
+  const flip = page.locator('#flip-camera');
+  await expect(flip).toBeVisible();
+  await expect(flip).toBeEnabled();
+  expect(await flip.evaluate((button) => getComputedStyle(button).color), 'flip reads as an action, not a mode chip')
+    .toBe(await page.locator('#camera-import').evaluate((button) => getComputedStyle(button).color));
+  await expect(page.locator('#camera-stop')).toBeVisible();
+  await expect(page.locator('#fit-output')).toBeEnabled();
+  await expect(page.locator('#detail-output')).toBeEnabled();
+  expect((await page.locator('#toggle-guides').boundingBox()).x, 'starting the camera never shifts GUIDES').toBe(guidesX);
+
+  await page.locator('#camera-stop').click();
+  await expect(page.locator('#status')).toHaveText('Camera stopped');
+  await expect(flip).toBeHidden();
+  await expect(page.locator('#camera-stop')).toBeHidden();
+  expect((await page.locator('#toggle-guides').boundingBox()).x, 'stopping the camera never shifts GUIDES').toBe(guidesX);
+});
+
+test('the readout separates settings tiles from grid telemetry', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  await expect(page.locator('#grid-label')).toHaveText(/^GRID \d+ × \d+$/);
+  const separation = await page.evaluate(() => {
+    const meta = document.querySelector('.readout-meta');
+    const tiles = document.querySelector('.readout-tiles');
+    const buttons = [...tiles.querySelectorAll('button')];
+    return {
+      gridInMeta: meta.contains(document.getElementById('grid-label')),
+      gridInTiles: tiles.contains(document.getElementById('grid-label')),
+      privacyInMeta: meta.contains(document.querySelector('.readout-static')),
+      tileCount: buttons.length,
+      tileHeights: [...new Set(buttons.map((button) => button.getBoundingClientRect().height))],
+      tileBorders: [...new Set(buttons.map((button) => getComputedStyle(button).borderStyle))],
+    };
+  });
+  expect(separation.gridInMeta).toBe(true);
+  expect(separation.gridInTiles).toBe(false);
+  expect(separation.privacyInMeta).toBe(true);
+  expect(separation.tileCount).toBe(4);
+  expect(separation.tileHeights).toHaveLength(1);
+  expect(separation.tileBorders).toEqual(['solid']);
+});
+
+test('100% view marks the art as pannable', async ({ page }) => {
+  await page.setViewportSize({ width: 356, height: 784 });
+  await openApp(page);
+  await page.locator('#camera-shutter').click();
+  await waitCameraCommit(page);
+  const viewport = page.locator('.ascii-viewport');
+  await page.locator('#detail-output').click();
+  await expect(viewport).toHaveAttribute('data-pannable', 'true');
+  expect(await viewport.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+  await page.locator('#fit-output').click();
+  await expect(viewport).toHaveAttribute('data-pannable', 'false');
 });

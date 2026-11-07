@@ -396,17 +396,15 @@ test('a tiny source rejects unrepresentable framing and keeps its last valid con
   await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', 'full');
 });
 
-test('empty state offers both start paths and retires after the first commit', async ({ page }) => {
+test('empty state retires after the first imported commit', async ({ page }) => {
   await openApp(page);
   await expect(page.locator('#empty-state')).toBeVisible();
-  await expect(page.locator('#empty-start')).toBeVisible();
-  await expect(page.locator('#empty-photo')).toBeVisible();
   await expect(page.locator('#empty-hint')).toBeHidden();
   await expect(page.locator('#grid-label')).toBeHidden();
   const entry = IMAGES.fixtures.find((item) => item.id === 'astronaut');
   const [picker] = await Promise.all([
     page.waitForEvent('filechooser'),
-    page.locator('#empty-photo').click(),
+    page.locator('#camera-import').click(),
   ]);
   await picker.setFiles(resolve(ROOT, 'qa/fixtures/images', entry.path));
   await page.waitForFunction((name) => {
@@ -468,7 +466,7 @@ test('look, ink and glow persist across a reload', async ({ page }) => {
   await page.locator('#close-look-sheet').click();
   await page.waitForFunction(() => JSON.parse(document.querySelector('#ascii-output').dataset.lookKey).id === 'photo');
   await page.reload();
-  await expect(page.locator('#status')).toContainText('Ready');
+  await expect(page.locator('#status')).toContainText('No source');
   await expect(page.locator('#open-looks')).toContainText('Photo');
   await expect(page.locator('#open-ink')).toContainText('Amber');
   await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(255, 214, 99)');
@@ -494,7 +492,7 @@ test('edge settings survive a reload', async ({ page }) => {
     return key.sigma1 === 1.5 && key.sigma2 === 2.5 && key.edgeIndexThreshold === 70;
   });
   await page.reload();
-  await expect(page.locator('#status')).toContainText('Ready');
+  await expect(page.locator('#status')).toContainText('No source');
   await openPanel(page, 'tune');
   await expect(page.locator('#sigma1')).toHaveValue('1.5');
   await expect(page.locator('#sigma2')).toHaveValue('2.5');
@@ -539,7 +537,7 @@ test('named presets save, apply, persist, and delete', async ({ page }) => {
   await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(255, 214, 99)');
 
   await page.reload();
-  await expect(page.locator('#status')).toContainText('Ready');
+  await expect(page.locator('#status')).toContainText('No source');
   await openPanel(page, 'looks');
   await page.locator('input[name="look"][value="print"]').check();
   await openPanel(page, 'presets');
@@ -567,7 +565,7 @@ test('named presets save, apply, persist, and delete', async ({ page }) => {
   await expect(page.locator('#preset-empty')).toBeVisible();
 
   await page.reload();
-  await expect(page.locator('#status')).toContainText('Ready');
+  await expect(page.locator('#status')).toContainText('No source');
   await openPanel(page, 'presets');
   await expect(page.locator('#preset-empty')).toBeVisible();
 });

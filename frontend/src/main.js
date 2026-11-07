@@ -229,9 +229,12 @@ function updateControls() {
   deviceSelect.disabled = cameraState === 'requesting' || locked;
   facingSelect.disabled = cameraState === 'requesting' || locked;
   imageInput.disabled = locked;
-  for (const id of ['open-framing', 'open-looks', 'open-grid', 'open-ink', 'toggle-guides', 'fit-output', 'detail-output']) {
+  for (const id of ['open-framing', 'open-looks', 'open-grid', 'open-ink', 'toggle-guides']) {
     byId(id).disabled = locked;
   }
+  const viewLocked = locked || !hasCurrentFrame();
+  byId('fit-output').disabled = viewLocked;
+  byId('detail-output').disabled = viewLocked;
   const captureReady = cameraState === 'live' && source?.kind === 'camera' && source.active && hasCurrentFrame();
   cameraShell?.update({
     cameraState, kind: source?.kind, captureReady, busy: captureBusy, disposed, mode: captureMode,
@@ -242,11 +245,6 @@ function updateControls() {
   byId('copy-output').disabled = !exportable || locked;
   byId('save-output').disabled = !exportable || locked;
   byId('compare-output').disabled = locked || !source || (source.kind === 'camera' && !source.active);
-  const waiting = cameraState === 'requesting';
-  byId('empty-start').hidden = waiting;
-  byId('empty-photo').hidden = waiting;
-  byId('empty-start').disabled = locked;
-  byId('empty-photo').disabled = locked;
   byId('error-action').disabled = locked;
   syncEmptyState();
 }
@@ -341,7 +339,7 @@ function ensureWorker(explicitAction = false) {
         }
         output.setAttribute('aria-label', `ASCII art, ${data.width} by ${data.height} characters`);
         if (gridChanged) outputView.update();
-        byId('grid-label').textContent = `${data.width} × ${data.height}`;
+        byId('grid-label').textContent = `GRID ${data.width} × ${data.height}`;
         if (recordingState !== 'recording' && recordingState !== 'stopping' &&
             (source.kind !== 'camera' || performance.now() > statusNoticeUntil)) {
           setStatus(source.kind === 'image' ? (source.captured ? 'Frame captured' : 'Image ready') : 'Camera live');
@@ -555,11 +553,11 @@ function shutterAction() {
 }
 
 function flipCamera() {
-  if (disposed || captureBusy || videoBusy() || cameraState === 'requesting') return;
+  if (disposed || captureBusy || videoBusy() || cameraState !== 'live') return;
   facingSelect.value = facingSelect.value === 'environment' ? 'user' : 'environment';
   deviceSelect.value = '';
   persist();
-  // Live capture restarts on the new facing; an idle or held source opens it.
+  // The live capture restarts on the other facing; the rail hides FLIP otherwise.
   void startCamera('');
 }
 
@@ -923,10 +921,6 @@ try {
     (shutter.disabled ? byId('photo-mode') : shutter).focus({ preventScroll: true });
   });
   byId('error-action').addEventListener('click', () => imageInput.click());
-  byId('empty-start').addEventListener('click', () => {
-    if (!disposed && !captureBusy) void startCamera();
-  });
-  byId('empty-photo').addEventListener('click', () => imageInput.click());
   byId('copy-output').addEventListener('click', async () => {
     if (videoBusy() || captureBusy || disposed || !hasCurrentFrame()) return;
     try {
@@ -1002,13 +996,11 @@ try {
       if (cameraState !== 'idle') stopCamera();
     } else dispose();
   });
-  setStatus('Ready. Press CAMERA or PHOTO.');
+  setStatus('No source');
   updateControls();
 } catch {
   showError('Unable to load the ASCII font');
   byId('camera-shutter').disabled = true;
-  byId('empty-start').disabled = true;
-  byId('empty-photo').disabled = true;
   imageInput.disabled = true;
   setStatus('Font unavailable');
 }

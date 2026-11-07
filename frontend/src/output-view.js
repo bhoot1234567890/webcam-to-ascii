@@ -30,6 +30,7 @@ export function createOutputView(viewport, output, fitButton, detailButton) {
       guides.style.width = `${artworkWidth * scale}px`;
       guides.style.height = `${artworkHeight * scale}px`;
     }
+    viewport.dataset.pannable = String(mode === 'detail' && (viewport.scrollWidth > viewport.clientWidth || viewport.scrollHeight > viewport.clientHeight));
   }
 
   function select(next) {
