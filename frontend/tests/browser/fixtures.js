@@ -87,9 +87,18 @@ export const test = base.extend({
   }, { auto: true }],
 });
 
+let storageResetId = 0;
+
 export async function openApp(page) {
+  // Reset before application initialization, once per openApp, not on reloads
+  // that intentionally exercise persistence. Older init scripts remain inert.
+  const resetKey = `qa:storage-reset:${++storageResetId}`;
+  await page.addInitScript((key) => {
+    if (sessionStorage.getItem(key)) return;
+    localStorage.clear();
+    sessionStorage.setItem(key, '1');
+  }, resetKey);
   await page.goto('/');
-  await page.evaluate(() => localStorage.clear());
   await expect(page.locator('#status')).toContainText('Ready');
   expect(await page.evaluate(() => document.fonts.check('400 12px "Roboto Mono"', 'M@ '))).toBe(true);
 }

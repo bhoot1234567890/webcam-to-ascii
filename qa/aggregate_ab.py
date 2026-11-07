@@ -27,7 +27,7 @@ MATRIX = [("comparison", name) for name in CANONICAL] + [("default", name) for n
 CENTERS = ((0.5, 0.25), (0.5, 0.5), (0.5, 0.75), (0.1, 0.5), (0.9, 0.5))
 PROFILES = {
     "comparison": {"maxWidthChars": 60, "maxHeightLines": 80, "sigma1": 1, "sigma2": 2, "edgeIndexThreshold": 90},
-    "default": {"maxWidthChars": 150, "maxHeightLines": 200, "sigma1": 1, "sigma2": 2, "edgeIndexThreshold": 90},
+    "default": {"maxWidthChars": 50, "maxHeightLines": 65, "sigma1": 1, "sigma2": 2, "edgeIndexThreshold": 90},
 }
 
 

@@ -14,6 +14,7 @@ export function createLookControls({
   const sheet = byId('look-sheet');
   const listeners = [];
   let opener = null;
+  let disabled = false;
   let state = { look: normalizeLook(), framing: 'full', tint: 'default', glow: false, density: 'balanced' };
 
   const listen = (node, event, handler) => {
@@ -198,11 +199,13 @@ export function createLookControls({
       const apply = document.createElement('button');
       apply.type = 'button';
       apply.textContent = 'APPLY';
+      apply.disabled = disabled;
       apply.dataset.presetApply = preset.name;
       apply.setAttribute('aria-label', `Apply preset ${preset.name}`);
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.textContent = 'DELETE';
+      remove.disabled = disabled;
       remove.dataset.presetDelete = preset.name;
       remove.setAttribute('aria-label', `Delete preset ${preset.name}`);
       item.append(name, apply, remove);
@@ -246,6 +249,16 @@ export function createLookControls({
     savePresetFromInput();
   });
 
+  function setDisabled(next) {
+    if (disabled === next) return;
+    disabled = next;
+    const edges = LOOKS.find((recipe) => recipe.id === state.look.id).edges;
+    for (const control of sheet.querySelectorAll('button, input, select')) {
+      if (control.id === 'close-look-sheet' || control.id === 'camera-stop') continue;
+      control.disabled = disabled || (Object.hasOwn(FIELD_HELP, control.id) && !edges);
+    }
+  }
+
   function sync(next) {
     state = { ...next, look: normalizeLook(next.look) };
     const recipe = LOOKS.find((look) => look.id === state.look.id);
@@ -271,7 +284,7 @@ export function createLookControls({
     byId('open-ink').setAttribute('aria-label', `Ink, ${inkLabel}`);
     byId('text-color').closest('.ink-row').classList.toggle('custom-selected', !Object.hasOwn(TINT_LABELS, state.tint));
     for (const id of Object.keys(FIELD_HELP)) {
-      byId(id).disabled = !recipe.edges;
+      byId(id).disabled = disabled || !recipe.edges;
       byId(id).setAttribute('aria-describedby', recipe.edges ? FIELD_HELP[id] : 'edge-controls-help');
     }
     byId('edge-controls-help').hidden = recipe.edges;
@@ -304,6 +317,8 @@ export function createLookControls({
   return {
     sync,
     syncPresets,
+    close,
+    setDisabled,
     dispose() {
       tabsObserver.disconnect();
       sheet.hidden = true;

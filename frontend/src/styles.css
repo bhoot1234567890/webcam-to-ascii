@@ -80,6 +80,7 @@ button:active:not(:disabled), .choice:active { transform: scale(0.97); transitio
 
 .flip-row button { min-height: 44px; padding: 0 16px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
 .flip-row button:hover:not(:disabled) { border-color: var(--muted); }
+.flip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .ascii-stage { position: relative; flex-shrink: 0; margin: auto; overflow: hidden; }
 #ascii-output { position: absolute; top: 0; left: 0; display: block; width: max-content; min-width: 0; margin: 0; padding: 0; border: 0; color: var(--ascii-tint, #e2e9e7); background: transparent; font-family: "Roboto Mono", ui-monospace, monospace; font-weight: 400; font-size: 12px; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; white-space: pre; overflow-wrap: normal; word-break: normal; tab-size: 4; transform-origin: top left; }
 /* First render: one fade when the grid goes from empty to populated. A one-shot
@@ -196,6 +197,41 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
 .readout .readout-static { overflow-wrap: anywhere; }
 .readout #grid-label:empty { display: none; }
 
+/* Video uses the existing labeled rail rather than a second camera shell. */
+.capture-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; min-width: 0; }
+.capture-modes { display: flex; flex-wrap: wrap; gap: 4px; }
+.capture-modes button { min-width: 56px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; }
+.capture-modes button:hover:not(:disabled) { border-color: var(--muted); }
+.capture-modes button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); background: var(--panel-2); }
+.shutter { min-width: 112px; }
+.shutter[data-mode="video"] { border-color: var(--error-ink) !important; color: var(--error-ink); background: transparent; }
+.shutter[data-mode="video"][data-state="recording"] { background: var(--error-ink); color: var(--error-bg); }
+.shutter[data-mode="video"][data-state="pending"],
+.shutter[data-mode="video"][data-state="stopping"] { background: var(--error-bg); }
+.shutter-help { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+#recording-indicator { display: inline-flex; align-items: center; gap: 7px; min-height: 28px; color: var(--error-ink); font-size: 11px; }
+.recording-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: var(--error-ink); }
+#recording-timer { min-width: 5ch; font-variant-numeric: tabular-nums; }
+.statusline[data-camera="recording"] { color: var(--error-ink); }
+
+#video-review { width: min(640px, calc(100% - 24px)); max-width: 100%; max-height: calc(100svh - 24px); margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--border); background: var(--panel); color: var(--ink); }
+#video-review[open] { display: flex; flex-direction: column; }
+#video-review::backdrop { background: #000b; }
+.video-review-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 12px max(12px, env(safe-area-inset-right)) 12px max(12px, env(safe-area-inset-left)); border-bottom: 1px solid var(--border); }
+.video-review-header h2 { min-width: 0; margin: 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.video-review-header button, .video-review-actions button { min-width: 44px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
+.video-review-header button { flex-shrink: 0; }
+.video-review-header button:hover:not(:disabled), .video-review-actions button:hover:not(:disabled) { border-color: var(--muted); }
+.video-review-body { flex: 1 1 auto; min-height: 0; padding: 12px max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); overflow-y: auto; overscroll-behavior: contain; }
+#recorded-video { display: block; width: 100%; height: auto; max-height: 52svh; min-height: 120px; background: var(--bg); object-fit: contain; }
+.video-clip-details { margin: 12px 0; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.video-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 12px; }
+.video-review-actions button { flex: 1 1 120px; }
+#video-save { border-color: var(--accent); color: var(--accent); }
+.video-review-body .field-help { margin-top: 8px; overflow-wrap: anywhere; }
+#video-export-status { color: var(--accent); }
+#video-export-status:empty { display: none; }
+
 /* ————— responsive ————— */
 @media (max-width: 760px) {
   .topbar { padding: 4px 12px; gap: 12px; }
@@ -207,7 +243,29 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   .view-controls button { min-width: 64px; }
   .ascii-viewport { padding: 12px; }
   .drawer-body { padding: 12px 12px 16px; }
+  #settings-form:has(#look-sheet:not([hidden])) { flex-shrink: 0; }
+  .app:has(#look-sheet:not([hidden])) .rail {
+    flex-shrink: 1;
+    min-height: 120px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
   .camera-fields { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (min-width: 480px) and (max-height: 500px) and (orientation: landscape) {
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 36%); grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
+  .topbar, .statusline, .errorline { grid-column: 1 / -1; }
+  .topbar { grid-row: 1; }
+  .statusline { grid-row: 2; }
+  .errorline { grid-row: 3; }
+  .stage { grid-column: 1; grid-row: 4; min-height: 0; min-width: 0; }
+  #settings-form { grid-column: 1; grid-row: 5; min-width: 0; }
+  .rail { grid-column: 2; grid-row: 4 / 6; min-height: 0; border-top: 0; border-left: 1px solid var(--border); overflow-y: auto; overscroll-behavior: contain; align-content: start; }
+  .rail-main > .shutter { flex-basis: 100%; }
+  .rail .view-controls { margin-left: 0; }
+  .rail .view-controls button { min-width: 44px; padding-inline: 10px; }
+  .rail .readout { gap: 4px 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

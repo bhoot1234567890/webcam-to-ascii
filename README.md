@@ -6,13 +6,14 @@
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)
 
-**A private, mobile-first ASCII camera.** clack looks like a familiar camera app, but your world appears in characters. Live frames and imported photos are processed on your device in one JavaScript worker, with no uploads or account. The original Python terminal viewer remains available.
+**A private, mobile-first ASCII camera.** clack looks like a familiar camera app, but your world appears in characters. Live frames and imported photos are processed on your device in one JavaScript worker. Record silent ASCII clips locally and choose whether to save or share them; no account, backend or automatic uploads. The original Python terminal viewer remains available.
 
 **Original**, the default look, combines Sobel edge detection on a Difference-of-Gaussians-enhanced frame with a measured 95-character luminance ramp. Directional `/ - \ |` glyphs preserve contours. The browser also offers shading-only Photo and Print looks, and sparse Outline line art; the Python renderer remains unchanged.
 
 ## ✨ Features
 
 - **Live ASCII viewfinder** — see the camera feed rendered in characters, freeze a frame, or import a local photo. The Python viewer prints frames to the terminal; quit it with `q`.
+- **Silent ASCII video** — record the character artwork, not the raw camera or interface, then play, save, share or discard and retake the clip.
 - **Nondestructive framing** — Full, 1:1, 3:4, 9:16, 4:3 and 16:9 center crops, shared by live frames, frozen shots and imported photos.
 - **Curated looks and opt-in adjustments** — Original, Photo, Print and Outline, with advanced tone controls, text tint and optional soft glow in one inline settings drawer.
 - **Named presets** — save the current look, tone, edges, density, frame, tint and glow under a name, then apply or delete it; up to 24, stored only on this device.
@@ -26,16 +27,16 @@
 
 ## Browser application
 
-Prerequisites: **Bun 1.4.4**. The reproducible QA setup currently targets Linux x64, downloads a checksum-verified local **Node 22.23.4** for Playwright, and installs a separate locked Python 3.12 oracle. Neither Node nor Python is a deployed backend.
+Prerequisites: **Bun 1.4.4**. The reproducible QA setup currently targets Linux x64, downloads a checksum-verified local **Node 22.23.4** for Playwright, and installs a separate locked Python 3.12 oracle. QA also requires FFmpeg's **`ffmpeg` and `ffprobe`** on PATH for deterministic camera fixtures and saved-video inspection. Neither Node, Python nor FFmpeg is a deployed backend.
 
 ```sh
 bash qa/setup.sh
 bun run --cwd frontend dev
 ```
 
-Open **http://127.0.0.1:4173**. clack is a terminal-native ASCII camera: one full-width instrument panel with the rendered ASCII as the viewfinder—not a raw camera feed or a prerecorded effect. Press **CAMERA** to request camera access. When live, the same button becomes **HOLD** and freezes a real frame; capture releases the camera and renders that frame through the same image pipeline. Press **LIVE** on a held frame to return to live capture. During a pending permission request the button becomes **CANCEL**; an accidental double-tap immediately after cancelling is swallowed once.
+Open **http://127.0.0.1:4173**. clack is a terminal-native ASCII camera: one full-width instrument panel with actual rendered characters as the viewfinder—not a raw camera feed or prerecorded effect. **Photo** is the default capture mode. Press **CAMERA** to request camera access, then use the same shutter to freeze a real frame. Capture releases the camera and renders the snapshot through the shared pipeline; activate the shutter again to return live. During a pending permission request the shutter cancels, releasing any stream that resolves late. Photo mode preserves the accidental-double-tap protection after cancellation.
 
-**PHOTO** opens the local photo picker without needing camera permission. **STOP** releases capture without taking a still. **GUIDES** toggles composition guides only; it never changes the rendered text. The status line under the wordmark reports state; the readout line at the bottom shows the live look, density, framing, grid size and frame cost.
+The **PHOTO/library** button opens the local image picker without camera permission; video-file import is not included. **STOP** releases capture and, during video recording, finishes the clip. **GUIDES** changes only composition overlays. The status line reports state; the readout shows the active look, density, framing, grid size and processing time.
 
 Every setting lives in one inline drawer opened from the readout (**LOOK / GRID / FRAME**) or any of its six tabs: **Camera · Look · Grid · Frame · Tune · Ink**. The Camera tab holds facing and device selection, the unmodified source monitor and **FLIP CAMERA**. Choices apply immediately; **CLOSE**, Escape or opening another tab keeps the artwork visible above the drawer, so every choice can be judged live. The drawer is part of the page, not a modal sheet.
 
@@ -58,9 +59,38 @@ Auto contrast can recover a flat photo, but recomputes the brightness range ever
 
 **FIT** initially shows the complete proportional grid; **1:1** restores readable glyphs with two-dimensional scrolling. Fit changes presentation only—not text, resolution, or aspect ratio. One layout serves every screen from 280px up; primary controls have at least 44 CSS-pixel touch targets and respect safe areas.
 
-Camera access requires HTTPS or localhost. The Camera tab offers Front / selfie, Back / scene and specific browser device IDs; a facing preference does not guarantee a particular lens. Backgrounding the page stops capture, including pending permission requests; returning requires an explicit restart. Cached navigation returns leave CAMERA usable.
+### Recording ASCII video
 
-Images and camera frames stay on the device: no upload endpoints, external fonts, analytics, recordings, or frame-processing services. Roboto Mono is bundled locally; its measured cell geometry preserves image proportions.
+Choose **Video**, then activate the red recording shutter. Mode selection alone never requests camera access. Recording starts only after the selected processing/framing configuration has committed; activate the shutter again, or use Stop, to finish. A recording indicator and elapsed timer remain visible. Video is silent: no microphone permission or audio track is requested. The Camera drawer's **Record ASCII video** shortcut selects Video and closes the drawer without starting capture.
+
+PNG and video share one artwork painter: committed grid, font metrics, alphabetic baseline, ink gutters, opaque viewfinder background, tint and optional glow. PNG retains its 2× export resolution; video remains downscale-only with an even-dimension, 1280-pixel longest-edge cap. This is consistent artwork, not a promise of pixel-identical output from different resolutions or a lossy video codec.
+
+The recording canvas receives only ASCII artwork, never the raw camera stream or a screen capture of the interface. Look, framing, density, tuning, preset, source, presentation and photo-export controls lock while starting, recording and finishing. Presets and restored settings remain available before recording; their exact committed configuration is used. Output dimensions stay fixed for a clip; a camera-frame dimension change finishes the existing recording rather than stretching it. Viewport resizing alone does not change the encoded grid.
+
+After recording, the camera is released and **Your ASCII video** opens with real playback, actual format, duration and dimensions:
+
+| Action | Behavior |
+|---|---|
+| Save video | Requests a browser download with the encoder's actual `.mp4` or `.webm` extension. It does not automatically write to iPhone Photos; use browser file handling or native sharing. |
+| Share video | Opens native file sharing only when the browser reports that the file is shareable. Otherwise it is disabled and Save remains available. Canceling sharing retains the clip; nothing is shared automatically. |
+| Done / Review | Closes or reopens playback without discarding the clip. Opening review also releases any later live Photo preview; capture does not continue behind the dialog. |
+| Discard & retake | Discards the current clip and revokes its object URL, then returns to a live viewfinder. A new recording requires another shutter activation. |
+
+Only one clip is retained in this tab's memory. Refreshing or leaving the page can discard it. Backgrounding releases the camera and requests finalization; review opens after returning if encoding succeeds. Encoder failures, empty output or encoded-byte overflow produce an error and release capture rather than offer a corrupt/truncated file.
+
+AVC/H.264 MP4 is preferred where supported; MP4/WebM capabilities are detected at runtime, and the actual encoder result determines the extension. No disguised WebM-as-MP4 conversion or bundled transcoder. Browsers without `MediaRecorder`/canvas capture retain Photo/import and explain why Video is unavailable.
+
+Where the returned canvas track supports [`requestFrame()`](https://developer.mozilla.org/en-US/docs/Web/API/CanvasCaptureMediaStreamTrack/requestFrame), recording uses `captureStream(0)` and requests a capture only after a complete accepted paint. Latest-frame-wins drawing remains capped at 15 fps; identical committed text is suppressed. Stop explicitly paints/requests a final hold boundary and waits for a bounded paint opportunity before stopping the encoder: native-browser experiments showed that stopping immediately shortened an otherwise static clip to one frame. This does not guarantee one encoded frame per render or prevent encoder-level duplication.
+
+Tracks without `requestFrame()` use a real timed 15 fps canvas stream after releasing the zero-rate probe. Native Firefox recording, changing tinted playback, static duration, PNG/artwork parity and cleanup are covered in both development and static-production acceptance runs. Firefox WebM can omit container duration; checks use packet timestamps and actual advancing playback rather than inventing metadata.
+
+Recording/review acceptance also runs in Chromium at iPhone 14 Plus dimensions. Linux WebKit still covers Photo/layout and unavailable-recording behavior; it is not a physical Safari substitute. Safari's [MediaRecorder support](https://webkit.org/blog/11353/mediarecorder-api/) does not make its Linux port equivalent. Physical iPhone Safari recording, playback, Save, successful OS sharing and actual OS-background paint behavior require target-device validation over trusted HTTPS.
+
+**Issue [#3](https://github.com/bhoot1234567890/webcam-to-ascii/issues/3):** manual capture where supported, shared artwork and real Firefox coverage are implemented. The existing 30-second/16 MiB/15 fps bounds, explicit review and save/share flow remain intentional; the issue is not treated as a requirement to record every worker commit, increase those bounds or save automatically.
+
+Camera access requires HTTPS or localhost. The Camera tab offers Front / selfie, Back / scene and specific browser device IDs; a facing preference does not guarantee a particular lens. Backgrounding stops capture, including pending permission requests; returning requires an explicit restart. Cached navigation returns leave CAMERA usable.
+
+Processing stays on device: no upload endpoints, external fonts, analytics or frame-processing services. Video is recorded only after an explicit Record action and leaves the tab only through the user's Save/Share choice. Roboto Mono is bundled locally; its measured cell geometry preserves image proportions.
 
 **Testing on an iPhone:** deploy the static build to a trusted HTTPS origin and open it in Safari. `http://<computer-LAN-IP>:4173` is not the phone's localhost and cannot provide secure-context camera access. The automated iPhone 14 Plus profile uses a 428×926 CSS screen, 428×746 portrait content viewport, DPR 3 and touch-enabled WebKit; this is emulation, not physical iOS/Safari hardware proof. QA also checks landscape, the full-height 428×926 viewport and narrower screens.
 
@@ -135,6 +165,27 @@ The scripts recognize those local libraries. WebKit's bundled wrapper replaces `
 | Visual inspection | 10 native-camera iPhone screenshots directly reviewed and image-judged; final camera/layout judgments all pass, with two artwork flags directly adjudicated |
 
 **Branding verification:** a fresh `bun run --cwd frontend test:production` passed all four desktop/mobile production checks after the identity cutover. Direct browser interaction and screenshot inspection covered Camera and Studio, iPhone 14 Plus emulation, and the 280px minimum-width camera. Review caught a toolbar-label overlap at 280px; the corrected label now has a permanent geometry regression check. Layout switching retained identical source identity and ASCII text, all three icon URLs decoded successfully with HTTP 200, and no browser console errors were observed. These are emulated mobile checks, not physical iPhone testing.
+
+**Integrated video verification:** `bash qa/run-tests.sh` passed **13 Python, 462 Bun, 132 browser and 17 fresh-production checks**, plus strict validation of 20 A/B cases and 20 fixed crop triplets after merging current `main` and implementing the adopted issue #3 recommendations.
+
+Native-browser checks record real public-fixture streams through the worker and recorder, decode changing tinted frames, download the actual files, and inspect codec/container/dimensions/audio tracks with `ffprobe`. Coverage includes AVC MP4, native Firefox/VP8 WebM fallback, static hold duration, manually requested frames, latest-frame cancellation, shared PNG/video artwork, the full duration limit, pending-start cancellation, fresh-configuration gating, restored density/presets and locked controls, source rotation, encoder failure/recovery, visibility finalization, URL release, share cancellation, and camera release/focus restoration on review. Successful video output is never mocked.
+
+An earlier approved physical C930e check on the original feature branch recorded a five-second silent AVC clip using Photo look and story framing. The 640×480 source committed 150 live ASCII frames during the measured interval; its file played as 718×1280 video, about 5.01 seconds and 855,218 bytes. Camera and canvas-capture tracks ended after Stop. Discard & retake released the clip; stopping the new preview ended the second camera stream. Permission was revoked, and no private clip or camera pixels were sent to image review. This is desktop Chromium evidence, not a post-integration hardware rerun or an iPhone encoding/sharing benchmark.
+
+Video evidence is kept under `qa/artifacts/video/`, including native-encoded public clips, production screenshots, initial failure evidence, capability findings, and physical lifecycle metadata. QA caught and corrected an unavailable-browser caption reducing the narrow viewfinder, capture continuing behind a reopened saved-video review, and a stale-configuration recording start stalling an already-live camera. These behaviors have regression coverage.
+
+Current stage/rail/drawer smoke evidence is under `qa/artifacts/pr-video/`. Direct browser interaction recorded and played a silent AVC MP4 at the retained Balanced default, verified configuration locks and ended tracks, and hit-tested the active drawer tab at 280×568 with a 140px artwork pane and no horizontal document overflow. Screenshots use a public fixture and native DPR 3. Integration fixed a collapsed narrow drawer, capability notices shifting the viewfinder, and focus targeting a disabled recording control. The strict A/B profile validator now matches upstream's already-updated 50×65 default exporter; schema/hash/source validation and frozen answers are unchanged.
+
+Issue #3 evidence is under `qa/artifacts/issue3/`: native encoder timing probes, a directly inspected iPhone-sized review screenshot, and same-source preview cadence measurements. The new regressions exercise real Chromium/Firefox encoders and decoded files, including static and hidden-visibility finalization, cancellation of obsolete pending artwork, and PNG/video artwork geometry, background, tint and glow. The hidden-visibility regression dispatches the visibility lifecycle; it is not proof of actual OS-background rendering. QA also caught missing focus restoration after asynchronous encoding; review now receives its initiating control explicitly. Native mobile smoke confirmed shutter focus after automatic review, Review-button focus after reopening, ended tracks and zero horizontal overflow.
+
+The cadence sample used a synthetic 320×240 camera requesting 30 fps, Photo look, a 428×745 DPR 3 viewport and the development server on this Linux desktop host. Each phase lasted about 2.2 seconds; recording kept the same camera generation and made no second camera request. These are observed preview commits, not phone benchmarks or guarantees about every encoded frame:
+
+| Browser / density | Preview fps before | Preview fps recording | Commit interval p95 before / recording (ms) |
+|---|---:|---:|---:|
+| Chromium 158 / Balanced (100×37) | 30.4 | 30.4 | 33.7 / 34.4 |
+| Chromium 158 / Detailed (300×112) | 30.4 | 30.0 | 34.1 / 36.8 |
+| Firefox 159 / Balanced (100×37) | 16.3 | 16.3 | 68 / 69 |
+| Firefox 159 / Detailed (300×112) | 16.4 | 15.9 | 69 / 69 |
 
 **Camera-feature verification:** `bash qa/run-tests.sh` passed **13 Python, 417 Bun, 82 browser and 6 fresh-production checks**, including unchanged frozen Original answers, 20 legacy A/B cases, center landmarks, neutral-look restoration, tiny-crop rejection, held worker replies, capture/reframing, shared-sheet focus, tint consistency and glow bounds. Native-DPR iPhone 14 Plus screenshots were inspected in the production app; WebKit production coverage includes 280/320/428px, landscape, complete Fit and Detail's last glyph. This remains desktop emulation, not physical iPhone/Safari validation.
 
@@ -245,6 +296,11 @@ The Python scripts are tuned in source. The browser exposes everything through t
 | `MAX_HEIGHT_LINES` / Max height | `200` Python / `65` browser (Balanced) | Python scripts; browser `20–200` | Portrait/square grid height. |
 | `cv2.VideoCapture(0)` / Camera | `0` / browser default device | Python viewers / browser selector | Python device index or browser video-input device ID. |
 | Camera facing | `Back / scene` preference | Drawer Camera tab, FLIP CAMERA | Requests the rear camera when available; a specific device selection overrides the preference. |
+| Capture mode | `Photo` | PHOTO / VIDEO in the rail; Camera drawer video shortcut | Selecting a mode does not request permission; the recording shutter explicitly starts camera/recording after a current frame is ready. |
+| Video duration / encoded bytes | `30 seconds` / `16 MiB` | `RECORDING_LIMITS` in `frontend/src/ascii-recorder.js` | Duration finalizes the clip; byte overflow discards it with an error rather than truncate an encoded file. |
+| Video size / draw rate | Longest edge ≤`1280`, even dimensions / at most `15 fps` | Recording engine | Downscale-only, uniform glyph geometry and bounded latest-frame drawing; delivery and encoding rates remain device-dependent. |
+| Video format | AVC MP4 preferred; runtime MP4/WebM negotiation | Browser `MediaRecorder` | Actual returned MIME/container determines the extension; no transcoding or misleading filenames. |
+| Video audio | None | Recording canvas stream | No microphone request, audio track or audio toggle. |
 | Composition guides | `Off` | GUIDES (top bar) | Viewfinder overlay only; no effect on ASCII or captured source pixels. |
 | ASCII display size | `Fit` (mobile) / `1:1` (desktop) | FIT / 1:1 in the rail | Presentation-only scale; unchanged grid, characters and aspect ratio. The selected mode persists through resizing until changed. |
 | Frame | `Full` | Drawer Frame tab | Full, 1:1, 3:4, 9:16, 4:3 or 16:9; exact centered whole-pixel crop before Lanczos/grid sizing, with the full source retained. |

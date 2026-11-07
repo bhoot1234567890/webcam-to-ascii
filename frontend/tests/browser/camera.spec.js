@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   test, expect, ROOT, IMAGES, readCommit, uploadFixture, changeSettings, openApp, openPanel,
 } from './fixtures.js';
+import { installVideoCamera, downloadVideo } from './video-fixtures.js';
 
 const DEFAULT_SETTINGS = {
   maxWidthChars: 50, maxHeightLines: 65, sigma1: 1, sigma2: 2, edgeIndexThreshold: 90,
@@ -773,6 +774,376 @@ test('look and frame changes reject held replies, gate the shutter, and preserve
   expect(await readCommit(page)).toEqual(stopped);
   await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', 'full');
   expect(JSON.parse(await page.locator('#ascii-output').getAttribute('data-look-key')).id).toBe('print');
+});
+
+async function waitRecording(page, seconds = 1) {
+  await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'recording');
+  await expect(page.locator('#recording-timer')).toHaveText(`00:0${seconds}`);
+}
+
+async function expectVideoReleased(page) {
+  expect(await page.evaluate(() => ({
+    cameras: window.__videoQA.cameras.every((stream) => stream.getTracks().every((track) => track.readyState === 'ended')),
+    canvases: window.__videoQA.captures.every(({ stream }) => stream.getTracks().every((track) => track.readyState === 'ended')),
+    encoders: window.__videoQA.recorders.every((recorder) => recorder.state === 'inactive'),
+    detached: document.querySelector('#camera-preview').srcObject === null,
+  }))).toEqual({ cameras: true, canvases: true, encoders: true, detached: true });
+}
+
+test('live ASCII recording saves a silent AVC clip with changing tinted artwork and clean retake', async ({ page }, testInfo) => {
+  await installVideoCamera(page);
+  await openApp(page);
+  await page.locator('#open-looks').click();
+  await page.locator('input[name="look"][value="photo"]').check();
+  await openPanel(page, 'framing');
+  await page.locator('input[name="framing"][value="story"]').check();
+  await openPanel(page, 'grid');
+  await page.locator('input[name="density"][value="detailed"]').check();
+  await openPanel(page, 'style');
+  await page.locator('input[name="text-tint"][value="#9be5a2"]').check();
+  await page.locator('#soft-glow').check();
+  await page.locator('#close-look-sheet').click();
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await waitRecording(page, 2);
+  for (const selector of ['#open-looks', '#open-framing', '#flip-camera', '#camera-import', '#photo-mode', '#studio-video']) {
+    await expect(page.locator(selector)).toBeDisabled();
+  }
+  await expect(page.locator('#camera-stop')).toBeEnabled();
+  const configuration = await page.locator('#ascii-output').evaluate((output) => ({
+    look: JSON.parse(output.dataset.lookKey).id, frame: output.dataset.framing,
+    columns: Number(output.dataset.columns), rows: Number(output.dataset.rows),
+  }));
+  expect(configuration).toEqual({ look: 'photo', frame: 'story', columns: 224, rows: 200 });
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('#video-review')).toBeVisible();
+  await expectVideoReleased(page);
+  const video = page.locator('#recorded-video');
+  await expect.poll(() => video.evaluate((element) => element.readyState)).toBeGreaterThanOrEqual(2);
+  const pixels = await video.evaluate(async (element) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 64;
+    const context = canvas.getContext('2d');
+    async function sample(time) {
+      await new Promise((resolve) => {
+        element.addEventListener('seeked', resolve, { once: true });
+        element.currentTime = time;
+      });
+      context.drawImage(element, 0, 0, 64, 64);
+      const pixels = context.getImageData(0, 0, 64, 64).data;
+      let hash = 2166136261, red = 0, green = 0, blue = 0, count = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        hash = Math.imul(hash ^ pixels[i] ^ pixels[i + 1] << 8 ^ pixels[i + 2] << 16, 16777619);
+        if (Math.max(pixels[i], pixels[i + 1], pixels[i + 2]) > 48) {
+          red += pixels[i]; green += pixels[i + 1]; blue += pixels[i + 2]; count++;
+        }
+      }
+      return { hash, red: red / count, green: green / count, blue: blue / count };
+    }
+    return { first: await sample(0.15), later: await sample(0.9) };
+  });
+  expect(pixels.first.hash, 'Decoded frames contain actual motion, not a static poster').not.toBe(pixels.later.hash);
+  expect(pixels.first.green, 'Exported glyph tint, not the raw camera colors').toBeGreaterThan(pixels.first.red + 8);
+  expect(pixels.first.green).toBeGreaterThan(pixels.first.blue + 8);
+  const saved = await downloadVideo(page, testInfo);
+  expect(saved.filename).toMatch(/^clack-.*\.mp4$/);
+  expect(saved.streams).toHaveLength(1);
+  expect(saved.streams[0]).toMatchObject({ codec_type: 'video', codec_name: 'h264' });
+  expect(Math.max(saved.streams[0].width, saved.streams[0].height)).toBeLessThanOrEqual(1280);
+  expect(saved.streams[0].width % 2).toBe(0);
+  expect(saved.streams[0].height % 2).toBe(0);
+  expect(Number(saved.format.duration)).toBeGreaterThan(1);
+  expect(Number(saved.format.duration)).toBeLessThan(5);
+  expect(await page.evaluate(() => window.__videoQA.requests.every((request) => request.audio === false))).toBe(true);
+  const previousURL = await video.getAttribute('src');
+  await page.locator('#video-retake').click();
+  await expect(page.locator('#video-review')).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__videoQA.revoked.includes(window.__videoQA.urls[0].url))).toBe(true);
+  await expect(page.locator('#status')).toHaveText('Camera live');
+  await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'idle');
+  await page.locator('#camera-shutter').click();
+  await waitRecording(page);
+  await page.locator('#camera-stop').click();
+  await expect(page.locator('#video-review')).toBeVisible();
+  expect(await video.getAttribute('src')).not.toBe(previousURL);
+  await expectVideoReleased(page);
+  // A saved video can also be opened after starting a later Photo preview.
+  await page.locator('#close-video-review').click();
+  await page.locator('#photo-mode').click();
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('#status')).toHaveText('Camera live');
+  await page.locator('#review-video').click();
+  await expect(page.locator('#video-review')).toBeVisible();
+  await expectVideoReleased(page);
+});
+
+test('canceling Video before its first committed reply never records stale artwork', async ({ page }) => {
+  await installVideoCamera(page);
+  await openApp(page);
+  const prior = await uploadFixture(page, 'astronaut');
+  await page.evaluate(() => { window.__cameraQA.holdNext = true; });
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await expect.poll(() => page.evaluate(() => window.__cameraQA.held.length)).toBe(1);
+  const heldId = await page.evaluate(() => window.__cameraQA.held[0].data.id);
+  await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'pending');
+  expect(await page.evaluate(() => window.__videoQA.recorders.length)).toBe(0);
+  await page.locator('#camera-shutter').click();
+  await releaseRealReply(page, heldId);
+  await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'idle');
+  expect(await readCommit(page)).toEqual(prior);
+  expect(await page.evaluate(() => window.__videoQA.recorders.length)).toBe(0);
+  await expect(page.locator('#video-review')).toBeHidden();
+  await expectVideoReleased(page);
+});
+
+for (const failure of ['startup', 'encoder']) {
+  test(`recording ${failure} failure releases real streams and a new explicit recording recovers`, async ({ page }) => {
+    await installVideoCamera(page);
+    await openApp(page);
+    await page.locator('#video-mode').click();
+    if (failure === 'startup') await page.evaluate(() => { window.__videoQA.failNextEncoder = true; });
+    await page.locator('#camera-shutter').click();
+    if (failure === 'encoder') {
+      await waitRecording(page);
+      // Error-only adapter: no successful encoded payload is invented.
+      await page.evaluate(() => window.__videoQA.recorders[0].dispatchEvent(new Event('error')));
+    }
+    await expect(page.locator('#error')).toBeVisible();
+    await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'idle');
+    await expect(page.locator('#video-review')).toBeHidden();
+    await expectVideoReleased(page);
+    await expect(page.locator('#camera-shutter')).toBeEnabled();
+    await page.locator('#camera-shutter').click();
+    await waitRecording(page);
+    await page.locator('#camera-shutter').click();
+    await expect(page.locator('#video-review')).toBeVisible();
+    await expectVideoReleased(page);
+  });
+}
+
+test('background release finishes the existing video and opens review only after returning', async ({ page }) => {
+  await installVideoCamera(page);
+  await openApp(page);
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await waitRecording(page);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'ready');
+  await expectVideoReleased(page);
+  await expect(page.locator('#video-review')).toBeHidden();
+  const stopped = await readCommit(page);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(page.locator('#video-review')).toBeVisible();
+  expect(await readCommit(page)).toEqual(stopped);
+});
+
+test('a real source rotation finishes a fixed-size clip instead of stretching new frames', async ({ page }) => {
+  await installVideoCamera(page);
+  await openApp(page);
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await waitRecording(page);
+  const dimensions = await page.evaluate(() => {
+    const canvas = window.__videoQA.captures[0].canvas;
+    const dimensions = [canvas.width, canvas.height];
+    window.__videoQA.sources[0].width = 240;
+    window.__videoQA.sources[0].height = 320;
+    return dimensions;
+  });
+  await expect(page.locator('#video-review')).toBeVisible();
+  await expect.poll(() => page.locator('#recorded-video').evaluate((video) => [video.videoWidth, video.videoHeight])).toEqual(dimensions);
+  await expectVideoReleased(page);
+});
+
+test('the actual recording duration cap finalizes a playable clip and releases capture', async ({ page }) => {
+  test.setTimeout(45000);
+  await installVideoCamera(page);
+  await openApp(page);
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'recording');
+  await expect(page.locator('#video-review')).toBeVisible({ timeout: 35000 });
+  await expect.poll(() => page.locator('#recorded-video').evaluate((video) => video.duration)).toBeGreaterThan(29);
+  expect(await page.locator('#recorded-video').evaluate((video) => video.duration)).toBeLessThan(32);
+  await expectVideoReleased(page);
+});
+
+test('WebM fallback encodes and downloads its actual format without disguising it as MP4', async ({ page }, testInfo) => {
+  await installVideoCamera(page);
+  await page.addInitScript(() => {
+    const supported = window.MediaRecorder.isTypeSupported.bind(window.MediaRecorder);
+    window.MediaRecorder.isTypeSupported = (type) => !type.startsWith('video/mp4') && supported(type);
+  });
+  await openApp(page);
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await waitRecording(page);
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('#video-review')).toBeVisible();
+  await page.locator('#recorded-video').evaluate((video) => video.play());
+  await expect.poll(() => page.locator('#recorded-video').evaluate((video) => video.currentTime)).toBeGreaterThan(0);
+  const saved = await downloadVideo(page, testInfo);
+  expect(saved.filename).toMatch(/\.webm$/);
+  expect(saved.streams).toHaveLength(1);
+  expect(saved.streams[0]).toMatchObject({ codec_type: 'video', codec_name: 'vp8' });
+  expect(saved.format.format_name).toContain('webm');
+  await expectVideoReleased(page);
+});
+
+test('canceling the native-share request preserves the playable clip and re-enables actions', async ({ page }) => {
+  await installVideoCamera(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
+    Object.defineProperty(navigator, 'share', { configurable: true, value: () => Promise.reject(new DOMException('Canceled', 'AbortError')) });
+  });
+  await openApp(page);
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await waitRecording(page);
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('#video-review')).toBeVisible();
+  const source = await page.locator('#recorded-video').getAttribute('src');
+  await page.locator('#video-share').click();
+  await expect(page.locator('#video-share')).toBeEnabled();
+  await expect(page.locator('#video-retake')).toBeEnabled();
+  await expect(page.locator('#recorded-video')).toHaveAttribute('src', source);
+  await page.locator('#recorded-video').evaluate((video) => video.play());
+  await expect.poll(() => page.locator('#recorded-video').evaluate((video) => video.currentTime)).toBeGreaterThan(0);
+});
+
+test('recording waits for the selected configuration without reacquiring an already live camera', async ({ page }) => {
+  await installVideoCamera(page);
+  await openApp(page);
+  await page.locator('#camera-shutter').click();
+  const initial = await waitCameraCommit(page);
+  const held = await holdRealReply(page);
+  await page.locator('#open-looks').click();
+  await page.locator('input[name="look"][value="print"]').check();
+  await openPanel(page, 'framing');
+  await page.locator('input[name="framing"][value="portrait"]').check();
+  await page.locator('#close-look-sheet').click();
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'pending');
+  expect(await page.evaluate(() => window.__videoQA.requests.length)).toBe(1);
+  expect(await page.evaluate(() => window.__videoQA.cameras[0].getVideoTracks()[0].readyState)).toBe('live');
+  expect(await page.evaluate(() => window.__videoQA.recorders.length)).toBe(0);
+  await releaseRealReply(page, held.id);
+  await waitRecording(page);
+  const committed = await page.locator('#ascii-output').evaluate((output) => ({
+    generation: Number(output.dataset.sourceGeneration),
+    look: JSON.parse(output.dataset.lookKey).id, framing: output.dataset.framing,
+  }));
+  expect(committed).toEqual({ generation: initial.sourceGeneration, look: 'print', framing: 'portrait' });
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('#video-review')).toBeVisible();
+  await expectVideoReleased(page);
+});
+
+test('restored density and preset configuration is recorded while pending and active controls stay locked', async ({ page }) => {
+  await installVideoCamera(page);
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  await openPanel(page, 'presets');
+  await page.locator('#preset-name').fill('Other');
+  await page.locator('#preset-save').click();
+  await expect(page.locator('button[data-preset-apply="Other"]')).toBeVisible();
+
+  await changeSettings(page, { sigma1: 1.5, sigma2: 2.5, edgeIndexThreshold: 70 });
+  await openPanel(page, 'grid');
+  await page.locator('input[name="density"][value="fine"]').check();
+  await openPanel(page, 'looks');
+  await page.locator('input[name="look"][value="photo"]').check();
+  await openPanel(page, 'framing');
+  await page.locator('input[name="framing"][value="portrait"]').check();
+  await openPanel(page, 'style');
+  await page.locator('input[name="text-tint"][value="#ffd663"]').check();
+  await page.locator('#soft-glow').check();
+  await page.locator('#close-look-sheet').click();
+  const expectedSettings = settingsKey({
+    maxWidthChars: 75, maxHeightLines: 100, sigma1: 1.5, sigma2: 2.5, edgeIndexThreshold: 70,
+  });
+  await expect.poll(async () => (await readCommit(page)).settingsKey).toBe(expectedSettings);
+
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready');
+  await openPanel(page, 'grid');
+  await expect(page.locator('input[name="density"][value="fine"]')).toBeChecked();
+  await expect(page.locator('#grid-max-width')).toHaveValue('75');
+  await expect(page.locator('#grid-max-height')).toHaveValue('100');
+  await openPanel(page, 'presets');
+  await expect(page.locator('button[data-preset-apply="Other"]')).toBeVisible();
+  await page.locator('#close-look-sheet').click();
+
+  await page.evaluate(() => { window.__cameraQA.holdNext = true; });
+  await page.locator('#video-mode').click();
+  await page.locator('#camera-shutter').click();
+  await expect.poll(() => page.evaluate(() => window.__cameraQA.held.length)).toBe(1);
+  const heldId = await page.evaluate(() => window.__cameraQA.held[0].data.id);
+  const lockedControls = [
+    'input[name="density"][value="chunky"]', '#grid-max-width', '#grid-max-height',
+    '#preset-name', '#preset-save', 'button[data-preset-apply="Other"]',
+    'button[data-preset-delete="Other"]', '#copy-output', '#save-output',
+  ];
+  await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'pending');
+  for (const selector of lockedControls) await expect(page.locator(selector)).toBeDisabled();
+  await expect(page.locator('#camera-shutter')).toBeEnabled();
+  await expect(page.locator('#camera-stop')).toBeEnabled();
+  expect(await page.evaluate(() => window.__videoQA.recorders.length)).toBe(0);
+  await releaseRealReply(page, heldId);
+  await waitRecording(page);
+  for (const selector of lockedControls) await expect(page.locator(selector)).toBeDisabled();
+  const commit = await readCommit(page);
+  expect(commit.settingsKey).toBe(expectedSettings);
+  expect([commit.columns, commit.rows]).toEqual([150, 100]);
+  await expect(page.locator('#ascii-output')).toHaveAttribute('data-framing', 'portrait');
+  expect(await page.locator('#ascii-output').evaluate((output) => JSON.parse(output.dataset.lookKey).id)).toBe('photo');
+  await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(255, 214, 99)');
+  await expect(page.locator('body')).toHaveAttribute('data-glow', 'on');
+  const dimensions = await page.evaluate(() => {
+    const { canvas } = window.__videoQA.captures[0];
+    return [canvas.width, canvas.height];
+  });
+  expect(dimensions[1]).toBeGreaterThan(dimensions[0]);
+  await page.locator('#camera-shutter').click();
+  await expect(page.locator('#video-review')).toBeVisible();
+  await expect.poll(() => page.locator('#recorded-video').evaluate((video) => [video.videoWidth, video.videoHeight])).toEqual(dimensions);
+  const ink = await page.locator('#recorded-video').evaluate(async (video) => {
+    await video.play();
+    await new Promise((resolve) => video.requestVideoFrameCallback(resolve));
+    video.pause();
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let red = 0, green = 0, blue = 0, count = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i] > 100) {
+        red += pixels[i]; green += pixels[i + 1]; blue += pixels[i + 2]; count++;
+      }
+    }
+    return { count, red: red / count, green: green / count, blue: blue / count };
+  });
+  expect(ink.count).toBeGreaterThan(0);
+  expect(ink.red).toBeGreaterThan(ink.green + 8);
+  expect(ink.green).toBeGreaterThan(ink.blue + 20);
+  await expectVideoReleased(page);
+  await page.locator('#close-video-review').click();
+  await openPanel(page, 'grid');
+  await expect(page.locator('input[name="density"][value="fine"]')).toBeChecked();
+  await expect(page.locator('input[name="density"][value="chunky"]')).toBeEnabled();
+  await openPanel(page, 'presets');
+  await expect(page.locator('button[data-preset-apply="Other"]')).toBeEnabled();
+  await expect(page.locator('button[data-preset-delete="Other"]')).toBeEnabled();
 });
 
 test('empty state starts the camera and retires once a frame commits', async ({ page }) => {

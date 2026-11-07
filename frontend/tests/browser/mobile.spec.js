@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test, expect, ROOT, IMAGES, openApp, openPanel, readCommit, changeSettings } from './fixtures.js';
+import { installVideoCamera } from './video-fixtures.js';
 
 async function geometry(page) {
   return page.locator('.ascii-viewport').evaluate((viewport) => {
@@ -73,7 +74,7 @@ test('camera view imports complete photographs without permission, with touch co
     expect(shape.art.bottom, 'Entire artwork appears in the initial phone viewport').toBeLessThanOrEqual(shape.viewport.height);
     expect(shape.region.bottom - shape.region.top, 'Viewfinder is the primary surface, not a collapsed card').toBeGreaterThan(shape.viewport.height / 2);
     for (const selector of ['#camera-shutter', '#camera-import', '#toggle-guides',
-      '#fit-output', '#detail-output', '#open-looks', '#open-grid', '#open-framing']) {
+      '#fit-output', '#detail-output', '#photo-mode', '#video-mode', '#open-looks', '#open-grid', '#open-framing']) {
       const bounds = await page.locator(selector).boundingBox();
       expect(bounds.width, `${selector} touch width`).toBeGreaterThanOrEqual(44);
       expect(bounds.height, `${selector} touch height`).toBeGreaterThanOrEqual(44);
@@ -355,4 +356,147 @@ test('framed artwork, guide bounds and glow survive Fit, last-glyph Detail and n
     expect(Math.abs(restoredGeometry.art[edge] - glowOnGeometry.art[edge]), 'Disabling glow changes only the 8px halo gutter').toBeLessThanOrEqual(9);
   }
   expect(await readCommit(page)).toEqual(before);
+});
+
+const VIDEO_VIEWPORTS = [
+  { width: 280, height: 568 }, { width: 320, height: 568 },
+  { width: 428, height: 926 }, { width: 832, height: 378 },
+];
+
+async function trackCameraRequests(page) {
+  await page.addInitScript(() => {
+    window.__cameraRequests = 0;
+    const devices = navigator.mediaDevices;
+    if (!devices?.getUserMedia) return;
+    const getUserMedia = devices.getUserMedia.bind(devices);
+    devices.getUserMedia = (...args) => {
+      window.__cameraRequests += 1;
+      return getUserMedia(...args);
+    };
+  });
+}
+
+async function containedTouchTargets(page, selectors, viewport) {
+  for (const selector of selectors) {
+    const box = await page.locator(selector).boundingBox();
+    expect(box, `${selector} is visible`).not.toBeNull();
+    expect(box.width, `${selector} touch width`).toBeGreaterThanOrEqual(44);
+    expect(box.height, `${selector} touch height`).toBeGreaterThanOrEqual(44);
+    expect(box.x, `${selector} left edge`).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, `${selector} right edge`).toBeLessThanOrEqual(viewport.width);
+    expect(box.y, `${selector} top edge`).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height, `${selector} bottom edge`).toBeLessThanOrEqual(viewport.height);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+}
+
+test('Photo and Video modes keep the mobile camera geometry and do not request permission until the shutter', async ({ page }) => {
+  await trackCameraRequests(page);
+  await openApp(page);
+  await expect(page.locator('#photo-mode')).toHaveAttribute('aria-pressed', 'true');
+  for (const viewport of VIDEO_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    await page.locator('#photo-mode').tap();
+    const photoBounds = await page.locator('.ascii-viewport').boundingBox();
+    const photoColor = await page.locator('#camera-shutter').evaluate((button) => getComputedStyle(button).color);
+    await page.locator('#video-mode').tap();
+    await expect(page.locator('#video-mode')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#photo-mode')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#camera-shutter')).toHaveAttribute('aria-label', 'Start ASCII recording');
+    await expect(page.locator('#camera-shutter')).not.toHaveCSS('color', photoColor);
+    await expect(page.locator('#recording-indicator')).toBeHidden();
+    await expect(page.locator('#review-video')).toBeHidden();
+    await containedTouchTargets(page, ['#photo-mode', '#video-mode', '#camera-shutter', '#camera-import'], viewport);
+    const videoBounds = await page.locator('.ascii-viewport').boundingBox();
+    expect(videoBounds, 'Video uses the existing viewfinder, not a smaller surface').toEqual(photoBounds);
+    await openPanel(page, 'camera');
+    await page.locator('#flip-camera').scrollIntoViewIfNeeded();
+    await containedTouchTargets(page, ['#flip-camera'], viewport);
+    await page.locator('#close-look-sheet').tap();
+    await page.locator('#photo-mode').tap();
+    await expect(page.locator('#camera-shutter')).toBeEnabled();
+  }
+  await openPanel(page, 'camera');
+  await page.locator('#studio-video').tap();
+  await expect(page.locator('#look-sheet')).toBeHidden();
+  const shutter = page.locator('#camera-shutter');
+  await expect(await shutter.isEnabled() ? shutter : page.locator('#photo-mode')).toBeFocused();
+  await expect(page.locator('#video-mode')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.__cameraRequests)).toBe(0);
+});
+
+test('missing recording capability explains Video while Photo and local imports remain usable at every mobile size', async ({ page }) => {
+  await trackCameraRequests(page);
+  await page.addInitScript(() => {
+    // Remove the actual encoder capability; do not simulate a successful recording.
+    Object.defineProperty(window, 'MediaRecorder', { configurable: true, value: undefined });
+  });
+  await openApp(page);
+  for (const viewport of VIDEO_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    await page.locator('#video-mode').tap();
+    await expect(page.locator('#camera-shutter')).toBeDisabled();
+    await expect(page.locator('#photo-mode')).toBeEnabled();
+    await expect(page.locator('#camera-shutter')).toHaveAttribute('aria-describedby', 'shutter-help');
+    await expect(page.locator('#shutter-help')).toBeVisible();
+    await containedTouchTargets(page, ['#photo-mode', '#video-mode', '#camera-shutter', '#camera-import'], viewport);
+    await page.locator('#photo-mode').tap();
+    await expect(page.locator('#camera-shutter')).toBeEnabled();
+    await expect(page.locator('#camera-import')).toBeEnabled();
+  }
+  const photo = await choosePhoto(page, 'astronaut');
+  await completeOverview(page);
+  await page.locator('#video-mode').tap();
+  await expect(page.locator('#camera-shutter')).toBeDisabled();
+  expect(await readCommit(page)).toEqual(photo);
+  await page.locator('#photo-mode').tap();
+  await expect(page.locator('#camera-shutter')).toBeEnabled();
+  expect(await page.evaluate(() => window.__cameraRequests)).toBe(0);
+});
+
+test('a real locally encoded ASCII clip plays and reviews without overflow across mobile sizes', { tag: '@recording' }, async ({ page }) => {
+  await installVideoCamera(page);
+  await openApp(page);
+  await page.locator('#video-mode').tap();
+  await page.locator('#camera-shutter').tap();
+  await expect(page.locator('body')).toHaveAttribute('data-recording-state', 'recording');
+  await expect(page.locator('#camera-shutter')).toHaveAttribute('aria-label', 'Stop recording');
+  await expect(page.locator('#recording-indicator')).toBeVisible();
+  await expect(page.locator('#recording-timer')).toHaveText(/00:0[1-9]/);
+  await page.locator('#camera-shutter').tap();
+  await expect(page.locator('#video-review')).toBeVisible();
+  await expect.poll(() => page.locator('#recorded-video').evaluate((video) => ({
+    width: video.videoWidth, height: video.videoHeight,
+    playable: video.readyState >= HTMLMediaElement.HAVE_METADATA,
+    duration: Number.isFinite(video.duration) && video.duration > 0,
+  }))).toMatchObject({ playable: true, duration: true });
+  const dimensions = await page.locator('#recorded-video').evaluate((video) => [video.videoWidth, video.videoHeight]);
+  expect(Math.min(...dimensions)).toBeGreaterThan(0);
+  await page.locator('#recorded-video').evaluate((video) => video.play());
+  await expect.poll(() => page.locator('#recorded-video').evaluate((video) => video.currentTime)).toBeGreaterThan(0);
+  await expect(page.locator('#video-save')).toBeEnabled();
+  for (const viewport of VIDEO_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    expect(await page.locator('#video-review').evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
+    expect(await page.locator('.video-review-body').evaluate((body) => body.scrollWidth <= body.clientWidth)).toBe(true);
+    await containedTouchTargets(page, ['#close-video-review'], viewport);
+    for (const selector of ['#video-save', '#video-share', '#video-retake']) {
+      await page.locator(selector).scrollIntoViewIfNeeded();
+      await containedTouchTargets(page, [selector], viewport);
+    }
+  }
+  await page.locator('#close-video-review').tap();
+  await expect(page.locator('#video-review')).toBeHidden();
+  await expect(page.locator('#camera-shutter')).toBeFocused();
+  expect(await page.locator('#recorded-video').evaluate((video) => video.paused)).toBe(true);
+  const source = await page.locator('#recorded-video').getAttribute('src');
+  await page.locator('#review-video').tap();
+  await expect(page.locator('#video-review')).toBeVisible();
+  await expect(page.locator('#recorded-video')).toHaveAttribute('src', source);
+  await page.locator('#close-video-review').tap();
+  await expect(page.locator('#review-video')).toBeFocused();
+  await page.locator('#review-video').tap();
+  await page.locator('#video-retake').tap();
+  await expect(page.locator('#video-review')).toBeHidden();
+  await expect(page.locator('#review-video')).toBeHidden();
 });
