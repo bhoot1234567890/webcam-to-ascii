@@ -46,7 +46,7 @@ Invariants:
 
 `frontend/src/crt/` holds the old-school CRT filter: `bulge.js` (inverse barrel warp + bezel/vignette), `aberration.js` (radial per-channel sampling offsets), `scanlines.js` (row-locked beam modulation), and `compose.js` (the single WebGL1 pass + `createCrtStage`/`crtSupported`). Layer order is fixed: warp → chromatic sampling → scanline multiply → bezel. The stage is presentation-only: it post-processes the rasterized artwork canvas for PNG export and recorded video, and never touches the committed text or requests a render. The on-screen text preview uses a CSS subset (scrollport scanline background + chromatic text-shadow); barrel bulge exists only in the exported artifact. The three effect modules are pure math with JS mirrors tested in `frontend/tests/unit/crt-*.test.js`; shader composition is verified in the browser suite.
 
-## Key Directories
+| `frontend/src/` | Product modules: `main.js` (owner), `camera.js`, `renderer.js`, `render-worker.js`, `ascii.js`, `effects.js`, `looks.js`, `density.js`, `framing.js`, `resample.js`, `presentation.js`, `output-view.js`, `look-controls.js`, `camera-shell.js`, `artwork.js`, `ascii-recorder.js`, `recording-view.js`, `export.js`, `persist.js`, `presets.js`, `crt/` (bulge, aberration, scanlines, compose), `styles.css` |
 
 | Path | Contents |
 |---|---|

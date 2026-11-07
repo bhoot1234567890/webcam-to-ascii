@@ -15,7 +15,7 @@
 - **Live ASCII viewfinder** — see the camera feed rendered in characters, freeze a frame, or import a local photo. The Python viewer prints frames to the terminal; quit it with `q`.
 - **Silent ASCII video** — record the character artwork, not the raw camera or interface, then play, save, share or discard and retake the clip.
 - **Nondestructive framing** — Full, 1:1, 3:4, 9:16, 4:3 and 16:9 center crops, shared by live frames, frozen shots and imported photos.
-- **Curated looks and opt-in adjustments** — Original, Photo, Print and Outline, with advanced tone controls, text tint and optional soft glow in one inline settings drawer.
+- **Curated looks and opt-in adjustments** — Original, Photo, Print and Outline, with advanced tone controls, text tint, optional soft glow and a CRT tube filter in one inline settings drawer.
 - **Named presets** — save the current look, tone, edges, density, frame, tint and glow under a name, then apply or delete it; up to 24, stored only on this device.
 - **Directional edge glyphs** — the original ordered angle-selection rule chooses `/ - \ |`, including its historical negative-angle quirks.
 - **95-character luminance ramp** — Original maps shading through the full measured printable ASCII set. Photo and Print use a compact ramp with the same real ink measurements, not assumed equal brightness steps.
@@ -53,7 +53,7 @@ Framing is an exact whole-pixel **center crop**, not a stretch or a saved edit. 
 
 Auto contrast can recover a flat photo, but recomputes the brightness range every frame: a moving highlight can cause live brightness pumping. It is off by default. Midtones below 1 lighten; above 1 darken. Sharpness uses a bounded unsharp mask and also affects Outline contours.
 
-**Ink** sets text color (Paper, White, Amber, Green or the native custom-color picker) and **Soft glow**; both are presentation-only and never request another ASCII render. Glow is off initially, reserves a small halo gutter in Fit/100%, and is not a claim of GPU acceleration. **CRT** adds the old-school tube: on screen it overlays scanlines and a subtle chromatic fringe on the live text; saved PNGs and recorded video run one WebGL pass that also adds barrel bulge and a curved, row-locked raster locked to glyph rows — layered in the same order emulator CRT shaders use (warp, channel split, beam, bezel). CRT needs WebGL and is disabled without it; like tint and glow it never triggers a re-render.
+**Ink** sets text color — nine swatches: Paper, White, Amber, Green, Phosphor, Ice, Yellow, Red and Magenta, plus the native custom-color picker — and **Soft glow**; both are presentation-only and never request another ASCII render. The phosphor set (Phosphor, Ice, Yellow, Red, Magenta) keeps the full-saturation CRT register: hot terminal greens and Tron-cyan on the ink-black stage, softened just off raw CGA values so dense glyphs do not vibrate. Glow is off initially, reserves a small halo gutter in Fit/100%, and is not a claim of GPU acceleration. **CRT** adds the old-school tube: on screen it overlays scanlines and a subtle chromatic fringe on the live text; saved PNGs and recorded video run one WebGL pass that also adds barrel bulge and a curved, row-locked raster locked to glyph rows — layered in the same order emulator CRT shaders use (warp, channel split, beam, bezel). CRT needs WebGL and is disabled without it; like tint and glow it never triggers a re-render.
 
 **Grid** holds the density presets and width/height sliders; the sliders are range-bounded, so the numeric invalid-value path applies only to the Tune fields. Invalid values leave the last valid settings and rendering intact. Equal or reversed positive sigma values are supported. The Camera tab's source monitor stays unmodified for every frame, look and presentation choice.
 
@@ -63,7 +63,7 @@ Auto contrast can recover a flat photo, but recomputes the brightness range ever
 
 Choose **Video**, then activate the red recording shutter. Mode selection alone never requests camera access. Recording starts only after the selected processing/framing configuration has committed; activate the shutter again, or use Stop, to finish. A recording indicator and elapsed timer remain visible. Video is silent: no microphone permission or audio track is requested. The Camera drawer's **Record ASCII video** shortcut selects Video and closes the drawer without starting capture.
 
-PNG and video share one artwork painter: committed grid, font metrics, alphabetic baseline, ink gutters, opaque viewfinder background, tint and optional glow. PNG retains its 2× export resolution; video remains downscale-only with an even-dimension, 1280-pixel longest-edge cap. This is consistent artwork, not a promise of pixel-identical output from different resolutions or a lossy video codec.
+PNG and video share one artwork painter: committed grid, font metrics, alphabetic baseline, ink gutters, opaque viewfinder background, tint, optional glow and, when CRT is on, the one-pass tube filter (warp, chromatic split, row-locked raster, bezel). PNG retains its 2× export resolution; video remains downscale-only with an even-dimension, 1280-pixel longest-edge cap. This is consistent artwork, not a promise of pixel-identical output from different resolutions or a lossy video codec.
 
 When the clip finishes encoding, the review modal opens with playback, **SAVE**, **SHARE** and
 **DISCARD & RETAKE**; its full contract is documented in
@@ -323,10 +323,11 @@ The Python scripts are tuned in source. The browser exposes everything through t
 | Midtones | `1` | Drawer Tune tab; `0.5–2` in `0.05` steps | Gamma exponent; below 1 lightens, above 1 darkens. |
 | Sharpness | `0` | Drawer Tune tab; `0–1.5` in `0.05` steps | Bounded 2D binomial unsharp mask before shading and contours. |
 | Invert tones | `Off` | Drawer Tune tab | Invert processed luminance, not the page or selected text color. |
-| Text color | `Paper` | Drawer Ink tab | Paper / White / Amber / Green / native custom picker; presentation-only. |
+| Text color | `Paper` | Drawer Ink tab | Paper / White / Amber / Green / Phosphor / Ice / Yellow / Red / Magenta / native custom picker; presentation-only. |
 | Soft text glow | `Off` | Drawer Ink tab | Bounded text shadow with an 8 CSS-pixel halo gutter; presentation-only. |
+| CRT filter | `Off` | Drawer Ink tab | Old-school tube over the finished artifact: one WebGL pass (barrel warp, chromatic split, row-locked scanlines, bezel) on saved PNGs and recorded video; scanlines plus chromatic text fringe on screen. Needs WebGL; presentation-only and never a re-render. |
 | Named presets | none saved | Drawer Presets tab | Up to 24 case-sensitive names of 1-24 characters in `clack:presets:v1`. A preset captures look, tone, sigma/threshold, density, frame, tint and glow; camera device, FIT/100% view and guides are excluded. Reusing a name replaces it in place, and stored entries that fail validation are dropped. |
-| Saved settings | n/a | `localStorage` `clack:settings:v1` | Look, tone, frame, ink, glow, density, the Tune values (`sigma1`, `sigma2`, edge threshold), facing, view and guides restore on reload. Persistence is best-effort; private mode never blocks rendering. |
+| Saved settings | n/a | `localStorage` `clack:settings:v1` | Look, tone, frame, ink, glow, CRT, density, the Tune values (`sigma1`, `sigma2`, edge threshold), facing, view and guides restore on reload. Persistence is best-effort; private mode never blocks rendering. |
 | `sigma1`, `sigma2` | `1`, `2` | `ascii_core.py`; browser Tune `0.5–3`, `0.5–5` in `0.5` steps | Nearest-border normalized Gaussian subtraction. Equal/reversed values remain valid. Browser uses these only for Original/Outline. |
 | `edge_index_threshold` / Edge threshold | `90` | `ascii_core.py`; browser Tune integer `0–95` | Overlay when the nearest magnitude-ramp **index** is below this value; not a raw-magnitude cutoff. Retained but disabled for Photo/Print. |
 | `ord('q')` | `q` | `webcam ascii.py`, `web ascii cv2.py` | Key that stops the loop and releases the camera. |
