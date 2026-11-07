@@ -81,8 +81,10 @@ button:active:not(:disabled), .choice:active { transform: scale(0.97); transitio
 .flip-row button { min-height: 44px; padding: 0 16px; border: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; }
 .flip-row button:hover:not(:disabled) { border-color: var(--muted); }
 /* Stays pinned to the bottom of the scrolling drawer body, so the record
-   shortcut remains reachable on short phones where the panel overflows. */
-.flip-row { display: flex; flex-wrap: wrap; gap: 8px; position: sticky; bottom: 0; z-index: 1; padding: 8px 0; border-top: 1px solid var(--border); background: var(--panel); }
+   shortcut remains reachable on short phones where the panel overflows. The
+   shadow extends the panel fill over the drawer's bottom padding so content
+   scrolled beneath never peeks out below the row. */
+.flip-row { display: flex; flex-wrap: wrap; gap: 8px; position: sticky; bottom: 0; z-index: 1; padding: 8px 0; border-top: 1px solid var(--border); background: var(--panel); box-shadow: 0 20px 0 var(--panel); }
 .ascii-stage { position: relative; flex-shrink: 0; margin: auto; overflow: hidden; }
 #ascii-output { position: absolute; top: 0; left: 0; display: block; width: max-content; min-width: 0; margin: 0; padding: 0; border: 0; color: var(--ascii-tint, #e2e9e7); background: transparent; font-family: "Roboto Mono", ui-monospace, monospace; font-weight: 400; font-size: 12px; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; white-space: pre; overflow-wrap: normal; word-break: normal; tab-size: 4; transform-origin: top left; }
 /* First render: one fade when the grid goes from empty to populated. A one-shot
@@ -250,6 +252,7 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   .view-controls button { min-width: 64px; }
   .ascii-viewport { padding: 12px; }
   .drawer-body { padding: 12px 12px 16px; }
+  .flip-row { box-shadow: 0 16px 0 var(--panel); }
   #settings-form:has(#look-sheet:not([hidden])) { flex-shrink: 0; }
   .app:has(#look-sheet:not([hidden])) .rail {
     flex-shrink: 1;
