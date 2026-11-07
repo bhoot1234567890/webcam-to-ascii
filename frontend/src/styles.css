@@ -306,6 +306,8 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   .rail-output button, .view-controls button { padding-inline: 8px; }
   .readout-meta { grid-row: 6; grid-column: 1 / -1; }
   .readout-tiles button { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 6px; font-size: 10px; }
+  /* 280px phones give tiles 44px of inner width; eight-character values need 9px and no tracking. */
+  .readout-tiles button span { font-size: 9px; letter-spacing: 0; }
   .shutter { flex: 1; max-width: none; }
   .ascii-viewport { padding: 12px; }
   .drawer-body { padding: 12px 12px 16px; }
@@ -337,6 +339,9 @@ input[type="color"] { width: 64px; height: 44px; padding: 4px; border: 1px solid
   #settings-form { grid-column: 1; grid-row: 5; min-width: 0; }
   .rail { grid-column: 2; grid-row: 4 / 6; min-height: 0; border-top: 0; border-left: 1px solid var(--border); overflow-y: auto; overscroll-behavior: contain; align-content: start; gap: 6px; }
   .readout-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* Side-rail tiles are ~65px wide: stack label above value like the phone rail. */
+  .readout-tiles button { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 0 6px; font-size: 10px; }
+  .readout-meta span { white-space: nowrap; }
   .rail .view-controls button { min-width: 44px; padding-inline: 10px; }
   .rail-output, .rail-display { flex-basis: 100%; }
   .rail-output, .view-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }

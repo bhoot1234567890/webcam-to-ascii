@@ -410,6 +410,18 @@ test('Photo and Video modes keep the mobile camera geometry and do not request p
     const videoBounds = await page.locator('.ascii-viewport').boundingBox();
     expect(videoBounds, 'Video uses the existing viewfinder, not a smaller surface').toEqual(photoBounds);
     await expect(page.locator('#flip-camera')).toBeHidden();
+    const tileOverflow = await page.evaluate(() => {
+      const offenders = [];
+      for (const tile of document.querySelectorAll('.readout-tiles button')) {
+        const value = tile.querySelector('span[id$="-label"]');
+        if (!value) continue;
+        const tileBox = tile.getBoundingClientRect();
+        const valueBox = value.getBoundingClientRect();
+        if (valueBox.right > tileBox.right + 0.5 || valueBox.left < tileBox.left - 0.5) offenders.push(tile.id);
+      }
+      return offenders;
+    });
+    expect(tileOverflow, 'readout tile values stay inside their tiles').toEqual([]);
     await openPanel(page, 'camera');
     await page.locator('#studio-video').scrollIntoViewIfNeeded();
     await containedTouchTargets(page, ['#studio-video'], viewport);

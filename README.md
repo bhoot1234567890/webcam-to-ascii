@@ -6,7 +6,19 @@
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)
 
+[**Try the live app →**](https://clack.chaitanyamalhotra.com) · [Documentation](#-documentation) · [Python terminal viewer](docs/python-viewer.md)
+
+![clack rendering an astronaut portrait as ASCII art](docs/assets/hero.png)
+
+*An imported portrait through the Photo look at chunky density — everything below runs in your browser.*
+
+![The same artwork exported with the CRT filter](docs/assets/crt-export.jpg)
+
+*Exported with the **CRT** filter (barrel bulge, scanline raster, chromatic split) in Phosphor ink.*
+
 **A private, mobile-first ASCII camera.** clack looks like a familiar camera app, but your world appears in characters. Live frames and imported photos are processed on your device in one JavaScript worker. Record silent ASCII clips locally and choose whether to save or share them; no account, backend or automatic uploads. The original Python terminal viewer remains available.
+
+**Status:** actively maintained and deployed — the live app above is the current `main` branch.
 
 **Original**, the default look, combines Sobel edge detection on a Difference-of-Gaussians-enhanced frame with a measured 95-character luminance ramp. Directional `/ - \ |` glyphs preserve contours. The browser also offers shading-only Photo and Print looks, and sparse Outline line art; the Python renderer remains unchanged.
 
@@ -267,6 +279,11 @@ The Lanczos port retains Pillow's MIT-CMU notice in `frontend/public/Pillow-LICE
 | [`docs/video-review-modal.md`](docs/video-review-modal.md) | The review modal: markup, opening rules, enablement, clip lifetime, actions, focus management, playback notes, styling, edge cases, and the specs that pin them. |
 | [`docs/qa-evidence.md`](docs/qa-evidence.md) | Frozen verification archive: historical gate counts, physical-camera baselines, vision-review adjudications, performance samples, and artifact inventories. |
 | [`docs/python-viewer.md`](docs/python-viewer.md) | The Python terminal viewer: prerequisites, virtual-environment setup, dependency notes (including the `skimage` alias), camera-index selection, and output description. |
+
+
+## 🛟 Support
+
+Something broken or confusing? [Open an issue](https://github.com/bhoot1234567890/webcam-to-ascii/issues) with what you did, what you expected, and what happened — a screenshot including the status line helps. Questions and ideas are welcome there too.
 
 ## 🤝 Contributing
 
