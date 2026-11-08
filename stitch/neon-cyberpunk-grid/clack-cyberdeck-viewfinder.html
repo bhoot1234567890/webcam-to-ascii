@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<meta content="mobile_tab" name="shell-type"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            brand: "#ffd663",
+            "brand-dim": "#b59434",
+            matte: "#09090b",
+            "panel-bg": "#121215",
+            "panel-card": "#18181b",
+            "panel-card-high": "#232328",
+            "hairline": "#27272a",
+            "hairline-light": "#3f3f46",
+            titanium: "#e8e8e2",
+            muted: "#71717a",
+            "muted-dim": "#52525b"
+          },
+          fontFamily: {
+            mono: ["'Space Mono'", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    @layer base {
+      html, body {
+        width: 100vw;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #09090b;
+        color: #e8e8e2;
+        font-family: 'Space Mono', monospace;
+        overscroll-behavior: none;
+      }
+      .pb-safe { padding-bottom: max(env(safe-area-inset-bottom, 8px), 8px); }
+      .pt-safe { padding-top: max(env(safe-area-inset-top, 6px), 6px); }
+    }
+    ::-webkit-scrollbar { display: none; }
+    pre {
+      font-feature-settings: "liga" 0;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style id="edex-styles">* { border-radius: 0px !important; } .edex-glow { text-shadow: 0 0 6px rgba(0, 240, 255, 0.65), 0 0 16px rgba(0, 240, 255, 0.35); } .edex-border-glow { box-shadow: 0 0 10px rgba(0, 240, 255, 0.25), inset 0 0 10px rgba(0, 240, 255, 0.15); } .edex-scanlines { background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), linear-gradient(90deg, rgba(0, 240, 255, 0.02), rgba(0, 0, 0, 0) 100%); background-size: 100% 3px, 6px 100%; pointer-events: none; } .edex-panel { background: rgba(5, 12, 22, 0.85); border: 1px solid rgba(0, 240, 255, 0.3); backdrop-filter: blur(8px); }</style></head>
+<body class="bg-matte font-mono text-titanium flex flex-col h-screen overflow-hidden selection:bg-brand selection:text-matte">
+<!-- Minimalist Ultra-Slim Camera Header -->
+<header class="w-full shrink-0 z-50 bg-matte pt-safe border-b border-hairline/60"><div class="h-10 px-4 flex items-center justify-between border-b border-[#00f0ff]/20 text-[#00f0ff] bg-[#040608]/90 font-mono"><div class="flex items-center gap-2"><span class="text-[#00f0ff] edex-glow text-[14px] font-bold tracking-wider flex items-center">clack<span class="inline-block w-[6px] h-[12px] bg-[#00f0ff] ml-0.5 animate-pulse shadow-[0_0_8px_#00f0ff]"></span></span><span class="text-[9px] text-[#00f0ff]/60 tracking-widest uppercase border border-[#00f0ff]/20 px-1.5 py-0.5 bg-[#00f0ff]/5">SYS.OPTIC</span></div><div class="flex items-center gap-2 text-[10px] tracking-widest font-mono text-[#00f0ff]" id="status"><span class="w-1.5 h-1.5 bg-[#00f0ff] animate-ping shadow-[0_0_8px_#00f0ff]"></span><span class="text-[#00f0ff]/80 font-bold tracking-wider text-[9px] uppercase">LIVE // 60FPS</span></div><button aria-label="Toggle Composition Guides" class="min-h-[44px] min-w-[44px] flex items-center justify-end text-[#00f0ff]/60 hover:text-[#00f0ff] active:text-[#ffd663] transition-colors" id="toggle-guides"><span class="material-symbols-outlined text-[18px]">grid_on</span></button></div></header>
+<!-- Main Viewport Area (Dominates 78-82% of screen height) -->
+<main class="flex flex-col relative w-full flex-1 bg-matte overflow-hidden ascii-viewport">
+<section class="relative w-full h-full flex-1 bg-matte overflow-hidden flex items-center justify-center select-none"><div class="absolute inset-0 edex-scanlines z-10 pointer-events-none"></div><pre aria-label="ASCII Camera Stream" class="font-mono text-[#00f0ff] text-[7.5px] sm:text-[9.5px] leading-[8px] sm:leading-[10px] tracking-[-0.04em] sm:tracking-[0.01em] transition-opacity duration-150 cursor-pointer overflow-hidden p-2 text-center w-full z-0 font-bold select-none whitespace-pre edex-glow" id="ascii-output">                          ..:---===+*#%@@@@@@@@@@@@@@@@@@@@%#*+===---:..                          
+                     .:=+*#%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%#*+=:.                     
+                 .-*#%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%#*-.                 
+              :=#%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%#=:              
+            :*%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%*:            
+          :+%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%+:          
+         =*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*=         
+       :#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#:       
+      -%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%-      
+     =%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%=     
+    +@@@@@@@@@@@@@@@@@@@@@@%#*++====---:::......:::---====++*#%@@@@@@@@@@@@@@@@@@@@@@@@@@@+    
+   *@@@@@@@@@@@@@@@@@@#*=-:..                                ..:-=*#@@@@@@@@@@@@@@@@@@@@@@*   
+  #@@@@@@@@@@@@@@@#+-.                                              .-+#@@@@@@@@@@@@@@@#  
+ =@@@@@@@@@@@@@#=:                                                      :=#@@@@@@@@@@@@@= 
+ %@@@@@@@@@@@#:          ..::::..                        ..::::..          :#@@@@@@@@@@@% 
+*@@@@@@@@@@%:         .=#%@@@@@@%#=.                  .=#%@@@@@@%#=.         :%@@@@@@@@@@* 
+%@@@@@@@@@#          :%@@@@@@@@@@@@%:                :%@@@@@@@@@@@@%:          #@@@@@@@@@% 
+@@@@@@@@@@+          +@@@@@@@@@@@@@@+                +@@@@@@@@@@@@@@+          +@@@@@@@@@@ 
+@@@@@@@@@@:          *@@@@@@@@@@@@@@*                *@@@@@@@@@@@@@@*          :@@@@@@@@@@ 
+@@@@@@@@@@           =@@@@@@@@@@@@@@=                =@@@@@@@@@@@@@@=           @@@@@@@@@@ 
+@@@@@@@@@@:          :@@@@@@@@@@@@@@:                :@@@@@@@@@@@@@@:          :@@@@@@@@@@ 
+@@@@@@@@@@+           -%@@@@@@@@@@%-                  -%@@@@@@@@@@%-           +@@@@@@@@@@ 
+%@@@@@@@@@#             .-+*##*+-.                      .-+*##*+-.             #@@@@@@@@@% 
+*@@@@@@@@@@%:                                                                :%@@@@@@@@@@* 
+ %@@@@@@@@@@@#:                              ..                              :#@@@@@@@@@@@% 
+ =@@@@@@@@@@@@@#=:                     .-+*#%%%##*+-.                   :=#@@@@@@@@@@@@@= 
+  #@@@@@@@@@@@@@@@#+-.              :=#@@@@@@@@@@@@@@#=:             .-+#@@@@@@@@@@@@@@@#  
+   *@@@@@@@@@@@@@@@@@@#*=-:.     :*%@@@@@@@@@@@@@@@@@@@@%*:      .:-=*#@@@@@@@@@@@@@@@@@@*   
+    +@@@@@@@@@@@@@@@@@@@@@@%#*++*%@@@@@@@@@@@@@@@@@@@@@@@@%*++*#%@@@@@@@@@@@@@@@@@@@@@@@+    
+     =%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%=     
+      -%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%-      
+       :#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#:       
+         =*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*=         
+          :+%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%+:          
+            :*%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%*:            
+              :=#%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%#=:              
+                 .-*#%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%#*-.                 
+                     .:=+*#%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%#*+=:.                     
+                          ..:---===+*#%@@@@@@@@@@@@@@@@@@@@%#*+===---:..                          
+    </pre><div class="absolute inset-0 bg-[#05070a] opacity-0 pointer-events-none transition-opacity duration-200 z-20 flex items-center justify-center" id="source-peek-view"><img class="w-full h-full object-cover grayscale brightness-90 contrast-125" data-alt="Monochrome minimalist high-contrast portrait captured under soft studio rim light with deep shadows, grain texture and sharp focus, cybernetic aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLmraGWIJYAqhHl76DAwIs32VH-38BL7tz_oY2lRkP4tdvqd3s9kZy9PavXnsoCQT_uFo1nF1WWTBaTuGhlQmqJ_YRpxSvH4K6CqiyCQSuM5sLoLQGjtyOKi_GLIi_77R0agNO1rkYofnRuuUZJ7YKxZnsfq9YKgslCkdq6T8yXiOvPs93khuNexdt28XQR-OO1I_yHFDfWT3p3z4c4Ao4XflBxFt0pQRHhoBKelJd"/><div class="absolute top-4 left-4 bg-[#05070a]/90 border border-[#00f0ff]/50 px-2 py-1 shadow-[0_0_8px_rgba(0,240,255,0.3)]"><span class="text-[10px] text-[#00f0ff] uppercase font-bold tracking-wider font-mono">RAW SENSOR // DIRECT_FEED</span></div></div><div class="absolute inset-0 pointer-events-none p-3 sm:p-5 flex flex-col justify-between transition-opacity duration-200 opacity-90 z-10" id="guides-overlay"><div class="flex items-center justify-between w-full font-mono text-[9px] text-[#00f0ff]/70 px-1 pt-1"><span class="tracking-wider">RES: 64×48</span><span class="tracking-widest text-[#00f0ff]/50">F/1.8 · 1/120 · ISO 200</span></div><div class="relative w-full flex-1 flex items-center justify-center my-0.5"><div class="absolute top-0 left-0 w-4 h-4 border-t border-l border-[#00f0ff]/70 shadow-[0_0_4px_#00f0ff]"></div><div class="absolute top-0 right-0 w-4 h-4 border-t border-r border-[#00f0ff]/70 shadow-[0_0_4px_#00f0ff]"></div><div class="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-[#00f0ff]/70 shadow-[0_0_4px_#00f0ff]"></div><div class="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-[#00f0ff]/70 shadow-[0_0_4px_#00f0ff]"></div><div class="absolute inset-x-8 top-1/2 -translate-y-1/2 border-t border-[#00f0ff]/10 pointer-events-none"></div><div class="relative w-6 h-6 flex items-center justify-center text-[#00f0ff]/80 edex-glow"><span class="material-symbols-outlined text-[18px]">control_camera</span></div></div><div class="flex items-center justify-between w-full pb-1 font-mono text-[9px] text-[#00f0ff]/60 px-1"><span>AF: TGT_LOCKED</span><span class="text-[#ffd663]/80">ONLINE</span></div></div></section>
+</main>
+<!-- Compact Ergonomic Control Deck -->
+<footer class="w-full shrink-0 bg-matte border-t border-hairline/60 px-4 pt-2.5 pb-safe flex flex-col gap-2.5 z-40"><section class="w-full flex items-center justify-between px-1 pb-1 border-b border-[#00f0ff]/10"><div class="flex items-center gap-1.5 min-w-0 font-mono text-[9px]"><button class="flex items-center gap-1 text-[#00f0ff] border border-[#00f0ff]/30 px-2 py-0.5 bg-[#00f0ff]/5 hover:bg-[#00f0ff]/10 transition-colors" title="Style &amp; Contrast"><span class="material-symbols-outlined text-[13px]">auto_fix_high</span><span class="font-bold">ORIG</span></button><button class="flex items-center gap-1 text-[#00f0ff] border border-[#00f0ff]/30 px-2 py-0.5 bg-[#00f0ff]/5 hover:bg-[#00f0ff]/10 transition-colors" title="Resolution"><span class="material-symbols-outlined text-[13px] text-[#ffd663]">grid_view</span><span class="font-bold">64×48</span></button><button class="flex items-center gap-1 text-[#00f0ff] border border-[#00f0ff]/30 px-2 py-0.5 bg-[#00f0ff]/5 hover:bg-[#00f0ff]/10 transition-colors" title="Framing"><span class="material-symbols-outlined text-[13px]">fullscreen</span><span class="font-bold">FULL</span></button><button class="flex items-center gap-1 text-[#00f0ff] border border-[#00f0ff]/30 px-2 py-0.5 bg-[#00f0ff]/5 hover:bg-[#00f0ff]/10 transition-colors" title="Phosphor Ink"><span class="material-symbols-outlined text-[13px]">water_drop</span><span class="font-bold">CYAN</span></button></div><button aria-label="Fine Tune Parameters" class="min-h-[44px] min-w-[44px] flex items-center justify-end text-[#00f0ff]/60 hover:text-[#00f0ff] transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">tune</span></button></section><section class="w-full flex items-center justify-between max-w-sm mx-auto my-0.5"><div class="flex items-center gap-1 font-mono"><button aria-label="Photo Capture Mode" class="min-h-[44px] min-w-[44px] text-[#00f0ff] border border-[#00f0ff]/40 bg-[#00f0ff]/10 hover:border-[#00f0ff] flex flex-col items-center justify-center transition-all" id="btn-mode-photo" title="Photo Mode" type="button"><span class="material-symbols-outlined text-[18px]">photo_camera</span><span class="text-[8px] font-bold tracking-widest">PHOTO</span></button><button aria-label="Video Recording Mode" class="min-h-[44px] min-w-[44px] text-muted hover:text-[#00f0ff] border border-transparent hover:border-[#00f0ff]/20 flex flex-col items-center justify-center transition-all" id="btn-mode-video" title="Video Mode" type="button"><span class="material-symbols-outlined text-[18px]">videocam</span><span class="text-[8px] font-bold tracking-widest">VIDEO</span></button><button aria-label="Flip Camera Lens" class="min-h-[44px] min-w-[44px] text-[#00f0ff]/70 hover:text-[#00f0ff] active:scale-95 transition-all flex flex-col items-center justify-center" id="flip-lens" title="Switch Lens" type="button"><span class="material-symbols-outlined text-[18px]">flip_camera_android</span><span class="text-[8px] tracking-tight">FLIP</span></button></div><div class="flex items-center justify-center px-2"><button aria-label="Take Photo" class="relative group min-h-[58px] min-w-[58px] border-2 border-[#00f0ff] bg-[#050c16] flex items-center justify-center shadow-[0_0_15px_rgba(0,240,255,0.4)] active:scale-95 transition-transform p-1" id="camera-shutter" type="button"><div class="w-10 h-10 border border-[#00f0ff]/50 bg-[#00f0ff]/10 flex flex-col items-center justify-center group-hover:bg-[#00f0ff]/20 transition-colors relative"><div class="absolute inset-0 border border-[#00f0ff]/20 pointer-events-none"></div><span class="w-3.5 h-3.5 bg-[#00f0ff] inline-block shadow-[0_0_8px_#00f0ff]"></span><span class="text-[7px] text-[#00f0ff] font-mono font-bold tracking-tighter mt-0.5">ACTUATE</span></div></button></div><div class="flex items-center gap-1 justify-end font-mono"><button aria-label="Self-Timer Delay" class="min-h-[44px] min-w-[44px] text-[#00f0ff]/70 hover:text-[#00f0ff] flex flex-col items-center justify-center transition-colors" id="toggle-timer" title="Self-Timer" type="button"><div class="flex items-center"><span class="material-symbols-outlined text-[16px]">timer</span><span class="text-[9px] font-bold text-[#ffd663] ml-0.5">0s</span></div><span class="text-[8px] tracking-tight">DELAY</span></button><button aria-label="Sensor View Peek" class="min-h-[44px] min-w-[44px] text-[#00f0ff]/70 hover:text-[#00f0ff] active:text-[#ffd663] flex flex-col items-center justify-center transition-colors" id="compare-output" title="Peek Raw Image" type="button"><span class="material-symbols-outlined text-[18px]">visibility</span><span class="text-[8px] tracking-tight">PEEK</span></button></div></section><section class="w-full flex flex-col items-center gap-1 max-w-sm mx-auto font-mono"><div class="flex items-center justify-between w-full px-1"><button aria-label="Import Image From Device Gallery" class="min-h-[44px] min-w-[44px] text-[#00f0ff]/70 hover:text-[#00f0ff] border border-[#00f0ff]/20 bg-[#00f0ff]/5 hover:bg-[#00f0ff]/10 active:scale-95 transition-all flex items-center justify-center gap-1 px-2.5" id="import-btn" title="Import Image" type="button"><span class="material-symbols-outlined text-[16px]">folder_open</span><span class="text-[9px] font-bold" id="import-label">IMPORT // DIR</span></button><button aria-label="Copy to Clipboard" class="min-h-[44px] min-w-[44px] text-[#00f0ff]/70 hover:text-[#00f0ff] border border-[#00f0ff]/20 bg-[#00f0ff]/5 hover:bg-[#00f0ff]/10 active:scale-95 transition-all flex items-center justify-center gap-1 px-2.5" id="copy-output" title="Copy Output" type="button"><span class="material-symbols-outlined text-[16px]">content_copy</span><span class="text-[9px] font-bold" id="copy-label">COPY // BUFF</span></button><button aria-label="Save to Device Photos" class="min-h-[44px] min-w-[44px] text-[#00f0ff]/70 hover:text-[#00f0ff] border border-[#00f0ff]/20 bg-[#00f0ff]/5 hover:bg-[#00f0ff]/10 active:scale-95 transition-all flex items-center justify-center gap-1 px-2.5" id="save-btn" title="Download &amp; Save" type="button"><span class="material-symbols-outlined text-[16px]">save_alt</span><span class="text-[9px] font-bold" id="save-label">SAVE // DUMP</span></button></div><div class="flex items-center justify-center gap-2 text-[#00f0ff]/50 text-[8px] select-none tracking-wider font-mono w-full pt-1" title="100% On-Device · Fully Offline &amp; Private"><span class="w-1.5 h-1.5 bg-[#00f0ff] inline-block animate-pulse shadow-[0_0_4px_#00f0ff]"></span><span>AIR-GAPPED // ZERO CLOUD TELEMETRY</span><span class="material-symbols-outlined text-[11px] text-[#00f0ff]">verified_user</span></div></section></footer>
+<script>
+  // Simple Camera flip lens feedback
+  const flipBtn = document.getElementById('flip-lens');
+  const asciiPre = document.getElementById('ascii-output');
+  if (flipBtn && asciiPre) {
+    let flipped = false;
+    flipBtn.addEventListener('click', () => {
+      flipped = !flipped;
+      asciiPre.style.transform = flipped ? 'scaleX(-1)' : 'scaleX(1)';
+      flipBtn.classList.toggle('text-brand');
+    });
+  }
+
+  // Timer cycle micro-interaction
+  const timerBtn = document.getElementById('toggle-timer');
+  if (timerBtn) {
+    const states = ['0s', '3s', '7s', '10s'];
+    let stateIdx = 0;
+    timerBtn.addEventListener('click', () => {
+      stateIdx = (stateIdx + 1) % states.length;
+      const span = timerBtn.querySelector('span:last-child');
+      if (span) span.textContent = states[stateIdx];
+    });
+  }
+
+  // Save interaction feedback
+  const saveBtn = document.getElementById('save-btn');
+  const saveLabel = document.getElementById('save-label');
+  if (saveBtn && saveLabel) {
+    saveBtn.addEventListener('click', () => {
+      saveBtn.classList.add('text-brand');
+      saveLabel.textContent = 'SAVED';
+      setTimeout(() => {
+        saveLabel.textContent = 'SAVE';
+        saveBtn.classList.remove('text-brand');
+      }, 1400);
+    });
+  }
+
+  // Reticle Guide Toggle Interaction
+  const guidesBtn = document.getElementById('toggle-guides');
+  const guidesOverlay = document.getElementById('guides-overlay');
+  if (guidesBtn && guidesOverlay) {
+    guidesBtn.addEventListener('click', () => {
+      guidesOverlay.classList.toggle('opacity-0');
+      guidesBtn.classList.toggle('text-brand');
+    });
+  }
+
+  // Hold-to-Peek Source Micro-interaction
+  const peekBtn = document.getElementById('compare-output');
+  const peekView = document.getElementById('source-peek-view');
+  if (peekBtn && peekView) {
+    const showPeek = () => { peekView.classList.remove('opacity-0'); peekView.classList.add('opacity-100'); };
+    const hidePeek = () => { peekView.classList.remove('opacity-100'); peekView.classList.add('opacity-0'); };
+    
+    peekBtn.addEventListener('mousedown', showPeek);
+    peekBtn.addEventListener('mouseup', hidePeek);
+    peekBtn.addEventListener('mouseleave', hidePeek);
+    peekBtn.addEventListener('touchstart', (e) => { e.preventDefault(); showPeek(); });
+    peekBtn.addEventListener('touchend', hidePeek);
+  }
+
+  // Mode Toggle Logic
+  const photoBtn = document.getElementById('btn-mode-photo');
+  const videoBtn = document.getElementById('btn-mode-video');
+  if (photoBtn && videoBtn) {
+    photoBtn.addEventListener('click', () => {
+      photoBtn.classList.remove('text-muted');
+      photoBtn.classList.add('text-titanium');
+      videoBtn.classList.remove('text-titanium');
+      videoBtn.classList.add('text-muted');
+    });
+    videoBtn.addEventListener('click', () => {
+      videoBtn.classList.remove('text-muted');
+      videoBtn.classList.add('text-titanium');
+      photoBtn.classList.remove('text-titanium');
+      photoBtn.classList.add('text-muted');
+    });
+  }
+
+  // Shutter Trigger Analog Flash Effect
+  const shutterBtn = document.getElementById('camera-shutter');
+  if (shutterBtn && asciiPre) {
+    shutterBtn.addEventListener('click', () => {
+      asciiPre.classList.add('opacity-30');
+      setTimeout(() => asciiPre.classList.remove('opacity-30'), 130);
+    });
+  }
+
+  // Copy Notification Interaction
+  const copyBtn = document.getElementById('copy-output');
+  const copyLabel = document.getElementById('copy-label');
+  if (copyBtn && copyLabel) {
+    copyBtn.addEventListener('click', () => {
+      copyLabel.textContent = 'COPIED';
+      copyBtn.classList.add('text-brand');
+      setTimeout(() => {
+        copyLabel.textContent = 'COPY';
+        copyBtn.classList.remove('text-brand');
+      }, 1200);
+    });
+  }
+</script>
+</body></html>
