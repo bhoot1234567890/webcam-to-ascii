@@ -16,12 +16,21 @@
     <title>clack — A camera with character.</title>
   </head>
   <body data-guides="off" data-glow="off" data-capture-mode="photo" data-recording-state="idle">
+<svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-crosshair" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="22" x2="18" y1="12" y2="12" /><line x1="6" x2="2" y1="12" y2="12" /><line x1="12" x2="12" y1="6" y2="2" /><line x1="12" x2="12" y1="22" y2="18" /></symbol>
+  <symbol id="i-folder-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" /></symbol>
+  <symbol id="i-aperture" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="m14.31 8 5.74 9.94" /><path d="M9.69 8h11.48" /><path d="m7.38 12 5.74-9.94" /><path d="M9.69 16 3.95 6.06" /><path d="M14.31 16H2.83" /><path d="m16.62 12-5.74 9.94" /></symbol>
+  <symbol id="i-grid-2x2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" /></symbol>
+  <symbol id="i-crop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M18 22V8a2 2 0 0 0-2-2H2" /></symbol>
+  <symbol id="i-droplet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" /></symbol>
+</svg>
     <div class="app">
       <header class="topbar" aria-label="clack controls">
         <h1 class="wordmark">clack<span class="wordmark-cursor" aria-hidden="true">_</span></h1>
+      <span class="sys-badge" aria-hidden="true">SYS.OPTIC</span>
         <span class="topbar-caption">ASCII CAMERA · LOCAL ONLY</span>
         <div class="topbar-actions">
-          <button id="toggle-guides" type="button" aria-pressed="false" title="Composition grid">GUIDES</button>
+        <button id="toggle-guides" type="button" aria-pressed="false" title="Composition grid"><svg class="ico ico-guides" aria-hidden="true" focusable="false"><use href="#i-crosshair"></use></svg>GUIDES</button>
         </div>
       </header>
 
@@ -146,7 +155,7 @@
           <button id="camera-stop" type="button" disabled hidden title="Stop camera">STOP</button>
         </div>
         <div class="rail-row rail-output">
-          <button id="camera-import" type="button" aria-label="Choose photo from this device" title="Choose photo" disabled>IMPORT</button>
+        <button id="camera-import" type="button" aria-label="Choose photo from this device" title="Choose photo" disabled><svg class="ico ico-import" aria-hidden="true" focusable="false"><use href="#i-folder-open"></use></svg>IMPORT</button>
           <button id="copy-output" type="button" disabled title="Copy ASCII text">COPY</button>
           <button id="save-output" type="button" disabled title="Download PNG">SAVE</button>
           <input id="image-input" type="file" accept="image/*" hidden />
@@ -160,10 +169,10 @@
         </div>
         <p id="shutter-help" class="shutter-help">Loading the viewfinder…</p>
         <div class="readout-tiles">
-          <button id="open-looks" type="button">LOOK <span id="look-label">Original</span></button>
-          <button id="open-grid" type="button">DETAIL <span id="grid-density-label">Balanced</span></button>
-          <button id="open-framing" type="button">FRAME <span id="framing-label">Full</span></button>
-          <button id="open-ink" type="button">INK <span id="ink-label">Paper</span></button>
+        <button id="open-looks" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-aperture"></use></svg>LOOK <span id="look-label">Original</span></button>
+        <button id="open-grid" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-grid-2x2"></use></svg>DETAIL <span id="grid-density-label">Balanced</span></button>
+        <button id="open-framing" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-crop"></use></svg>FRAME <span id="framing-label">Full</span></button>
+        <button id="open-ink" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-droplet"></use></svg>INK <span id="ink-label">Paper</span></button>
         </div>
         <div class="readout-meta">
           <span id="grid-label"></span>
