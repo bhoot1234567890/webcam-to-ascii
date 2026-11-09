@@ -1,6 +1,7 @@
 import { normalizeSettings } from './renderer.js';
 import { normalizeLook } from './looks.js';
 import { FRAMINGS } from './framing.js';
+import { NEON_TINT } from './tritone.js';
 
 /** Named visual presets: pure validation and list operations. No DOM, no storage. */
 export const PRESET_NAME_MAX = 24;
@@ -24,7 +25,7 @@ function requireFrame(frame) {
 }
 
 function requireTint(tint) {
-  if (tint === 'default' || (typeof tint === 'string' && HEX_COLOR.test(tint))) return tint;
+  if (tint === 'default' || tint === NEON_TINT || (typeof tint === 'string' && HEX_COLOR.test(tint))) return tint;
   throw new RangeError('Choose a valid text color and glow setting');
 }
 

@@ -60,7 +60,7 @@ for (const viewport of viewports) {
       await openApp(page);
       const scripts = await page.locator('script[src]').evaluateAll((elements) => elements.map((element) => element.getAttribute('src')));
       expect(scripts.length).toBeGreaterThan(0);
-      expect(scripts.every((src) => src.startsWith('/assets/') && src.endsWith('.js'))).toBe(true);
+      expect(scripts.every((src) => /^\.?\/assets\/[^/]+\.js$/.test(src))).toBe(true);
       expect(await readCommit(page)).toMatchObject({ renderId: 0, sourceGeneration: 0, text: '' });
 
       const commits = [];

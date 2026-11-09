@@ -51,23 +51,62 @@ export function nearestMeasuredIndex(levels, value) {
   return value - levels[low] <= levels[low + 1] - value ? low : low + 1;
 }
 
+// Auto contrast is opt-in, but its live range must not chase every moving
+// highlight. A short exponential average holds the black/white points stable;
+// the first committed frame still uses its exact range.
+export const AUTO_CONTRAST_ALPHA = 0.2;
+
+export function updateAutoRange(gray, range, alpha = AUTO_CONTRAST_ALPHA) {
+  if (!range || typeof range !== 'object') throw new TypeError('Auto-contrast range state is required');
+  if (!Number.isFinite(alpha) || alpha <= 0 || alpha > 1) {
+    throw new RangeError('Auto-contrast alpha must be finite and in (0, 1]');
+  }
+  let minimum = 255;
+  let maximum = 0;
+  for (let i = 0; i < gray.length; i++) {
+    minimum = Math.min(minimum, gray[i]);
+    maximum = Math.max(maximum, gray[i]);
+  }
+  // A flat field retains its brightness rather than dividing by zero or
+  // manufacturing contrast. Midtone/inversion still apply when selected.
+  if (minimum === maximum) {
+    range.minimum = 0;
+    range.maximum = 255;
+    range.ready = true;
+    return range;
+  }
+  if (!range.ready) {
+    range.minimum = minimum;
+    range.maximum = maximum;
+    range.ready = true;
+  } else {
+    range.minimum += (minimum - range.minimum) * alpha;
+    range.maximum += (maximum - range.maximum) * alpha;
+  }
+  return range;
+}
+
 // In-place processing. The renderer only allocates the 256-entry LUT when tone
 // is enabled; a neutral Original never enters this stage.
-export function applyTone(gray, look, lut) {
+export function applyTone(gray, look, lut, range = null) {
   if (!look.autoContrast && look.midtone === 1 && !look.invert) return gray;
   if (!(lut instanceof Uint8Array) || lut.length !== 256) throw new TypeError('Tone LUT must have 256 bytes');
   let minimum = 0;
   let maximum = 255;
   if (look.autoContrast) {
-    minimum = 255;
-    maximum = 0;
-    for (let i = 0; i < gray.length; i++) {
-      minimum = Math.min(minimum, gray[i]);
-      maximum = Math.max(maximum, gray[i]);
+    if (range) {
+      updateAutoRange(gray, range);
+      minimum = range.minimum;
+      maximum = range.maximum;
+    } else {
+      minimum = 255;
+      maximum = 0;
+      for (let i = 0; i < gray.length; i++) {
+        minimum = Math.min(minimum, gray[i]);
+        maximum = Math.max(maximum, gray[i]);
+      }
+      if (minimum === maximum) { minimum = 0; maximum = 255; }
     }
-    // A flat field retains its brightness rather than dividing by zero or
-    // manufacturing contrast. Midtone/inversion still apply when selected.
-    if (minimum === maximum) { minimum = 0; maximum = 255; }
   }
   for (let i = 0; i < 256; i++) {
     const unit = Math.max(0, Math.min(1, (i - minimum) / (maximum - minimum)));

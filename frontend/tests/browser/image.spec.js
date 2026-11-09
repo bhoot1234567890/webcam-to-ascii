@@ -39,13 +39,22 @@ async function savedPngPixels(page) {
     ).data];
     const pixels = context.getImageData(0, 0, bitmap.width, bitmap.height).data;
     let white = 0;
+    let pink = 0;
+    let purple = 0;
     for (let index = 0; index < pixels.length; index += 4) {
-      if (pixels[index] > 245 && pixels[index + 1] > 245 && pixels[index + 2] > 245) white += 1;
+      const red = pixels[index];
+      const green = pixels[index + 1];
+      const blue = pixels[index + 2];
+      if (red > 245 && green > 245 && blue > 245) white += 1;
+      if (red === 255 && green === 79 && blue === 216) pink += 1;
+      if (red === 168 && green === 85 && blue === 247) purple += 1;
     }
     return {
       width: bitmap.width,
       height: bitmap.height,
       white,
+      pink,
+      purple,
       topLeft: pixel(0, 0),
       topCenter: pixel(bitmap.width / 2, 5),
       bottomCenter: pixel(bitmap.width / 2, bitmap.height - 5),
@@ -458,6 +467,40 @@ test('SAVE downloads a PNG of the committed frame', async ({ page }) => {
   expect(download.suggestedFilename()).toMatch(/^clack-\d{14}\.png$/);
   const bytes = readFileSync(await download.path());
   expect(bytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+});
+
+test('NEON defaults to a clipped two-ink preview and saves both inks', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+  const output = page.locator('#ascii-output');
+  await expect(page.locator('#open-ink')).toContainText('Neon');
+  await expect(page.locator('body')).toHaveAttribute('data-ink', 'neon');
+  await expect(output).toHaveCSS('color', 'rgba(0, 0, 0, 0)');
+  await expect.poll(() => output.evaluate((element) => getComputedStyle(element).backgroundImage))
+    .toMatch(/^url\("data:image\/png;base64,/);
+
+  const renderId = await output.evaluate((element) => element.dataset.renderId);
+  await openPanel(page, 'style');
+  await page.locator('input[name="text-tint"][value="#ffd663"]').check();
+  await expect(output).toHaveCSS('color', 'rgb(255, 214, 99)');
+  await expect(output).toHaveCSS('background-image', 'none');
+  await page.locator('input[name="text-tint"][value="neon"]').check();
+  await expect(output).toHaveCSS('color', 'rgba(0, 0, 0, 0)');
+  await expect.poll(() => output.evaluate((element) => getComputedStyle(element).backgroundImage))
+    .toMatch(/^url\("data:image\/png;base64,/);
+  expect(await output.evaluate((element) => element.dataset.renderId)).toBe(renderId);
+  await page.locator('#close-look-sheet').click();
+
+  await selectExportFrame(page, 'none');
+  const pixels = await savedPngPixels(page);
+  expect(pixels.pink).toBeGreaterThan(100);
+  expect(pixels.purple).toBeGreaterThan(100);
+
+  await page.reload();
+  await expect(page.locator('#open-ink')).toContainText('Neon');
+  await openPanel(page, 'style');
+  await expect(page.locator('input[name="text-tint"][value="neon"]')).toBeChecked();
+  await expect(page.locator('#text-color-value')).toHaveText('#A855F7');
 });
 
 test('SAVE frames the PNG in the selected desktop window and taskbar', async ({ page }) => {

@@ -250,15 +250,17 @@ export function createRenderer(width, height, settings = {}, look = {}, charSet 
   if (!edges) edgeCodes.fill(32);
   const sobel = edges ? { gx, gy, magnitude, angles } : null;
   const toneLut = tone ? new Uint8Array(256) : null;
+  const autoRange = processing.autoContrast ? { minimum: 0, maximum: 255, ready: false } : null;
   const sharpnessScratch = processing.sharpness > 0 ? (scratch ?? new Float64Array(length)) : null;
   const ramp = edges ? null : buildMeasuredRamp(characters.compactEntries);
   const shadeRamp = edges ? buildRamp(characters.fullEntries) : null;
   const errors = processing.id === 'photo' ? new Float64Array(2 * (width + 2)) : null;
   const rows = new Array(height);
   let text = '';
+  let committed = false;
 
   function render() {
-    if (tone) applyTone(gray, processing, toneLut);
+    if (tone) applyTone(gray, processing, toneLut, autoRange);
     if (sharpnessScratch) unsharpMask(gray, width, height, processing.sharpness, sharpnessScratch);
     if (edges) {
       for (let i = 0; i < length; i++) normalized[i] = gray[i] / 255;
@@ -274,6 +276,7 @@ export function createRenderer(width, height, settings = {}, look = {}, charSet 
       bayerOrdered(gray, width, height, ramp, shadeCodes);
     }
     text = codesToText(shadeCodes, edgeCodes, width, height, rows);
+    committed = true;
     return text;
   }
 
@@ -299,6 +302,10 @@ export function createRenderer(width, height, settings = {}, look = {}, charSet 
         magnitude: magnitude?.slice() ?? null, angles: angles?.slice() ?? null,
         shadeCodes: shadeCodes.slice(), edgeCodes: edgeCodes.slice(),
       };
+    },
+    tone() {
+      if (!committed) throw new Error('The renderer has no committed ASCII frame.');
+      return gray.slice();
     },
   };
 }

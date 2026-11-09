@@ -138,4 +138,24 @@ describe('look renderer stages', () => {
     }
     expect(createRenderer(2, 2, {}, LOOKS[0]).renderGray(input)).toBe(original);
   });
+
+  test('exposes the tonal plane only after a frame is committed', () => {
+    const renderer = createRenderer(2, 2);
+    expect(() => renderer.tone()).toThrow('committed');
+    const input = Uint8Array.from([0, 64, 128, 255]);
+    renderer.renderGray(input);
+    expect(renderer.tone()).toEqual(input);
+    renderer.renderGray(Uint8Array.from([255, 128, 64, 0]));
+    expect(renderer.tone()).toEqual(Uint8Array.from([255, 128, 64, 0]));
+  });
+
+  test('a live auto-contrast range is smoothed before it reaches the tonal plane', () => {
+    const renderer = createRenderer(3, 1, {}, {
+      id: 'photo', autoContrast: true, midtone: 1, sharpness: 0,
+    });
+    renderer.renderGray(Uint8Array.from([50, 75, 100]));
+    expect(renderer.tone()).toEqual(Uint8Array.from([0, 128, 255]));
+    renderer.renderGray(Uint8Array.from([50, 75, 150]));
+    expect(renderer.tone()).toEqual(Uint8Array.from([0, 106, 255]));
+  });
 });

@@ -165,6 +165,9 @@ Reference anchor: darkroom instrument meets phosphor terminal (VT-class hardware
 
 ### 3.4.1 Implementation amendment log
 
+
+- **2026-11-09, Neon live-camera stability correction:** the RCA found two compounding sources of color-only strobing: the default Photo recipe's per-frame auto-contrast range and an unfiltered hard two-ink threshold. The renderer now smooths the live auto-contrast black/white range, and the color plane has a short EMA plus deadband before the Bayer split. Both resets use the exact committed tone plane on a new source or still frame; glyphs, map, PNG and video share the same colors.
+- **2026-11-09, Neon tritone artwork implemented:** the default Ink becomes Neon — black paper, purple `#a855f7` midtones and pink `#ff4fd8` highlights, split at the committed tonal plane with a narrow 4×4 ordered-dither seam. The preview keeps the real `<pre>` text and clips a per-cell palette map to it; PNG and video paint two ink layers. The nine mono swatches and custom picker remain, and the chrome/window chrome keep the owner-approved cyan/amber and white 1-bit systems.
 - **2026-11-09, cyberdeck skin implemented** (Stitch concept `Neon Cyberpunk Grid`, plan in `stitch/neon-cyberpunk-grid/IMPLEMENTATION.md`): D5 amended as above; D3 affirmed (Roboto Mono kept); D4 affirmed (square edges); artwork effects remain toggle-only per D-C. Icons (6 lucide glyphs, in-document sprite, `currentColor`) added per D9. Ambient glow is chrome-only; `#ascii-output` keeps `text-shadow: none` at rest.
 
 ---

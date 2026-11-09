@@ -77,6 +77,7 @@ describe('normalizePreset', () => {
     const preset = normalizePreset({ name: 'Bare', framing: 'full', tint: 'default', glow: false });
     expect(preset.settings).toEqual(normalizeSettings({}));
     expect(preset.look).toEqual(normalizeLook({}));
+    expect(normalizePreset({ name: 'Neon', framing: 'full', tint: 'neon', glow: true }).tint).toBe('neon');
   });
 
   test('rejects non-object presets, unsupported frames, bad tints, and bad glow values', () => {

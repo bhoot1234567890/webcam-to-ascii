@@ -74,8 +74,11 @@ async function artworkRaster({ png } = {}) {
   const background = [...pixels.subarray(0, 4)];
   let left = canvas.width, right = -1, top = canvas.height, bottom = -1;
   let red = 0, green = 0, blue = 0, ink = 0, minAlpha = 255;
+  let pink = 0, purple = 0;
   for (let index = 0; index < pixels.length; index += 4) {
     minAlpha = Math.min(minAlpha, pixels[index + 3]);
+    if (pixels[index] === 255 && pixels[index + 1] === 79 && pixels[index + 2] === 216) pink += 1;
+    if (pixels[index] === 168 && pixels[index + 1] === 85 && pixels[index + 2] === 247) purple += 1;
     if (Math.max(pixels[index], pixels[index + 1], pixels[index + 2]) <= 48) continue;
     const x = (index / 4) % canvas.width;
     const y = Math.floor(index / 4 / canvas.width);
@@ -90,6 +93,7 @@ async function artworkRaster({ png } = {}) {
   const samples = [...small.getImageData(0, 0, 64, 64).data];
   const result = {
     width: canvas.width, height: canvas.height, background, minAlpha, samples,
+    pink, purple,
     bounds: [left / canvas.width, right / canvas.width, top / canvas.height, bottom / canvas.height],
     tint: [red / ink, green / ink, blue / ink],
   };
@@ -108,6 +112,9 @@ test('static committed artwork records a playable native interval without period
   await expect(page.locator('#recording-timer')).toHaveText('00:01');
   const later = await readCommit(page);
   expect(later.renderId, 'The preview keeps committing while static video capture is deduplicated').toBeGreaterThan(first.renderId);
+  const raster = await page.evaluate(artworkRaster);
+  expect(raster.pink, 'Recorded neon keeps its pink highlight ink').toBeGreaterThan(50);
+  expect(raster.purple, 'Recorded neon keeps its purple midtone ink').toBeGreaterThan(50);
   const capture = await captureState(page);
   expect(capture.text).toBe(first.text);
   if (capture.manual) {

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import inkUsage from '../../../ink-usage.json';
 import {
   applyTone, unsharpMask, buildMeasuredRamp, getCompactRamp,
-  nearestMeasuredIndex, floydSteinberg, bayerOrdered,
+  nearestMeasuredIndex, floydSteinberg, bayerOrdered, updateAutoRange,
 } from '../../src/effects.js';
 import { normalizeLook } from '../../src/looks.js';
 
@@ -134,6 +134,31 @@ describe('opt-in tone', () => {
     const flat = bytes(80, 80);
     applyTone(flat, normalizeLook({ autoContrast: true, invert: true }), lut);
     expect(flat).toEqual(bytes(175, 175));
+  });
+
+  test('a live auto-contrast range is exact first and smoothed afterwards', () => {
+    const lut = new Uint8Array(256);
+    const contrast = normalizeLook({ autoContrast: true });
+    const range = { minimum: 0, maximum: 255, ready: false };
+    const first = bytes(50, 75, 100);
+    applyTone(first, contrast, lut, range);
+    expect(range).toEqual({ minimum: 50, maximum: 100, ready: true });
+    expect(first).toEqual(bytes(0, 128, 255));
+
+    const second = bytes(0, 200, 255);
+    applyTone(second, contrast, lut, range);
+    expect(range.minimum).toBeCloseTo(40);
+    expect(range.maximum).toBeCloseTo(131);
+    expect(second).toEqual(bytes(0, 255, 255));
+
+    const flat = bytes(80, 80);
+    applyTone(flat, contrast, lut, range);
+    expect(flat).toEqual(bytes(80, 80));
+    expect(range).toEqual({ minimum: 0, maximum: 255, ready: true });
+
+    expect(() => updateAutoRange(bytes(1), null)).toThrow(TypeError);
+    expect(() => updateAutoRange(bytes(1), range, 0)).toThrow(RangeError);
+    expect(() => updateAutoRange(bytes(1), range, 1.1)).toThrow(RangeError);
   });
 });
 

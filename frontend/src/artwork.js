@@ -1,3 +1,5 @@
+import { buildTritoneLayers } from './tritone.js';
+
 export const ARTWORK_BACKGROUND = '#09090b';
 
 function validateText(text, columns, rows) {
@@ -19,6 +21,15 @@ function validateFrame(frame) {
       (frame.crt !== undefined && typeof frame.crt !== 'boolean')) {
     throw new Error('The ASCII frame is not ready. Wait for the preview and try again.');
   }
+  const hasAccent = frame.accentColor !== undefined;
+  const hasTones = frame.tones !== undefined;
+  if (hasAccent !== hasTones ||
+      (hasAccent && (typeof frame.accentColor !== 'string' || !frame.accentColor.trim()))) {
+    throw new Error('The ASCII tone map is incomplete.');
+  }
+  if (hasTones && (!(frame.tones instanceof Uint8Array) || frame.tones.length !== frame.columns * frame.rows)) {
+    throw new Error('The ASCII tone map is incomplete.');
+  }
   validateText(frame.text, frame.columns, frame.rows);
 }
 
@@ -35,7 +46,7 @@ function isOpaque(color) {
 }
 
 /** Snapshot the committed grid and its untransformed presentation, not the camera or fitted DOM size. */
-export function readAsciiArtwork(element, { glow = false, crt = false } = {}) {
+export function readAsciiArtwork(element, { glow = false, crt = false, tones = null, ink = null } = {}) {
   if (!element?.dataset || typeof element.textContent !== 'string') {
     throw new TypeError('Expected the committed ASCII output element.');
   }
@@ -49,11 +60,15 @@ export function readAsciiArtwork(element, { glow = false, crt = false } = {}) {
     fontFamily: style.fontFamily,
     fontSize: Number.parseFloat(style.fontSize),
     lineHeight: Number.parseFloat(style.lineHeight),
-    color: style.color,
+    color: ink?.color ?? style.color,
     background: isOpaque(background) ? background : ARTWORK_BACKGROUND,
     glow,
     crt,
   };
+  if (ink?.accent && tones) {
+    frame.accentColor = ink.accent;
+    frame.tones = tones;
+  }
   validateFrame(frame);
   return Object.freeze(frame);
 }
@@ -146,23 +161,53 @@ export function createAsciiArtwork(frame, options = {}) {
     configureFont(context, font);
     const layout = computeArtworkLayout(presentation, measureFont(context), options);
     const color = resolveColor(context, presentation.color);
+    const accentColor = presentation.accentColor
+      ? resolveColor(context, presentation.accentColor) : null;
     const background = resolveColor(context, presentation.background);
     if (!isOpaque(background)) throw new Error('The ASCII artwork background must be opaque.');
     canvas.width = layout.width;
     canvas.height = layout.height;
     // Setting dimensions resets context state, including the measured font and baseline.
     configureFont(context, font);
+
+    function paintRows(rows, ink, shadow) {
+      context.fillStyle = ink;
+      context.shadowColor = ink;
+      context.shadowBlur = shadow ? 6 * layout.scale : 0;
+      for (let row = 0; row < rows.length; row++) {
+        context.fillText(rows[row], 0, layout.baseline + row * presentation.lineHeight);
+      }
+      context.shadowBlur = 0;
+    }
+
     return {
       canvas,
       layout,
-      draw(text) {
+      draw(text, tones = presentation.tones) {
         // Validate before touching pixels so a malformed commit cannot erase the last good frame.
         const lines = validateText(text, presentation.columns, presentation.rows);
+        let layers = null;
+        if (accentColor) {
+          if (!(tones instanceof Uint8Array) || tones.length !== presentation.columns * presentation.rows) {
+            throw new Error('The ASCII tone map is incomplete or changed.');
+          }
+          layers = buildTritoneLayers(text, tones, presentation.columns, presentation.rows);
+        }
         context.setTransform(1, 0, 0, 1, 0, 0);
         context.shadowBlur = 0;
         context.fillStyle = background;
         context.fillRect(0, 0, canvas.width, canvas.height);
         context.setTransform(layout.scale, 0, 0, layout.scale, layout.x, layout.y);
+        if (layers) {
+          if (presentation.glow) {
+            // Each ink owns its halo; the two bounded passes share the reserved gutter.
+            paintRows(layers.primary, color, true);
+            paintRows(layers.accent, accentColor, true);
+          }
+          paintRows(layers.primary, color, false);
+          paintRows(layers.accent, accentColor, false);
+          return;
+        }
         context.fillStyle = color;
         if (presentation.glow) {
           // Canvas shadow blur uses device pixels; gutters reserve twice this bounded radius.

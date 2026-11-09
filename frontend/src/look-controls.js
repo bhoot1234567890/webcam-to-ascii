@@ -3,9 +3,10 @@ import { FRAMINGS } from './framing.js';
 import { DENSITIES, findDensity, findDensityBySettings } from './density.js';
 import { CHARSETS } from './charsets.js';
 import { EXPORT_FRAMES, normalizeExportFrame } from './export-frames.js';
+import { NEON_TINT, NEON_PRIMARY } from './tritone.js';
 
 const TINT_LABELS = {
-  default: 'Paper', '#ffffff': 'White', '#ffd663': 'Amber', '#9be5a2': 'Green',
+  default: 'Paper', [NEON_TINT]: 'Neon', '#ffffff': 'White', '#ffd663': 'Amber', '#9be5a2': 'Green',
   '#3aff81': 'Phosphor', '#6ce4ff': 'Ice', '#ffe14d': 'Yellow', '#ff5c5c': 'Red', '#ff6bd6': 'Magenta',
 };
 const FIELD_HELP = { sigma1: 'sigma1-help', sigma2: 'sigma2-help', 'edge-threshold': 'edge-threshold-help' };
@@ -20,7 +21,7 @@ export function createLookControls({
   const listeners = [];
   let opener = null;
   let disabled = false;
-  let state = { look: normalizeLook(), framing: 'full', tint: '#6ce4ff', glow: true, crt: false, exportFrame: 'win95', density: 'balanced', charSet: 'dense' };
+  let state = { look: normalizeLook(), framing: 'full', tint: NEON_TINT, glow: true, crt: false, exportFrame: 'win95', density: 'balanced', charSet: 'dense' };
 
   const listen = (node, event, handler) => {
     node.addEventListener(event, handler);
@@ -274,8 +275,9 @@ export function createLookControls({
     byId('sharpness-value').textContent = state.look.sharpness.toFixed(2);
     byId('look-invert').checked = state.look.invert;
     for (const radio of sheet.querySelectorAll('input[name="text-tint"]')) radio.checked = radio.value === state.tint;
-    byId('text-color').value = state.tint === 'default' ? '#e2e9e7' : state.tint;
-    byId('text-color-value').textContent = (state.tint === 'default' ? '#e2e9e7' : String(state.tint)).toUpperCase();
+    const customTint = state.tint === 'default' ? '#e2e9e7' : state.tint === NEON_TINT ? NEON_PRIMARY : state.tint;
+    byId('text-color').value = customTint;
+    byId('text-color-value').textContent = customTint.toUpperCase();
     byId('soft-glow').checked = state.glow;
     byId('crt-effect').checked = state.crt === true;
     byId('crt-effect').disabled = disabled || state.crtUnsupported === true;

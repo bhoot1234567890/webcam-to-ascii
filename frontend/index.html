@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <title>clack — A camera with character.</title>
   </head>
-  <body data-guides="off" data-glow="on" data-capture-mode="photo" data-recording-state="idle" style="--ascii-tint:#6ce4ff">
+  <body data-guides="off" data-glow="on" data-ink="mono" data-capture-mode="photo" data-recording-state="idle" style="--ascii-tint:#a855f7">
 <svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
   <symbol id="i-crosshair" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="22" x2="18" y1="12" y2="12" /><line x1="6" x2="2" y1="12" y2="12" /><line x1="12" x2="12" y1="6" y2="2" /><line x1="12" x2="12" y1="22" y2="18" /></symbol>
   <symbol id="i-folder-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" /></symbol>
@@ -116,17 +116,18 @@
               <fieldset id="char-choices" class="choices"><legend>CHARACTERS</legend></fieldset>
               <p class="field-help">Shading ramp. Directional edge strokes stay fixed.</p>
               <fieldset id="tint-choices" class="choices"><legend>INK</legend>
+                <label class="choice"><input type="radio" name="text-tint" value="neon" checked /><span class="swatch swatch-neon" aria-hidden="true"></span><span>NEON</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="default" /><span class="swatch" aria-hidden="true" style="background:#e2e9e7"></span><span>PAPER</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ffffff" /><span class="swatch" aria-hidden="true" style="background:#ffffff"></span><span>WHITE</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ffd663" /><span class="swatch" aria-hidden="true" style="background:#ffd663"></span><span>AMBER</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#9be5a2" /><span class="swatch" aria-hidden="true" style="background:#9be5a2"></span><span>GREEN</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#3aff81" /><span class="swatch" aria-hidden="true" style="background:#3aff81"></span><span>PHOSPHOR</span></label>
-                <label class="choice"><input type="radio" name="text-tint" value="#6ce4ff" checked /><span class="swatch" aria-hidden="true" style="background:#6ce4ff"></span><span>ICE</span></label>
+                <label class="choice"><input type="radio" name="text-tint" value="#6ce4ff" /><span class="swatch" aria-hidden="true" style="background:#6ce4ff"></span><span>ICE</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ffe14d" /><span class="swatch" aria-hidden="true" style="background:#ffe14d"></span><span>YELLOW</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ff5c5c" /><span class="swatch" aria-hidden="true" style="background:#ff5c5c"></span><span>RED</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ff6bd6" /><span class="swatch" aria-hidden="true" style="background:#ff6bd6"></span><span>MAGENTA</span></label>
               </fieldset>
-              <div class="ink-row"><label for="text-color">CUSTOM</label><input id="text-color" type="color" value="#6ce4ff" /><output id="text-color-value" for="text-color">#6CE4FF</output></div>
+              <div class="ink-row"><label for="text-color">CUSTOM</label><input id="text-color" type="color" value="#a855f7" /><output id="text-color-value" for="text-color">#A855F7</output></div>
               <label class="check" for="soft-glow"><input id="soft-glow" type="checkbox" checked />SOFT GLOW</label>
               <label class="check" for="crt-effect"><input id="crt-effect" type="checkbox" />CRT</label>
             </section>
@@ -179,7 +180,7 @@
         <button id="open-looks" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-aperture"></use></svg>LOOK <span id="look-label">Original</span></button>
         <button id="open-grid" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-grid-2x2"></use></svg>DETAIL <span id="grid-density-label">Balanced</span></button>
         <button id="open-chars" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-type"></use></svg>CHARS <span id="chars-label">Dense</span></button>
-        <button id="open-ink" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-droplet"></use></svg>INK <span id="ink-label">Ice</span></button>
+        <button id="open-ink" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-droplet"></use></svg>INK <span id="ink-label">Neon</span></button>
         </div>
         <div class="readout-meta">
           <span id="grid-label"></span>

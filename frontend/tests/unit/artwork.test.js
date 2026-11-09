@@ -78,6 +78,23 @@ test('nonopaque or missing viewport backgrounds use the shared opaque fallback',
   });
 });
 
+test('a neon snapshot overrides transparent CSS and carries the tone plane', async () => {
+  const element = {
+    dataset: { columns: '2', rows: '2' }, textContent: frame.text,
+    closest: () => ({}),
+  };
+  const style = { fontFamily: frame.fontFamily, fontSize: '12px', lineHeight: '14.4px', color: 'rgba(0, 0, 0, 0)' };
+  const tones = Uint8Array.from([0, 255, 255, 0]);
+  await withGlobals({ getComputedStyle: () => ({ ...style, backgroundColor: 'rgb(9, 9, 11)' }) }, () => {
+    const snapshot = readAsciiArtwork(element, {
+      ink: { color: '#a855f7', accent: '#ff4fd8' }, tones,
+    });
+    expect(snapshot.color).toBe('#a855f7');
+    expect(snapshot.accentColor).toBe('#ff4fd8');
+    expect(snapshot.tones).toBe(tones);
+  });
+});
+
 // These doubles check setup, validation and resource ownership, not raster or encoded image quality.
 async function withCanvas(run, { fontReady = true, badMetrics = false } = {}) {
   const canvases = [];
@@ -127,6 +144,23 @@ test('deferred drawing fixes the grid at setup and rejects malformed commits bef
     }
     artwork.draw('[]\ng_');
     expect(Object.isFrozen(artwork.layout)).toBe(true);
+  });
+});
+
+test('tritone artwork draws the two ink layers and rejects a mismatched tone plane', async () => {
+  await withCanvas(() => {
+    const tones = Uint8Array.from([0, 255, 255, 0]);
+    const tritone = {
+      ...frame, text: 'Mg\n@_', color: '#a855f7', accentColor: '#ff4fd8', tones,
+    };
+    const artwork = createAsciiArtwork(tritone);
+    artwork.draw(tritone.text);
+    const painted = artwork.canvas.calls.filter(([type]) => type === 'text');
+    expect(painted.map((call) => call[4])).toEqual(['M ', ' _', ' g', '@ ']);
+    expect(new Set(painted.map((call) => call[3]))).toEqual(new Set(['#a855f7', '#ff4fd8']));
+    const count = artwork.canvas.calls.length;
+    expect(() => artwork.draw(tritone.text, new Uint8Array(3))).toThrow('tone map');
+    expect(artwork.canvas.calls).toHaveLength(count);
   });
 });
 

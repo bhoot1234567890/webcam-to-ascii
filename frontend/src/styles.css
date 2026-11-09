@@ -23,6 +23,8 @@
   --accent-dim: rgba(0, 240, 255, 0.6);
   --accent-edge: rgba(0, 240, 255, 0.5);
   --accent-glow: rgba(0, 240, 255, 0.35);
+  --neon-primary: #a855f7;
+  --neon-accent: #ff4fd8;
   --amber: #ffd663;
   --error-ink: #ffb4a3;
   --error-border: #5c3630;
@@ -129,6 +131,39 @@ body[data-glow="on"][data-crt="on"] #ascii-output {
   text-shadow: 1px 0 rgba(255, 60, 60, 0.55), -1px 0 rgba(60, 180, 255, 0.55),
     0 0 3px currentColor, 0 0 6px color-mix(in srgb, currentColor 35%, transparent);
 }
+/* Tritone preview: one character cell is one pixel of the inline palette map,
+   clipped to the unchanged text. The two inks are solid; only the midtone seam
+   is ordered-dithered. */
+body[data-ink="neon"] #ascii-output {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: var(--ascii-map, none);
+  background-position: 0 0;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+body[data-ink="neon"][data-glow="on"] #ascii-output {
+  text-shadow: 0 0 3px color-mix(in srgb, var(--neon-accent) 70%, transparent),
+    0 0 7px color-mix(in srgb, var(--neon-primary) 55%, transparent);
+}
+body[data-ink="neon"][data-crt="on"] #ascii-output {
+  text-shadow: 1px 0 rgba(255, 60, 60, 0.55), -1px 0 rgba(60, 180, 255, 0.55);
+}
+body[data-ink="neon"][data-glow="on"][data-crt="on"] #ascii-output {
+  text-shadow: 1px 0 rgba(255, 60, 60, 0.55), -1px 0 rgba(60, 180, 255, 0.55),
+    0 0 3px color-mix(in srgb, var(--neon-accent) 70%, transparent),
+    0 0 7px color-mix(in srgb, var(--neon-primary) 55%, transparent);
+}
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  body[data-ink="neon"] #ascii-output {
+    color: var(--neon-primary);
+    -webkit-text-fill-color: currentColor;
+    background-image: none;
+  }
+}
 
 /* ————— settings drawer ————— */
 .drawer { display: flex; flex-direction: column; min-height: 0; flex-shrink: 1; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--panel); }
@@ -170,6 +205,7 @@ body[data-glow="on"][data-crt="on"] #ascii-output {
 .choice span, .choice strong { font-size: 12px; font-weight: 500; }
 .choice-note { flex-basis: 100%; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0.02em; }
 .swatch { width: 12px; height: 12px; border: 1px solid var(--border); }
+.swatch-neon { background: linear-gradient(90deg, var(--neon-primary) 50%, var(--neon-accent) 50%); }
 
 .camera-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .camera-fields label { display: block; margin: 0 0 6px; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0.14em; }

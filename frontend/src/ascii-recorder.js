@@ -18,7 +18,7 @@ const MIME_TYPES = [
 ];
 const FRAME_INTERVAL = 1000 / RECORDING_LIMITS.frameRate;
 const PAINT_FENCE_TIMEOUT = 250;
-const PRESENTATION_KEYS = ['columns', 'rows', 'fontFamily', 'fontSize', 'lineHeight', 'color', 'background', 'glow', 'crt'];
+const PRESENTATION_KEYS = ['columns', 'rows', 'fontFamily', 'fontSize', 'lineHeight', 'color', 'accentColor', 'background', 'glow', 'crt'];
 
 /** The encoder's actual container, not the requested codec, determines the filename. */
 export function recordingExtension(mimeType) {
@@ -51,7 +51,22 @@ function validateFrame(frame) {
       typeof frame.background !== 'string' || !frame.background || typeof frame.glow !== 'boolean') {
     throw new Error('The ASCII frame is not ready. Wait for the live preview and try Record again.');
   }
+  const hasAccent = frame.accentColor !== undefined;
+  const hasTones = frame.tones !== undefined;
+  if (hasAccent !== hasTones ||
+      (hasAccent && (typeof frame.accentColor !== 'string' || !frame.accentColor))) {
+    throw new Error('The ASCII tone map is incomplete. Wait for the live preview and try Record again.');
+  }
+  if (hasTones && (!(frame.tones instanceof Uint8Array) || frame.tones.length !== frame.columns * frame.rows)) {
+    throw new Error('The ASCII tone map is incomplete. Wait for the live preview and try Record again.');
+  }
   validateGrid(frame.text, frame.columns, frame.rows);
+}
+
+function validateTones(tones, columns, rows) {
+  if (!(tones instanceof Uint8Array) || tones.length !== columns * rows) {
+    throw new Error('The live ASCII tone map is incomplete. Wait for the preview to settle and try again.');
+  }
 }
 
 function validateGrid(text, columns, rows) {
@@ -89,6 +104,7 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
     active.paintFrame = null;
     active.drawTimer = null;
     active.pendingText = null;
+    active.pendingTones = null;
   }
 
   function release(active) {
@@ -136,15 +152,24 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
     return Math.min(RECORDING_LIMITS.maxDurationMs, Math.max(0, performance.now() - active.startedAt));
   }
 
-  function draw(active, text) {
-    active.artwork.draw(text);
+  function draw(active, text, tones) {
+    active.artwork.draw(text, tones);
     if (active.crt) active.crt.render(active.artwork.canvas, { rows: active.frame.rows });
     // Request on the actual stream track, after painting and after the encoder has started.
     // A request is a capture opportunity, not a promise of one encoded frame per commit.
     if (active.captureTrack) active.captureTrack.requestFrame();
     active.frames++;
     active.lastText = text;
+    active.lastTones = tones ?? null;
     active.lastDraw = performance.now();
+  }
+
+  function sameTones(a, b) {
+    if (a == null || b == null) return a == null && b == null;
+    if (a === b) return true;
+    if (!(a instanceof Uint8Array) || !(b instanceof Uint8Array) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
   }
 
   function flush(active) {
@@ -159,8 +184,10 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
       return;
     }
     const text = active.pendingText;
+    const tones = active.pendingTones;
     active.pendingText = null;
-    try { draw(active, text); } catch (error) { fail(active, error.message); }
+    active.pendingTones = null;
+    try { draw(active, text, tones); } catch (error) { fail(active, error.message); }
   }
 
   function finish(active) {
@@ -200,13 +227,13 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
     }
   }
 
-  function captureFinalBoundary(active, text) {
+  function captureFinalBoundary(active, text, tones) {
     active.drawTimer = null;
     if (session !== active || state !== 'stopping') return;
     try {
       // Sparse/static canvas streams need an endpoint to retain their elapsed hold. This one
       // explicit repeat is a Stop boundary, not periodic capture of unchanged preview commits.
-      draw(active, text);
+      draw(active, text, tones);
       // Native encoders can miss an immediately stopped canvas update. Give visible canvases
       // two paint opportunities, but never wait indefinitely for RAF in a backgrounded tab.
       active.stopTimer = setTimeout(() => stopEncoder(active), PAINT_FENCE_TIMEOUT);
@@ -230,15 +257,16 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
     if (!active || state !== 'recording') return false;
     active.durationMs = elapsed(active);
     const finalText = active.pendingText ?? active.lastText;
+    const finalTones = active.pendingText !== null ? active.pendingTones : active.lastTones;
     clearTimers(active);
     active.finishTimer = setTimeout(() => fail(active, 'The video encoder did not finish. Try a shorter recording or another browser.'), 10_000);
     transition('stopping');
     if (session !== active) return false;
     const remaining = Math.max(0, FRAME_INTERVAL - (performance.now() - active.lastDraw));
     if (remaining > 0) {
-      active.drawTimer = setTimeout(() => captureFinalBoundary(active, finalText), remaining);
+      active.drawTimer = setTimeout(() => captureFinalBoundary(active, finalText, finalTones), remaining);
     } else {
-      captureFinalBoundary(active, finalText);
+      captureFinalBoundary(active, finalText, finalTones);
     }
     return session === active;
   }
@@ -253,7 +281,7 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
 
   function start(frame) {
     if (disposed || state === 'recording' || state === 'stopping') return false;
-    const active = { chunks: [], bytes: 0, chunkMime: '', frames: 0, pendingText: null, drawTimer: null };
+    const active = { chunks: [], bytes: 0, chunkMime: '', frames: 0, pendingText: null, pendingTones: null, drawTimer: null };
     session = active;
     revokeClip();
     try {
@@ -323,7 +351,7 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
       };
       active.startedAt = performance.now();
       active.recorder.start(1000);
-      draw(active, frame.text);
+      draw(active, frame.text, frame.tones);
       active.clock = setInterval(() => {
         if (session === active && state === 'recording') notify(onTime, elapsed(active));
       }, 250);
@@ -349,15 +377,22 @@ export function createAsciiRecorder({ onState, onTime, onError } = {}) {
         if (PRESENTATION_KEYS.some((key) => key in frame && frame[key] !== active.frame[key])) {
           throw new Error('Recording settings changed. Keep the same ASCII grid and look while recording.');
         }
-        if (frame.text === active.lastText) {
+        if (frame.tones !== undefined) {
+          validateTones(frame.tones, active.frame.columns, active.frame.rows);
+        } else if (active.frame.accentColor !== undefined) {
+          throw new Error('The live ASCII tone map is incomplete. Keep the preview running and try again.');
+        }
+        if (frame.text === active.lastText && sameTones(frame.tones, active.lastTones)) {
           // A queued B followed by the already drawn A must cancel B, not flash it later.
           active.pendingText = null;
+          active.pendingTones = null;
           clearTimeout(active.drawTimer);
           active.drawTimer = null;
           return true;
         }
         validateGrid(frame.text, active.frame.columns, active.frame.rows);
         active.pendingText = frame.text;
+        active.pendingTones = frame.tones ?? null;
         if (active.drawTimer === null) flush(active);
         return session === active;
       } catch (error) {

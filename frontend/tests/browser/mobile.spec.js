@@ -164,13 +164,12 @@ async function haloGeometry(page) {
   });
 }
 
-test('product defaults open on Photo with Ice glow, tone ceilings and fit-only view', async ({ page }) => {
+test('product defaults open on Photo with Neon tritone, tone ceilings and fit-only view', async ({ page }) => {
   await openApp(page);
   await expect(page.locator('#look-label')).toHaveText('Photo');
   await expect(page.locator('#chars-label')).toHaveText('Dense');
-  await expect(page.locator('#open-ink')).toContainText('Ice');
+  await expect(page.locator('#open-ink')).toContainText('Neon');
   await expect(page.locator('body')).toHaveAttribute('data-glow', 'on');
-  await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(108, 228, 255)');
   await expect(page.locator('#fit-output')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#detail-output')).toHaveCount(0);
   await page.locator('#open-looks').tap();
@@ -181,9 +180,9 @@ test('product defaults open on Photo with Ice glow, tone ceilings and fit-only v
   await expect(page.locator('#look-adjusted')).toBeVisible();
   await page.locator('#tab-style').tap();
   await expect(page.locator('input[name="char-set"][value="dense"]')).toBeChecked();
-  await expect(page.locator('input[name="text-tint"][value="#6ce4ff"]')).toBeChecked();
+  await expect(page.locator('input[name="text-tint"][value="neon"]')).toBeChecked();
   await expect(page.locator('#soft-glow')).toBeChecked();
-  await expect(page.locator('#text-color-value')).toHaveText('#6CE4FF');
+  await expect(page.locator('#text-color-value')).toHaveText('#A855F7');
   await page.locator('#tab-window').tap();
   await expect(page.locator('input[name="export-frame"][value="win95"]')).toBeChecked();
   await page.locator('#close-look-sheet').tap();

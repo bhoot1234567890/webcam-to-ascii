@@ -15,14 +15,20 @@ self.onmessage = ({ data }) => {
     const settings = normalizeSettings(data.settings);
     const look = normalizeLook(data.look);
     const charSet = normalizeCharSet(data.charSet);
-    const key = `${width}:${height}:${JSON.stringify(settings)}:${JSON.stringify(look)}:${charSet}`;
+    const generation = Number.isSafeInteger(data.generation) ? data.generation : 0;
+    const epoch = Number.isSafeInteger(data.epoch) ? data.epoch : 0;
+    const key = `${epoch}:${generation}:${width}:${height}:${JSON.stringify(settings)}:${JSON.stringify(look)}:${charSet}`;
     if (key !== cacheKey) {
       renderer = createRenderer(width, height, settings, look, charSet);
       cacheKey = key;
     }
     const start = performance.now();
     const text = renderer.renderRgba(new Uint8Array(rgba));
-    self.postMessage({ type: 'result', id, width, height, text, processingMs: performance.now() - start });
+    const tones = renderer.tone();
+    self.postMessage({
+      type: 'result', id, width, height, text, tones,
+      processingMs: performance.now() - start,
+    }, [tones.buffer]);
   } catch (error) {
     self.postMessage({ type: 'error', id, message: error.message });
   }

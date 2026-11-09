@@ -15,6 +15,9 @@ import { findDensity, findDensityBySettings } from './density.js';
 import { copyAscii, asciiToPng } from './export.js';
 import { DEFAULT_EXPORT_FRAME, normalizeExportFrame } from './export-frames.js';
 import { readAsciiArtwork } from './artwork.js';
+import {
+  NEON_TINT, NEON_PRIMARY, NEON_ACCENT, NEON_INK, createTritoneFilter, tritonePreviewUrl,
+} from './tritone.js';
 import { crtSupported } from './crt/compose.js';
 import { loadSaved, save, loadPresets, savePresets } from './persist.js';
 import { normalizePreset, normalizePresetList, upsertPreset, removePreset } from './presets.js';
@@ -43,10 +46,15 @@ let look = normalizeLook(DEFAULT_LOOK);
 let lookKey = JSON.stringify(look);
 let charSet = DEFAULT_CHAR_SET;
 let framing = 'full';
-let tint = '#6ce4ff';
+let tint = NEON_TINT;
 let glow = true;
 let crt = false;
 let exportFrame = DEFAULT_EXPORT_FRAME;
+let tones = null;
+let toneColumns = 0;
+let toneRows = 0;
+let toneMapUrl = '';
+const tritoneFilter = createTritoneFilter();
 const crtUnsupported = !crtSupported();
 let lookControls = null;
 let presets = [];
@@ -160,7 +168,7 @@ function startRecording() {
   byId('camera-shutter').focus({ preventScroll: true });
   pendingRecording = false;
   showError('');
-  recording.start(readAsciiArtwork(output, { glow, crt }));
+  recording.start(readCurrentArtwork());
   updateControls();
 }
 
@@ -338,7 +346,8 @@ function ensureWorker(explicitAction = false) {
         request.framing === framing &&
         request.source === source && (source.kind === 'image' || source.active);
       if (current) {
-        if (data.width !== request.width || data.height !== request.height || typeof data.text !== 'string') {
+        if (data.width !== request.width || data.height !== request.height || typeof data.text !== 'string' ||
+            !(data.tones instanceof Uint8Array) || data.tones.length !== data.width * data.height) {
           workerFailure();
           return;
         }
@@ -350,6 +359,12 @@ function ensureWorker(explicitAction = false) {
           output.dataset.framing !== request.framing ||
           output.dataset.sourceWidth !== String(request.sourceWidth) ||
           output.dataset.sourceHeight !== String(request.sourceHeight);
+        if (gridChanged || sourceChanged || configurationChanged) tritoneFilter.reset();
+        const stabilized = tritoneFilter.update(data.tones, data.width, data.height);
+        tones = stabilized.tones;
+        toneColumns = data.width;
+        toneRows = data.height;
+        if (stabilized.changed) invalidateToneMap();
         const wasEmpty = output.textContent === '';
         output.textContent = data.text;
         Object.assign(output.dataset, {
@@ -367,6 +382,7 @@ function ensureWorker(explicitAction = false) {
           output.classList.add('just-revealed');
         }
         output.setAttribute('aria-label', `ASCII art, ${data.width} by ${data.height} characters`);
+        syncInk();
         if (gridChanged) outputView.update();
         byId('grid-label').textContent = `GRID ${data.width} × ${data.height}`;
         if (recordingState !== 'recording' && recordingState !== 'stopping' &&
@@ -374,7 +390,10 @@ function ensureWorker(explicitAction = false) {
           setStatus(source.kind === 'image' ? (source.captured ? 'Frame captured' : 'Image ready') : 'Camera live');
         }
         if (recordingState === 'recording' && source.kind === 'camera') {
-          recording.pushFrame({ text: data.text, columns: data.width, rows: data.height });
+          recording.pushFrame({
+            text: data.text, columns: data.width, rows: data.height,
+            ...(tint === NEON_TINT ? { tones: stabilized.tones.slice() } : {}),
+          });
         } else if (pendingRecording && source.kind === 'camera') startRecording();
         if (sourceChanged || configurationChanged) updateControls();
       }
@@ -411,7 +430,8 @@ function submitRender() {
     const id = ++requestId;
     inFlight = { id, width, height, source, generation: source.generation, settingsKey,
       lookKey, charSet, framing, sourceWidth: source.width, sourceHeight: source.height, epoch: renderEpoch };
-    worker.postMessage({ type: 'render', id, width, height, settings, look, charSet, rgba: rgba.buffer }, [rgba.buffer]);
+    worker.postMessage({ type: 'render', id, width, height, settings, look, charSet,
+      generation: source.generation, epoch: renderEpoch, rgba: rgba.buffer }, [rgba.buffer]);
   } catch (error) {
     if (error instanceof RangeError) showError(error.message);
     else workerFailure();
@@ -819,20 +839,62 @@ function changeCharSet(proposed) {
   }
 }
 
+function invalidateToneMap() {
+  toneMapUrl = '';
+}
+
+function ensureToneMap() {
+  if (!tones || toneColumns <= 0 || toneRows <= 0 ||
+      toneColumns !== Number(output.dataset.columns) || toneRows !== Number(output.dataset.rows)) {
+    return '';
+  }
+  if (!toneMapUrl) toneMapUrl = tritonePreviewUrl(tones, toneColumns, toneRows);
+  return toneMapUrl;
+}
+
+function syncInk() {
+  const neon = tint === NEON_TINT;
+  let map = '';
+  if (neon) {
+    try {
+      map = ensureToneMap();
+    } catch {
+      // The mono fallback keeps the artwork visible if the color map cannot be created.
+      map = '';
+    }
+  }
+  document.body.dataset.ink = map ? 'neon' : 'mono';
+  document.body.style.setProperty('--neon-primary', NEON_PRIMARY);
+  document.body.style.setProperty('--neon-accent', NEON_ACCENT);
+  if (tint === 'default') document.body.style.removeProperty('--ascii-tint');
+  else document.body.style.setProperty('--ascii-tint', neon ? NEON_PRIMARY : tint);
+  if (map) output.style.setProperty('--ascii-map', `url("${map}")`);
+  else output.style.removeProperty('--ascii-map');
+}
+
 function applyPresentation({ tint: nextTint, glow: nextGlow, crt: nextCrt }) {
   tint = nextTint;
   glow = nextGlow;
   crt = nextCrt === true;
-  if (tint === 'default') document.body.style.removeProperty('--ascii-tint');
-  else document.body.style.setProperty('--ascii-tint', tint);
+  syncInk();
   document.body.dataset.glow = glow ? 'on' : 'off';
   document.body.dataset.crt = crt ? 'on' : 'off';
   outputView.update();
 }
 
+function currentTritone() {
+  return tint === NEON_TINT && tones ? { tones, ink: NEON_INK } : { tones: null, ink: null };
+}
+
+function readCurrentArtwork() {
+  const { tones: tritoneTones, ink } = currentTritone();
+  return readAsciiArtwork(output, { glow, crt, tones: tritoneTones, ink });
+}
+
 function changePresentation(proposed) {
   if (videoBusy()) { syncLookControls(); return; }
-  if ((proposed.tint !== 'default' && !/^#[0-9a-f]{6}$/i.test(proposed.tint)) ||
+  if ((proposed.tint !== 'default' && proposed.tint !== NEON_TINT &&
+      !/^#[0-9a-f]{6}$/i.test(proposed.tint)) ||
       typeof proposed.glow !== 'boolean' || typeof proposed.crt !== 'boolean') {
     showError('Choose a valid text color, glow and CRT setting');
     syncLookControls();
@@ -923,7 +985,7 @@ try {
       lookKey = JSON.stringify(look);
     } catch { /* keep the default recipe */ }
     if (FRAMINGS.some((frame) => frame.id === saved.framing)) framing = saved.framing;
-    if (saved.tint === 'default' || /^#[0-9a-f]{6}$/i.test(saved.tint)) tint = saved.tint;
+    if (saved.tint === 'default' || saved.tint === NEON_TINT || /^#[0-9a-f]{6}$/i.test(saved.tint)) tint = saved.tint;
     if (typeof saved.glow === 'boolean') glow = saved.glow;
     if (typeof saved.crt === 'boolean' && !crtUnsupported) crt = saved.crt;
     if (saved.exportFrame) exportFrame = normalizeExportFrame(saved.exportFrame);
@@ -998,7 +1060,7 @@ try {
     if (videoBusy() || captureBusy || disposed || !hasCurrentFrame()) return;
     let frame;
     try {
-      frame = readAsciiArtwork(output, { glow, crt });
+      frame = readCurrentArtwork();
     } catch {
       showError('Unable to save the frame');
       return;
