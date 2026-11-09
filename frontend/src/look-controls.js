@@ -1,6 +1,8 @@
 import { LOOKS, normalizeLook } from './looks.js';
 import { FRAMINGS } from './framing.js';
 import { DENSITIES, findDensity, findDensityBySettings } from './density.js';
+import { CHARSETS } from './charsets.js';
+import { EXPORT_FRAMES, normalizeExportFrame } from './export-frames.js';
 
 const TINT_LABELS = {
   default: 'Paper', '#ffffff': 'White', '#ffd663': 'Amber', '#9be5a2': 'Green',
@@ -10,7 +12,7 @@ const FIELD_HELP = { sigma1: 'sigma1-help', sigma2: 'sigma2-help', 'edge-thresho
 
 /** Settings drawer. Only the owner (main.js) commits processing and presentation state. */
 export function createLookControls({
-  onLookChange, onFramingChange, onPresentationChange, onDensityChange,
+  onLookChange, onFramingChange, onPresentationChange, onExportFrameChange, onDensityChange, onCharSetChange,
   onSavePreset, onApplyPreset, onDeletePreset,
 }) {
   const byId = (id) => document.getElementById(id);
@@ -18,7 +20,7 @@ export function createLookControls({
   const listeners = [];
   let opener = null;
   let disabled = false;
-  let state = { look: normalizeLook(), framing: 'full', tint: 'default', glow: false, crt: false, density: 'balanced' };
+  let state = { look: normalizeLook(), framing: 'full', tint: '#6ce4ff', glow: true, crt: false, exportFrame: 'win95', density: 'balanced', charSet: 'dense' };
 
   const listen = (node, event, handler) => {
     node.addEventListener(event, handler);
@@ -47,38 +49,21 @@ export function createLookControls({
   }
   addChoices(byId('look-choices'), 'look', LOOKS);
   addChoices(byId('framing-choices'), 'framing', FRAMINGS);
-  if (byId('density-choices')) addChoices(byId('density-choices'), 'density', DENSITIES);
+  addChoices(byId('density-choices'), 'density', DENSITIES);
+  addChoices(byId('char-choices'), 'char-set', CHARSETS);
+  addChoices(byId('window-choices'), 'export-frame', EXPORT_FRAMES);
 
-  const underline = sheet.querySelector('.tab-underline');
-  const tabsBar = sheet.querySelector('.tabs');
-  function positionUnderline(tab, animate) {
-    if (!underline || !tab || sheet.hidden) return;
-    if (!animate) underline.style.transition = 'none';
-    underline.style.width = `${tab.offsetWidth}px`;
-    underline.style.transform = `translateX(${tab.offsetLeft}px)`;
-    if (!animate) {
-      void underline.offsetWidth;
-      underline.style.transition = '';
-    }
-  }
-  function switchTab(panelId, animate = true) {
-    let activeTab = null;
+  function switchTab(panelId) {
     for (const tab of sheet.querySelectorAll('.tab')) {
       const active = tab.getAttribute('aria-controls') === panelId;
       tab.classList.toggle('active', active);
       tab.setAttribute('aria-selected', String(active));
       tab.tabIndex = active ? 0 : -1;
-      if (active) activeTab = tab;
     }
     for (const panel of sheet.querySelectorAll('.panel')) {
       panel.hidden = panel.id !== panelId;
     }
-    positionUnderline(activeTab, animate);
   }
-  const tabsObserver = new ResizeObserver(() => {
-    positionUnderline(sheet.querySelector('.tab[aria-selected="true"]'), false);
-  });
-  tabsObserver.observe(tabsBar);
   for (const tab of sheet.querySelectorAll('.tab')) {
     listen(tab, 'click', () => switchTab(tab.getAttribute('aria-controls')));
   }
@@ -100,15 +85,14 @@ export function createLookControls({
   }
   function open(event, panelId, focusSelector) {
     opener = event.currentTarget;
-    const wasHidden = sheet.hidden;
     sheet.hidden = false;
-    switchTab(panelId, !wasHidden);
+    switchTab(panelId);
     const checked = sheet.querySelector(`${focusSelector}:checked`) || sheet.querySelector(focusSelector);
     checked?.focus({ preventScroll: true });
   }
-  listen(byId('open-framing'), 'click', (event) => open(event, 'panel-framing', 'input[name="framing"]'));
   listen(byId('open-looks'), 'click', (event) => open(event, 'panel-looks', 'input[name="look"]'));
   if (byId('open-grid')) listen(byId('open-grid'), 'click', (event) => open(event, 'panel-grid', 'input[name="density"]'));
+  if (byId('open-chars')) listen(byId('open-chars'), 'click', (event) => open(event, 'panel-style', 'input[name="char-set"]'));
   listen(byId('open-ink'), 'click', (event) => open(event, 'panel-style', 'input[name="text-tint"]'));
   listen(byId('close-look-sheet'), 'click', close);
   listen(document, 'keydown', (event) => {
@@ -185,6 +169,12 @@ export function createLookControls({
   }
   listen(byId('tint-choices'), 'change', (event) => {
     if (event.target.name === 'text-tint') onPresentationChange({ tint: event.target.value, glow: state.glow, crt: state.crt });
+  });
+  listen(byId('char-choices'), 'change', (event) => {
+    if (event.target.name === 'char-set') onCharSetChange?.(event.target.value);
+  });
+  listen(byId('window-choices'), 'change', (event) => {
+    if (event.target.name === 'export-frame') onExportFrameChange?.(event.target.value);
   });
   listen(byId('text-color'), 'input', (event) => onPresentationChange({ tint: event.target.value, glow: state.glow, crt: state.crt }));
   listen(byId('soft-glow'), 'change', (event) => onPresentationChange({ tint: state.tint, glow: event.target.checked, crt: state.crt }));
@@ -270,11 +260,13 @@ export function createLookControls({
     const adjusted = state.look.autoContrast || state.look.midtone !== 1 || state.look.sharpness !== 0 || state.look.invert;
     for (const radio of sheet.querySelectorAll('input[name="look"]')) radio.checked = radio.value === state.look.id;
     for (const radio of sheet.querySelectorAll('input[name="framing"]')) radio.checked = radio.value === state.framing;
-    byId('look-label').textContent = adjusted ? 'Adjusted' : recipe.label;
+    byId('look-label').textContent = recipe.label;
     byId('open-looks').setAttribute('aria-label', `Looks, ${recipe.label}${adjusted ? ', adjusted' : ''}`);
     byId('look-adjusted').hidden = !adjusted;
-    const framing = FRAMINGS.find((frame) => frame.id === state.framing);
-    byId('framing-label').textContent = framing.id === 'full' ? 'Full' : `${framing.width}:${framing.height}`;
+    const activeCharSet = CHARSETS.find((set) => set.id === state.charSet) ?? CHARSETS[0];
+    for (const radio of sheet.querySelectorAll('input[name="char-set"]')) radio.checked = radio.value === activeCharSet.id;
+    byId('chars-label').textContent = activeCharSet.label;
+    byId('open-chars').setAttribute('aria-label', `Characters, ${activeCharSet.label}`);
     byId('look-auto-contrast').checked = state.look.autoContrast;
     byId('look-midtone').value = state.look.midtone;
     byId('midtone-value').textContent = `${state.look.midtone.toFixed(2)} · ${state.look.midtone < 1 ? 'Lighter' : state.look.midtone > 1 ? 'Darker' : 'Neutral'}`;
@@ -282,10 +274,16 @@ export function createLookControls({
     byId('sharpness-value').textContent = state.look.sharpness.toFixed(2);
     byId('look-invert').checked = state.look.invert;
     for (const radio of sheet.querySelectorAll('input[name="text-tint"]')) radio.checked = radio.value === state.tint;
-    if (state.tint !== 'default') byId('text-color').value = state.tint;
+    byId('text-color').value = state.tint === 'default' ? '#e2e9e7' : state.tint;
+    byId('text-color-value').textContent = (state.tint === 'default' ? '#e2e9e7' : String(state.tint)).toUpperCase();
     byId('soft-glow').checked = state.glow;
     byId('crt-effect').checked = state.crt === true;
     byId('crt-effect').disabled = disabled || state.crtUnsupported === true;
+    const saveFrame = normalizeExportFrame(state.exportFrame);
+    for (const radio of sheet.querySelectorAll('input[name="export-frame"]')) radio.checked = radio.value === saveFrame;
+    const saveFrameLabel = EXPORT_FRAMES.find(({ id }) => id === saveFrame)?.label ?? 'None';
+    byId('save-output').title = saveFrame === 'none' ? 'Download PNG' : `Download PNG with ${saveFrameLabel} window`;
+    byId('save-output').setAttribute('aria-label', saveFrame === 'none' ? 'Save PNG' : `Save PNG with ${saveFrameLabel} window`);
     const inkLabel = TINT_LABELS[state.tint] ?? String(state.tint).toUpperCase();
     byId('ink-label').textContent = inkLabel;
     byId('open-ink').setAttribute('aria-label', `Ink, ${inkLabel}`);
@@ -327,10 +325,9 @@ export function createLookControls({
     close,
     setDisabled,
     dispose() {
-      tabsObserver.disconnect();
       sheet.hidden = true;
       byId('preset-list').replaceChildren();
-      for (const fieldset of [byId('look-choices'), byId('framing-choices'), byId('density-choices')].filter(Boolean)) {
+      for (const fieldset of [byId('look-choices'), byId('framing-choices'), byId('density-choices'), byId('char-choices'), byId('window-choices')].filter(Boolean)) {
         for (const label of fieldset.querySelectorAll('.choice')) label.remove();
       }
     },

@@ -1,8 +1,7 @@
-/** Fit presentation only; the renderer's grid, text, and cell proportions stay intact. */
-export function createOutputView(viewport, output, fitButton, detailButton) {
+/** Fit-only presentation; the renderer's grid, text, and cell proportions stay intact. */
+export function createOutputView(viewport, output, fitButton) {
   const stage = output.parentElement;
   const guides = stage.querySelector('.composition-grid');
-  let mode = matchMedia('(max-width: 1000px)').matches ? 'fit' : 'detail';
   let width = 0;
   let height = 0;
   let artworkWidth = 0;
@@ -17,7 +16,7 @@ export function createOutputView(viewport, output, fitButton, detailButton) {
     const availableHeight = Math.min(viewport.clientHeight, innerHeight) - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
     // The halo is presentation-only and occupies screen pixels, not extra ASCII cells.
     const gutter = document.body.dataset.glow === 'on' && width && height ? 8 : 0;
-    const scale = mode === 'fit' && width && height
+    const scale = width && height
       ? Math.max(0, Math.min(1, (availableWidth - gutter * 2) / width, (availableHeight - gutter * 2) / height)) : 1;
     stage.style.width = `${width * scale + gutter * 2}px`;
     stage.style.height = `${height * scale + gutter * 2}px`;
@@ -30,26 +29,19 @@ export function createOutputView(viewport, output, fitButton, detailButton) {
       guides.style.width = `${artworkWidth * scale}px`;
       guides.style.height = `${artworkHeight * scale}px`;
     }
-    viewport.dataset.pannable = String(mode === 'detail' && (viewport.scrollWidth > viewport.clientWidth || viewport.scrollHeight > viewport.clientHeight));
+    viewport.dataset.view = 'fit';
   }
 
-  function select(next) {
-    mode = next;
-    fitButton.setAttribute('aria-pressed', String(mode === 'fit'));
-    detailButton.setAttribute('aria-pressed', String(mode === 'detail'));
-    viewport.dataset.view = mode;
+  const fit = () => {
     viewport.scrollTop = 0;
     viewport.scrollLeft = 0;
     layout();
-  }
-
-  const fit = () => select('fit');
-  const detail = () => select('detail');
+  };
+  fitButton.setAttribute('aria-pressed', 'true');
   fitButton.addEventListener('click', fit);
-  detailButton.addEventListener('click', detail);
   const observer = new ResizeObserver(layout);
   observer.observe(viewport);
-  select(mode);
+  fit();
 
   return {
     update() {
@@ -64,7 +56,6 @@ export function createOutputView(viewport, output, fitButton, detailButton) {
     dispose() {
       observer.disconnect();
       fitButton.removeEventListener('click', fit);
-      detailButton.removeEventListener('click', detail);
     },
   };
 }

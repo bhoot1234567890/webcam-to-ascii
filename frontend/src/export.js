@@ -1,5 +1,6 @@
 import { createAsciiArtwork } from './artwork.js';
 import { createCrtStage } from './crt/compose.js';
+import { createExportFrame, normalizeExportFrame } from './export-frames.js';
 
 /** Export paths for the committed ASCII frame: clipboard text and PNG download. */
 export async function copyAscii(text) {
@@ -8,9 +9,10 @@ export async function copyAscii(text) {
 }
 
 /** Still images retain the 2x policy while sharing the video's ink-safe artwork path. */
-export async function asciiToPng(frame, options = {}) {
+export async function asciiToPng(frame, { exportFrame = 'none', ...options } = {}) {
   let artwork;
   let crt;
+  let framed;
   try {
     artwork = createAsciiArtwork(frame, { scale: 2, maxEdge: Infinity, evenDimensions: false, ...options });
     artwork.draw(frame.text);
@@ -21,6 +23,11 @@ export async function asciiToPng(frame, options = {}) {
       crt.render(artwork.canvas, { rows: frame.rows });
       exportCanvas = crt.canvas;
     }
+    const windowStyle = normalizeExportFrame(exportFrame, 'none');
+    if (windowStyle !== 'none') {
+      framed = createExportFrame(exportCanvas, windowStyle);
+      exportCanvas = framed;
+    }
     return await new Promise((resolve, reject) => {
       exportCanvas.toBlob((blob) => {
         if (blob) resolve(blob);
@@ -30,6 +37,10 @@ export async function asciiToPng(frame, options = {}) {
   } catch (cause) {
     throw new Error('Unable to render the PNG', { cause });
   } finally {
+    if (framed) {
+      framed.width = 0;
+      framed.height = 0;
+    }
     if (crt) crt.dispose();
     if (artwork) {
       artwork.canvas.width = 0;

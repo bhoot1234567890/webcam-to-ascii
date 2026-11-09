@@ -1,5 +1,6 @@
 import { createRenderer, normalizeSettings } from './renderer.js';
 import { normalizeLook } from './looks.js';
+import { normalizeCharSet } from './charsets.js';
 
 let renderer = null;
 let cacheKey = '';
@@ -13,9 +14,10 @@ self.onmessage = ({ data }) => {
     if (!(rgba instanceof ArrayBuffer)) throw new TypeError('RGBA must be an ArrayBuffer');
     const settings = normalizeSettings(data.settings);
     const look = normalizeLook(data.look);
-    const key = `${width}:${height}:${JSON.stringify(settings)}:${JSON.stringify(look)}`;
+    const charSet = normalizeCharSet(data.charSet);
+    const key = `${width}:${height}:${JSON.stringify(settings)}:${JSON.stringify(look)}:${charSet}`;
     if (key !== cacheKey) {
-      renderer = createRenderer(width, height, settings, look);
+      renderer = createRenderer(width, height, settings, look, charSet);
       cacheKey = key;
     }
     const start = performance.now();

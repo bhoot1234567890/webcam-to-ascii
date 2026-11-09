@@ -33,6 +33,14 @@ const angleKeys = [-135, -90, -45, 45, 90, 135, 0, 180];
 const angleChars = ['/', '-', '\\', '/', '-', '\\', ' ', '|'];
 const glyphs = Array.from({length: 128}, (_, code) => String.fromCharCode(code));
 
+export function buildRamp(entries) {
+  const rampLookup = buildRampLookup(entries);
+  const rampCodes = Uint8Array.from(entries, ([char]) => char.charCodeAt(0));
+  return { lookup: rampLookup, codes: rampCodes };
+}
+
+const defaultRamp = { lookup, codes };
+
 export function angleToChar(degrees) {
   if (!Number.isFinite(degrees)) throw new RangeError('Angle must be finite');
   // Unlike ((x % 360) + 360) % 360, this avoids rounding positive probes.
@@ -69,7 +77,7 @@ function gridSize(width, height) {
 }
 
 // Shared by the standalone component API and the production reusable workspace.
-export function fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, edgeIndexThreshold = 90) {
+export function fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, edgeIndexThreshold = 90, ramp = defaultRamp) {
   if (!(gray instanceof Uint8Array)) throw new TypeError('gray must be Uint8Array');
   if (gray.length === 0) throw new RangeError('gray must be nonempty');
   const length = gray.length;
@@ -79,7 +87,7 @@ export function fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, edgeIn
   plane(edgeCodes, Uint8Array, length, 'edgeCodes');
   thresholdValue(edgeIndexThreshold);
   for (let index = 0; index < length; index++) {
-    shadeCodes[index] = codes[lookup[gray[index]]];
+    shadeCodes[index] = ramp.codes[ramp.lookup[gray[index]]];
     edgeCodes[index] = lookup[magnitude[index]] < edgeIndexThreshold ?
       angleToChar(angles[index]).charCodeAt(0) : 32;
   }
@@ -100,11 +108,11 @@ export function codesToText(shadeCodes, edgeCodes, width, height, rows = new Arr
   return rows.join('\n');
 }
 
-export function composeAscii(gray, magnitude, angles, width, height, edgeIndexThreshold = 90) {
+export function composeAscii(gray, magnitude, angles, width, height, edgeIndexThreshold = 90, ramp = defaultRamp) {
   const length = gridSize(width, height);
   plane(gray, Uint8Array, length, 'gray');
   const shadeCodes = new Uint8Array(length);
   const edgeCodes = new Uint8Array(length);
-  fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, edgeIndexThreshold);
+  fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, edgeIndexThreshold, ramp);
   return codesToText(shadeCodes, edgeCodes, width, height);
 }

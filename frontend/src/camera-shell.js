@@ -35,13 +35,13 @@ export function createCameraShell() {
           stopping ? 'Finishing video' : requesting ? 'Cancel camera request' :
             hasClip ? 'Review ASCII recording' : 'Start ASCII recording' :
         busy ? 'Developing frame' : requesting ? 'Cancel camera request' :
-          live ? 'Freeze ASCII frame' : held ? 'Return to live camera' : 'Start camera';
+          live ? 'Freeze ASCII frame' : 'Start camera';
       shutter.setAttribute('aria-label', label);
       shutter.title = label;
       shutter.querySelector('span').textContent = video ?
         pendingRecording || requesting ? 'CANCEL' : recording ? 'STOP' :
           stopping ? 'FINISHING' : hasClip ? 'REVIEW' : 'RECORD' :
-        busy ? 'DEVELOPING' : requesting ? 'CANCEL' : live ? 'FREEZE' : held ? 'RESUME' : 'CAMERA';
+        busy ? 'DEVELOPING' : requesting ? 'CANCEL' : live ? 'FREEZE' : 'CAMERA';
       shutter.setAttribute('aria-busy', String(stopping || (!video && busy)));
       byId('camera-stop').hidden = cameraState === 'idle' && !locked || disposed;
       byId('camera-stop').disabled = disposed || (!locked && (cameraState === 'idle' || busy));
@@ -63,10 +63,9 @@ export function createCameraShell() {
         byId('recording-timer').dateTime = 'PT0S';
       }
       byId('shutter-help').textContent = video ?
-        pendingRecording ? 'Tap CANCEL to cancel video start' : recording ? 'Silent · Tap STOP · Up to 30s' :
+        pendingRecording ? 'Tap CANCEL to cancel video start' : recording ? '' :
           stopping ? '' : requesting ? 'Tap CANCEL to cancel camera access' :
-            hasClip ? 'Tap REVIEW · Silent · Up to 30s' :
-              !recordingSupported ? 'Video unavailable · Use Photo' : 'Silent · Up to 30s · Tap RECORD' :
+            !recordingSupported ? 'Video unavailable · Use Photo' : '' :
         busy ? '' : requesting ? 'Tap CANCEL to cancel camera access' :
           live ? '' : held ? 'COPY or SAVE the frame' : 'Tap CAMERA to open your camera';
       byId('status').dataset.camera = locked ? pendingRecording ? 'pending' : recordingState :

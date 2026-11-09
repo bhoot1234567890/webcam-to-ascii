@@ -15,7 +15,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <title>clack — A camera with character.</title>
   </head>
-  <body data-guides="off" data-glow="off" data-capture-mode="photo" data-recording-state="idle">
+  <body data-guides="off" data-glow="on" data-capture-mode="photo" data-recording-state="idle" style="--ascii-tint:#6ce4ff">
 <svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
   <symbol id="i-crosshair" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="22" x2="18" y1="12" y2="12" /><line x1="6" x2="2" y1="12" y2="12" /><line x1="12" x2="12" y1="6" y2="2" /><line x1="12" x2="12" y1="22" y2="18" /></symbol>
   <symbol id="i-folder-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" /></symbol>
@@ -23,6 +23,8 @@
   <symbol id="i-grid-2x2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18" /><path d="M3 12h18" /><rect x="3" y="3" width="18" height="18" rx="2" /></symbol>
   <symbol id="i-crop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M18 22V8a2 2 0 0 0-2-2H2" /></symbol>
   <symbol id="i-droplet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" /></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></symbol>
+  <symbol id="i-type" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3" /><path d="M9 20h6" /><path d="M12 4v16" /></symbol>
 </svg>
     <div class="app">
       <header class="topbar" aria-label="clack controls">
@@ -30,7 +32,7 @@
       <span class="sys-badge" aria-hidden="true">SYS.OPTIC</span>
         <span class="topbar-caption">ASCII CAMERA · LOCAL ONLY</span>
         <div class="topbar-actions">
-        <button id="toggle-guides" type="button" aria-pressed="false" title="Composition grid"><svg class="ico ico-guides" aria-hidden="true" focusable="false"><use href="#i-crosshair"></use></svg>GUIDES</button>
+        <button id="toggle-guides" type="button" aria-pressed="false" title="Composition guides"><svg class="ico ico-guides" aria-hidden="true" focusable="false"><use href="#i-crosshair"></use></svg>GUIDES</button>
         </div>
       </header>
 
@@ -38,7 +40,7 @@
       <div id="error" class="errorline" role="alert" hidden><span id="error-text"></span><button id="error-action" type="button" hidden>USE A PHOTO</button></div>
 
       <main class="stage">
-        <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output. FIT scales the image to the pane; 100% shows every pixel.">
+        <div class="ascii-viewport" tabindex="0" role="region" aria-label="ASCII output. Tap to cycle the crop; hold SOURCE to compare with the source.">
           <div class="ascii-stage"><pre id="ascii-output" role="img" aria-label="Rendered ASCII art"></pre><div class="composition-grid" aria-hidden="true"></div></div>
           <div id="empty-state" class="empty-state" hidden>
             <p class="empty-title">NO SIGNAL</p>
@@ -53,16 +55,16 @@
           <div class="drawer-head">
             <h2 id="look-sheet-title" class="visually-hidden">Settings</h2>
             <nav class="tabs" role="tablist" aria-label="Settings categories">
-              <span class="tab-underline" aria-hidden="true"></span>
               <button role="tab" id="tab-camera" aria-selected="false" aria-controls="panel-camera" class="tab" tabindex="-1" type="button">Camera</button>
               <button role="tab" id="tab-looks" aria-selected="true" aria-controls="panel-looks" class="tab active" tabindex="0" type="button">Look</button>
               <button role="tab" id="tab-grid" aria-selected="false" aria-controls="panel-grid" class="tab" tabindex="-1" type="button">Detail</button>
               <button role="tab" id="tab-framing" aria-selected="false" aria-controls="panel-framing" class="tab" tabindex="-1" type="button">Frame</button>
               <button role="tab" id="tab-tune" aria-selected="false" aria-controls="panel-tune" class="tab" tabindex="-1" type="button">Edges</button>
               <button role="tab" id="tab-style" aria-selected="false" aria-controls="panel-style" class="tab" tabindex="-1" type="button">Ink</button>
+              <button role="tab" id="tab-window" aria-selected="false" aria-controls="panel-window" class="tab" tabindex="-1" type="button">Window</button>
               <button role="tab" id="tab-presets" aria-selected="false" aria-controls="panel-presets" class="tab" tabindex="-1" type="button">Presets</button>
             </nav>
-            <button id="close-look-sheet" type="button">CLOSE</button>
+            <button id="close-look-sheet" type="button" aria-label="Close settings" title="Close settings"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-close"></use></svg></button>
           </div>
           <div class="drawer-body">
             <section role="tabpanel" id="panel-camera" aria-labelledby="tab-camera" class="panel" hidden>
@@ -111,20 +113,26 @@
               </div>
             </section>
             <section role="tabpanel" id="panel-style" aria-labelledby="tab-style" class="panel" hidden>
+              <fieldset id="char-choices" class="choices"><legend>CHARACTERS</legend></fieldset>
+              <p class="field-help">Shading ramp. Directional edge strokes stay fixed.</p>
               <fieldset id="tint-choices" class="choices"><legend>INK</legend>
-                <label class="choice"><input type="radio" name="text-tint" value="default" checked /><span class="swatch" aria-hidden="true" style="background:#e2e9e7"></span><span>PAPER</span></label>
+                <label class="choice"><input type="radio" name="text-tint" value="default" /><span class="swatch" aria-hidden="true" style="background:#e2e9e7"></span><span>PAPER</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ffffff" /><span class="swatch" aria-hidden="true" style="background:#ffffff"></span><span>WHITE</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ffd663" /><span class="swatch" aria-hidden="true" style="background:#ffd663"></span><span>AMBER</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#9be5a2" /><span class="swatch" aria-hidden="true" style="background:#9be5a2"></span><span>GREEN</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#3aff81" /><span class="swatch" aria-hidden="true" style="background:#3aff81"></span><span>PHOSPHOR</span></label>
-                <label class="choice"><input type="radio" name="text-tint" value="#6ce4ff" /><span class="swatch" aria-hidden="true" style="background:#6ce4ff"></span><span>ICE</span></label>
+                <label class="choice"><input type="radio" name="text-tint" value="#6ce4ff" checked /><span class="swatch" aria-hidden="true" style="background:#6ce4ff"></span><span>ICE</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ffe14d" /><span class="swatch" aria-hidden="true" style="background:#ffe14d"></span><span>YELLOW</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ff5c5c" /><span class="swatch" aria-hidden="true" style="background:#ff5c5c"></span><span>RED</span></label>
                 <label class="choice"><input type="radio" name="text-tint" value="#ff6bd6" /><span class="swatch" aria-hidden="true" style="background:#ff6bd6"></span><span>MAGENTA</span></label>
               </fieldset>
-              <div class="ink-row"><label for="text-color">CUSTOM</label><input id="text-color" type="color" value="#ffffff" /></div>
-              <label class="check" for="soft-glow"><input id="soft-glow" type="checkbox" />SOFT GLOW</label>
+              <div class="ink-row"><label for="text-color">CUSTOM</label><input id="text-color" type="color" value="#6ce4ff" /><output id="text-color-value" for="text-color">#6CE4FF</output></div>
+              <label class="check" for="soft-glow"><input id="soft-glow" type="checkbox" checked />SOFT GLOW</label>
               <label class="check" for="crt-effect"><input id="crt-effect" type="checkbox" />CRT</label>
+            </section>
+            <section role="tabpanel" id="panel-window" aria-labelledby="tab-window" class="panel" hidden>
+              <fieldset id="window-choices" class="choices"><legend>SAVED PNG</legend></fieldset>
+              <p class="field-help">Burn a 1-bit desktop window — white rules and glyphs on black, with a taskbar on the Windows styles — around the downloaded PNG. On-screen preview and video stay clean.</p>
             </section>
             <section role="tabpanel" id="panel-presets" aria-labelledby="tab-presets" class="panel" hidden>
               <div class="preset-save">
@@ -152,7 +160,7 @@
         <div class="rail-row rail-capture">
           <button id="camera-shutter" class="shutter" type="button" data-mode="photo" data-state="idle" aria-label="Start camera" title="Start camera" aria-describedby="shutter-help" disabled><span>CAMERA</span></button>
           <button id="flip-camera" class="capture-action" type="button" aria-label="Switch front and back camera" title="Switch camera" hidden>FLIP</button>
-          <button id="camera-stop" type="button" disabled hidden title="Stop camera">STOP</button>
+          <button id="camera-stop" type="button" aria-label="Turn camera off" disabled hidden title="Turn camera off">CAM OFF</button>
         </div>
         <div class="rail-row rail-output">
         <button id="camera-import" type="button" aria-label="Choose photo from this device" title="Choose photo" disabled><svg class="ico ico-import" aria-hidden="true" focusable="false"><use href="#i-folder-open"></use></svg>IMPORT</button>
@@ -162,8 +170,7 @@
         </div>
         <div class="rail-row rail-display">
           <div class="view-controls" role="group" aria-label="ASCII display size">
-            <button id="fit-output" type="button" aria-pressed="false" aria-controls="ascii-output">FIT</button>
-            <button id="detail-output" type="button" aria-pressed="false" aria-controls="ascii-output">100%</button>
+            <button id="fit-output" type="button" aria-pressed="true" aria-controls="ascii-output">FIT</button>
             <button id="compare-output" type="button" aria-pressed="false" title="Hold to compare with the source">SOURCE</button>
           </div>
         </div>
@@ -171,8 +178,8 @@
         <div class="readout-tiles">
         <button id="open-looks" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-aperture"></use></svg>LOOK <span id="look-label">Original</span></button>
         <button id="open-grid" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-grid-2x2"></use></svg>DETAIL <span id="grid-density-label">Balanced</span></button>
-        <button id="open-framing" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-crop"></use></svg>FRAME <span id="framing-label">Full</span></button>
-        <button id="open-ink" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-droplet"></use></svg>INK <span id="ink-label">Paper</span></button>
+        <button id="open-chars" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-type"></use></svg>CHARS <span id="chars-label">Dense</span></button>
+        <button id="open-ink" type="button"><svg class="ico ico-tile" aria-hidden="true" focusable="false"><use href="#i-droplet"></use></svg>INK <span id="ink-label">Ice</span></button>
         </div>
         <div class="readout-meta">
           <span id="grid-label"></span>

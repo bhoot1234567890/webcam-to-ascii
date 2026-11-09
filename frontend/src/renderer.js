@@ -1,7 +1,8 @@
-import { fillCodes, codesToText } from './ascii.js';
+import { fillCodes, codesToText, buildRamp } from './ascii.js';
 import { normalizeLook } from './looks.js';
+import { findCharSet, normalizeCharSet } from './charsets.js';
 import {
-  applyTone, unsharpMask, getCompactRamp, floydSteinberg, bayerOrdered,
+  applyTone, unsharpMask, buildMeasuredRamp, floydSteinberg, bayerOrdered,
 } from './effects.js';
 
 export const DEFAULT_SETTINGS = Object.freeze({
@@ -225,10 +226,11 @@ export function sobelWithAngle(dog, width, height, out) {
   return out;
 }
 
-export function createRenderer(width, height, settings = {}, look = {}) {
+export function createRenderer(width, height, settings = {}, look = {}, charSet = 'dense') {
   const length = gridLength(width, height);
   const normalizedSettings = normalizeSettings(settings);
   const processing = normalizeLook(look);
+  const characters = findCharSet(normalizeCharSet(charSet));
   const edges = processing.id === 'original' || processing.id === 'outline';
   const tone = processing.autoContrast || processing.midtone !== 1 || processing.invert;
   const kernel1 = edges ? makeGaussianKernel(normalizedSettings.sigma1) : null;
@@ -249,7 +251,8 @@ export function createRenderer(width, height, settings = {}, look = {}) {
   const sobel = edges ? { gx, gy, magnitude, angles } : null;
   const toneLut = tone ? new Uint8Array(256) : null;
   const sharpnessScratch = processing.sharpness > 0 ? (scratch ?? new Float64Array(length)) : null;
-  const ramp = edges ? null : getCompactRamp();
+  const ramp = edges ? null : buildMeasuredRamp(characters.compactEntries);
+  const shadeRamp = edges ? buildRamp(characters.fullEntries) : null;
   const errors = processing.id === 'photo' ? new Float64Array(2 * (width + 2)) : null;
   const rows = new Array(height);
   let text = '';
@@ -263,7 +266,7 @@ export function createRenderer(width, height, settings = {}, look = {}) {
       blurNormalized(normalized, width, height, kernel2, blur2, scratch);
       dogFromBlurs(blur1, blur2, dog);
       sobelWithAngle(dog, width, height, sobel);
-      fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, normalizedSettings.edgeIndexThreshold);
+      fillCodes(gray, magnitude, angles, shadeCodes, edgeCodes, normalizedSettings.edgeIndexThreshold, shadeRamp);
       if (processing.id === 'outline') shadeCodes.fill(32);
     } else if (processing.id === 'photo') {
       floydSteinberg(gray, width, height, ramp, shadeCodes, errors);

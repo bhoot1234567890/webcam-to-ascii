@@ -1,5 +1,5 @@
 /** Settings persistence: versioned localStorage records, best-effort writes. */
-const KEY = 'clack:settings:v1';
+const KEY = 'clack:settings:v2';
 const PRESET_KEY = 'clack:presets:v1';
 
 export function loadSaved() {

@@ -16,6 +16,43 @@ const viewports = [
 ];
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
+async function selectExportFrame(page, frame) {
+  await openPanel(page, 'window');
+  await page.locator(`input[name="export-frame"][value="${frame}"]`).check();
+  await page.locator('#close-look-sheet').click();
+}
+
+async function savedPngPixels(page) {
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('#save-output').click(),
+  ]);
+  const dataUrl = 'data:image/png;base64,' + readFileSync(await download.path()).toString('base64');
+  return page.evaluate(async (url) => {
+    const bitmap = await createImageBitmap(await (await fetch(url)).blob());
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(bitmap, 0, 0);
+    const pixel = (x, y) => [...context.getImageData(
+      Math.max(0, Math.min(bitmap.width - 1, Math.round(x))),
+      Math.max(0, Math.min(bitmap.height - 1, Math.round(y))), 1, 1,
+    ).data];
+    const pixels = context.getImageData(0, 0, bitmap.width, bitmap.height).data;
+    let white = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (pixels[index] > 245 && pixels[index + 1] > 245 && pixels[index + 2] > 245) white += 1;
+    }
+    return {
+      width: bitmap.width,
+      height: bitmap.height,
+      white,
+      topLeft: pixel(0, 0),
+      topCenter: pixel(bitmap.width / 2, 5),
+      bottomCenter: pixel(bitmap.width / 2, bitmap.height - 5),
+    };
+  }, dataUrl);
+}
+
 function referenceFor(id, profile = 'default') {
   const entry = REFERENCE.fullImages.find((item) => item.fixtureId === id && item.profile === profile);
   expect(entry, `Required Python reference ${profile}:${id}`).toBeTruthy();
@@ -113,50 +150,35 @@ async function accessibleControls(page) {
     'Only the ASCII region, not the document, scrolls horizontally').toBe(true);
 }
 
-async function inspectScrollableGrid(page, commit) {
-  await page.locator('#detail-output').click();
+async function inspectFittedGrid(page, commit) {
+  await page.locator('#fit-output').click();
   const region = page.locator('.ascii-viewport');
   await region.scrollIntoViewIfNeeded();
-  await region.focus();
   const geometry = await region.evaluate((viewport) => {
     const pre = viewport.querySelector('pre');
     const style = getComputedStyle(pre);
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
-    // CSSOM's font shorthand may be empty or include line-height syntax that
-    // Canvas rejects, silently leaving its default 10px sans-serif font.
     context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
     const characterWidth = context.measureText('M').width;
-    viewport.scrollLeft = viewport.scrollWidth;
-    viewport.scrollTop = viewport.scrollHeight;
-    const node = pre.firstChild;
-    const range = document.createRange();
-    range.setStart(node, node.length - 1);
-    range.setEnd(node, node.length);
-    const last = range.getBoundingClientRect();
     const box = viewport.getBoundingClientRect();
+    const art = pre.getBoundingClientRect();
+    // Fit scales the pre with a transform; offsetWidth/Height are the untransformed
+    // cell grid, so compare those with measured glyph metrics instead of the visual rect.
     return { whiteSpace: style.whiteSpace, wrap: style.overflowWrap,
-      preWidth: pre.getBoundingClientRect().width, preHeight: pre.getBoundingClientRect().height,
-      characterWidth, lineHeight: Number.parseFloat(style.lineHeight),
-      scrollLeft: viewport.scrollLeft, scrollTop: viewport.scrollTop,
-      maxLeft: viewport.scrollWidth - viewport.clientWidth, maxTop: viewport.scrollHeight - viewport.clientHeight,
-      lastLeft: last.left, lastRight: last.right, lastTop: last.top, lastBottom: last.bottom,
-      left: box.left + viewport.clientLeft, right: box.left + viewport.clientLeft + viewport.clientWidth,
-      top: box.top + viewport.clientTop, bottom: box.top + viewport.clientTop + viewport.clientHeight };
+      preWidth: pre.offsetWidth, preHeight: pre.offsetHeight, characterWidth, lineHeight: Number.parseFloat(style.lineHeight),
+      overflowX: viewport.scrollWidth - viewport.clientWidth,
+      overflowY: viewport.scrollHeight - viewport.clientHeight,
+      contained: art.left >= box.left && art.right <= box.right && art.top >= box.top && art.bottom <= box.bottom };
   });
   expect(geometry.whiteSpace).toBe('pre');
   expect(geometry.wrap).toBe('normal');
   expect(Math.abs(geometry.preWidth - commit.columns * geometry.characterWidth)).toBeLessThan(2);
   expect(Math.abs(geometry.preHeight - commit.rows * geometry.lineHeight)).toBeLessThan(2);
-  expect(Math.abs(geometry.scrollLeft - geometry.maxLeft)).toBeLessThanOrEqual(1);
-  expect(Math.abs(geometry.scrollTop - geometry.maxTop)).toBeLessThanOrEqual(1);
-  expect(geometry.lastLeft).toBeGreaterThanOrEqual(geometry.left - 1);
-  expect(geometry.lastRight).toBeLessThanOrEqual(geometry.right + 1);
-  expect(geometry.lastTop).toBeGreaterThanOrEqual(geometry.top - 1);
-  expect(geometry.lastBottom).toBeLessThanOrEqual(geometry.bottom + 1);
+  expect(geometry.overflowX).toBeLessThanOrEqual(1);
+  expect(geometry.overflowY).toBeLessThanOrEqual(1);
+  expect(geometry.contained).toBe(true);
   expect(await readCommit(page)).toEqual(commit);
-  await region.evaluate((viewport) => { viewport.scrollTop = 0; viewport.scrollLeft = 0; });
-  await page.locator('#fit-output').click();
 }
 
 for (const viewport of viewports) {
@@ -213,7 +235,7 @@ for (const viewport of viewports) {
           if (fixture.id === 'astronaut-portrait') {
             expect(commit.rows).toBeGreaterThan(commit.columns / 2);
             const detailed = await changeSettings(page, { maxWidthChars: 150, maxHeightLines: 200 });
-            await inspectScrollableGrid(page, detailed);
+            await inspectFittedGrid(page, detailed);
             await changeSettings(page, { maxWidthChars: 50, maxHeightLines: 65 });
             await accessibleControls(page);
             await page.evaluate(() => scrollTo(0, 0));
@@ -356,7 +378,7 @@ test('framing crops native center pixels once and Full restores the unmodified s
   expect(original.text.split('\n')[0].startsWith(' ')).toBe(true);
   for (const frame of ['square', 'portrait', 'story', 'full']) {
     const before = await readCommit(page);
-    await page.locator('#open-framing').click();
+    await openPanel(page, 'framing');
     await page.locator(`input[name="framing"][value="${frame}"]`).check();
     await page.locator('#close-look-sheet').click();
     await page.waitForFunction(({ frame, before }) => {
@@ -386,7 +408,7 @@ test('a tiny source rejects unrepresentable framing and keeps its last valid con
   await page.locator('#image-input').setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: Buffer.from(image, 'base64') });
   await page.waitForFunction(() => document.querySelector('#ascii-output').dataset.sourceName === 'tiny.png');
   const before = await readCommit(page);
-  await page.locator('#open-framing').click();
+  await openPanel(page, 'framing');
   await page.locator('input[name="framing"][value="story"]').click();
   await expect(page.locator('input[name="framing"][value="full"]')).toBeChecked();
   await page.locator('#close-look-sheet').click();
@@ -438,9 +460,44 @@ test('SAVE downloads a PNG of the committed frame', async ({ page }) => {
   expect(bytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 });
 
+test('SAVE frames the PNG in the selected desktop window and taskbar', async ({ page }) => {
+  await openApp(page);
+  await uploadFixture(page, 'astronaut');
+
+  const win95 = await savedPngPixels(page);
+  expect(win95.topLeft).toEqual([0, 0, 0, 255]);
+  expect(win95.topCenter).toEqual([0, 0, 0, 255]);
+  expect(win95.bottomCenter).toEqual([0, 0, 0, 255]);
+  expect(win95.white).toBeGreaterThan(1000);
+
+  await selectExportFrame(page, 'none');
+  const none = await savedPngPixels(page);
+  expect(none.width).toBeLessThan(win95.width);
+  expect(none.height).toBeLessThan(win95.height);
+  expect(none.topLeft).toEqual([9, 9, 11, 255]);
+
+  await selectExportFrame(page, 'mac');
+  const mac = await savedPngPixels(page);
+  expect(mac.topLeft[0]).toBe(mac.topLeft[1]);
+  expect(mac.topLeft[1]).toBe(mac.topLeft[2]);
+  expect(mac.white).toBeGreaterThan(1000);
+  expect(mac.height).toBeLessThan(win95.height);
+
+  await selectExportFrame(page, 'winxp');
+  const xp = await savedPngPixels(page);
+  expect(xp.topLeft).toEqual([0, 0, 0, 255]);
+  expect(xp.bottomCenter).toEqual([0, 0, 0, 255]);
+  expect(xp.white).toBeGreaterThan(1000);
+
+  await page.reload();
+  await openPanel(page, 'window');
+  await expect(page.locator('input[name="export-frame"][value="winxp"]')).toBeChecked();
+});
+
 test('CRT previews presentation-only and filters the saved PNG through the tube', async ({ page }) => {
   await openApp(page);
   await uploadFixture(page, 'astronaut');
+  await selectExportFrame(page, 'none');
   const readRenderId = () => page.evaluate(() => Number(document.querySelector('#ascii-output').dataset.renderId));
   const baseline = await readRenderId();
   await page.locator('#open-looks').click();
@@ -531,7 +588,7 @@ test('look, ink and glow persist across a reload', async ({ page }) => {
   await expect(page.locator('input[name="text-tint"][value="#ffd663"]')).toBeChecked();
   await expect(page.locator('#soft-glow')).toBeChecked();
   await page.locator('#close-look-sheet').click();
-  const restored = await uploadFixture(page, 'astronaut');
+  const restored = await uploadFixture(page, 'astronaut', { referenceLook: false });
   expect(restored.sourceGeneration).toBeGreaterThan(0);
   await page.waitForFunction(() => JSON.parse(document.querySelector('#ascii-output').dataset.lookKey).id === 'photo');
 });
@@ -608,7 +665,7 @@ test('named presets save, apply, persist, and delete', async ({ page }) => {
   await expect(page.locator('input[name="text-tint"][value="#ffd663"]')).toBeChecked();
   await expect(page.locator('#ascii-output')).toHaveCSS('color', 'rgb(255, 214, 99)');
   await page.locator('#close-look-sheet').click();
-  const restoredPreset = await uploadFixture(page, 'astronaut');
+  const restoredPreset = await uploadFixture(page, 'astronaut', { referenceLook: false });
   expect(JSON.parse(restoredPreset.settingsKey)).toMatchObject({ maxWidthChars: 75, maxHeightLines: 100 });
   await page.waitForFunction(() => {
     const output = document.querySelector('#ascii-output');

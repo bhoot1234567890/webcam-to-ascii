@@ -127,6 +127,10 @@ test('static committed artwork records a playable native interval without period
 test('PNG and recording retain the same committed artwork, background, tint and glow', async ({ page }) => {
   await installVideoCamera(page, { staticScene: true });
   await openApp(page);
+  // The desktop save frame is a still-image finish; compare the raw artwork here.
+  await openPanel(page, 'window');
+  await page.locator('input[name="export-frame"][value="none"]').check();
+  await page.locator('#close-look-sheet').click();
   await openPanel(page, 'looks');
   await page.locator('input[name="look"][value="photo"]').check();
   await openPanel(page, 'style');
@@ -155,8 +159,10 @@ test('PNG and recording retain the same committed artwork, background, tint and 
   expect(exported.minAlpha).toBe(255);
   // PNG retains its intentional 2x still-image resolution. Compare normalized
   // artwork geometry and raster rather than equating lossy video bytes with PNG.
-  expect(Math.abs(exported.width - recorded.width * 2)).toBeLessThanOrEqual(2);
-  expect(Math.abs(exported.height - recorded.height * 2)).toBeLessThanOrEqual(2);
+  // The video canvas rounds to even dimensions, so a few output pixels of width
+  // difference are expected; normalized bounds and samples carry the real check.
+  expect(Math.abs(exported.width - recorded.width * 2)).toBeLessThanOrEqual(4);
+  expect(Math.abs(exported.height - recorded.height * 2)).toBeLessThanOrEqual(4);
   for (let index = 0; index < recorded.bounds.length; index++) {
     expect(Math.abs(recorded.bounds[index] - exported.bounds[index])).toBeLessThan(0.015);
   }

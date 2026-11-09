@@ -7,11 +7,13 @@ import { createOutputView } from './output-view.js';
 import { createCameraShell } from './camera-shell.js';
 import { computeCropRect, FRAMINGS } from './framing.js';
 import { normalizeLook } from './looks.js';
+import { DEFAULT_CHAR_SET, normalizeCharSet } from './charsets.js';
 import { createLookControls } from './look-controls.js';
 import { createAsciiRecorder, getRecordingSupport } from './ascii-recorder.js';
 import { createRecordingView } from './recording-view.js';
 import { findDensity, findDensityBySettings } from './density.js';
 import { copyAscii, asciiToPng } from './export.js';
+import { DEFAULT_EXPORT_FRAME, normalizeExportFrame } from './export-frames.js';
 import { readAsciiArtwork } from './artwork.js';
 import { crtSupported } from './crt/compose.js';
 import { loadSaved, save, loadPresets, savePresets } from './persist.js';
@@ -31,17 +33,20 @@ const inputs = [...byId('settings-form').querySelectorAll('[data-field]')];
 const canvas = document.createElement('canvas');
 const context = canvas.getContext('2d', { willReadFrequently: true });
 const initialDensity = findDensity('balanced');
+const DEFAULT_LOOK = Object.freeze({ id: 'photo', autoContrast: true, midtone: 2, sharpness: 1.5, invert: false });
 let settings = normalizeSettings({
   maxWidthChars: initialDensity.maxWidthChars,
   maxHeightLines: initialDensity.maxHeightLines,
 });
 let settingsKey = JSON.stringify(settings);
-let look = normalizeLook();
+let look = normalizeLook(DEFAULT_LOOK);
 let lookKey = JSON.stringify(look);
+let charSet = DEFAULT_CHAR_SET;
 let framing = 'full';
-let tint = 'default';
-let glow = false;
+let tint = '#6ce4ff';
+let glow = true;
 let crt = false;
+let exportFrame = DEFAULT_EXPORT_FRAME;
 const crtUnsupported = !crtSupported();
 let lookControls = null;
 let presets = [];
@@ -84,9 +89,23 @@ function setStatus(text, notice = false) {
   if (status.textContent !== text) status.textContent = text;
 }
 
+let cropNoticeTimer = 0;
+function announceCrop(label) {
+  setStatus(`Crop ${label}`, true);
+  clearTimeout(cropNoticeTimer);
+  cropNoticeTimer = setTimeout(() => {
+    statusNoticeUntil = 0;
+    if (disposed) return;
+    if (source?.kind === 'image') setStatus(source.captured ? 'Frame captured' : 'Image ready');
+    else if (source?.kind === 'camera' && cameraState === 'live') setStatus('Camera live');
+    else setStatus('No source');
+  }, 2600);
+}
+
 function hasCurrentFrame() {
   return source && output.dataset.sourceGeneration === String(source.generation) &&
     output.dataset.settingsKey === settingsKey && output.dataset.lookKey === lookKey &&
+    output.dataset.charSet === charSet &&
     output.dataset.framing === framing && output.dataset.sourceWidth === String(source.width) &&
     output.dataset.sourceHeight === String(source.height);
 }
@@ -108,6 +127,8 @@ function syncLookControls() {
     glow,
     crt,
     crtUnsupported,
+    exportFrame,
+    charSet,
     settings,
     density: currentDensity ? currentDensity.id : null,
   });
@@ -230,16 +251,16 @@ async function shareVideo() {
 
 function updateControls() {
   const locked = videoBusy() || captureBusy || disposed;
+  document.body.dataset.sourceKind = source?.kind ?? 'none';
   lookControls?.setDisabled(locked);
   deviceSelect.disabled = cameraState === 'requesting' || locked;
   facingSelect.disabled = cameraState === 'requesting' || locked;
   imageInput.disabled = locked;
-  for (const id of ['open-framing', 'open-looks', 'open-grid', 'open-ink', 'toggle-guides']) {
+  for (const id of ['open-looks', 'open-grid', 'open-chars', 'open-ink', 'toggle-guides']) {
     byId(id).disabled = locked;
   }
   const viewLocked = locked || !hasCurrentFrame();
   byId('fit-output').disabled = viewLocked;
-  byId('detail-output').disabled = viewLocked;
   const captureReady = cameraState === 'live' && source?.kind === 'camera' && source.active && hasCurrentFrame();
   cameraShell?.update({
     cameraState, kind: source?.kind, captureReady, busy: captureBusy, disposed, mode: captureMode,
@@ -313,7 +334,8 @@ function ensureWorker(explicitAction = false) {
       }
       const current = source && request.epoch === renderEpoch &&
         request.generation === source.generation && request.settingsKey === settingsKey &&
-        request.lookKey === lookKey && request.framing === framing &&
+        request.lookKey === lookKey && request.charSet === charSet &&
+        request.framing === framing &&
         request.source === source && (source.kind === 'image' || source.active);
       if (current) {
         if (data.width !== request.width || data.height !== request.height || typeof data.text !== 'string') {
@@ -324,7 +346,8 @@ function ensureWorker(explicitAction = false) {
         const gridChanged = output.dataset.columns !== String(data.width) || output.dataset.rows !== String(data.height);
         const sourceChanged = output.dataset.sourceGeneration !== String(request.generation);
         const configurationChanged = output.dataset.settingsKey !== request.settingsKey ||
-          output.dataset.lookKey !== request.lookKey || output.dataset.framing !== request.framing ||
+          output.dataset.lookKey !== request.lookKey || output.dataset.charSet !== request.charSet ||
+          output.dataset.framing !== request.framing ||
           output.dataset.sourceWidth !== String(request.sourceWidth) ||
           output.dataset.sourceHeight !== String(request.sourceHeight);
         const wasEmpty = output.textContent === '';
@@ -332,7 +355,8 @@ function ensureWorker(explicitAction = false) {
         Object.assign(output.dataset, {
           renderId: String(request.id), sourceGeneration: String(request.generation),
           sourceKind: request.source.kind, sourceName: request.source.name,
-          settingsKey: request.settingsKey, columns: String(data.width), rows: String(data.height),
+          settingsKey: request.settingsKey, charSet: request.charSet,
+          columns: String(data.width), rows: String(data.height),
           lookKey: request.lookKey, framing: request.framing,
           sourceWidth: String(request.sourceWidth), sourceHeight: String(request.sourceHeight),
           processingMs: String(data.processingMs),
@@ -346,7 +370,7 @@ function ensureWorker(explicitAction = false) {
         if (gridChanged) outputView.update();
         byId('grid-label').textContent = `GRID ${data.width} × ${data.height}`;
         if (recordingState !== 'recording' && recordingState !== 'stopping' &&
-            (source.kind !== 'camera' || performance.now() > statusNoticeUntil)) {
+            performance.now() > statusNoticeUntil) {
           setStatus(source.kind === 'image' ? (source.captured ? 'Frame captured' : 'Image ready') : 'Camera live');
         }
         if (recordingState === 'recording' && source.kind === 'camera') {
@@ -386,8 +410,8 @@ function submitRender() {
     const rgba = sampler.resize(original);
     const id = ++requestId;
     inFlight = { id, width, height, source, generation: source.generation, settingsKey,
-      lookKey, framing, sourceWidth: source.width, sourceHeight: source.height, epoch: renderEpoch };
-    worker.postMessage({ type: 'render', id, width, height, settings, look, rgba: rgba.buffer }, [rgba.buffer]);
+      lookKey, charSet, framing, sourceWidth: source.width, sourceHeight: source.height, epoch: renderEpoch };
+    worker.postMessage({ type: 'render', id, width, height, settings, look, charSet, rgba: rgba.buffer }, [rgba.buffer]);
   } catch (error) {
     if (error instanceof RangeError) showError(error.message);
     else workerFailure();
@@ -687,6 +711,8 @@ function persist() {
     tint,
     glow,
     crt,
+    exportFrame,
+    charSet,
     density: { maxWidthChars: settings.maxWidthChars, maxHeightLines: settings.maxHeightLines },
     tuning: {
       sigma1: settings.sigma1,
@@ -694,7 +720,6 @@ function persist() {
       edgeIndexThreshold: settings.edgeIndexThreshold,
     },
     facing: facingSelect.value,
-    view: document.querySelector('.ascii-viewport').dataset.view,
     guides: byId('toggle-guides').getAttribute('aria-pressed') === 'true',
   });
 }
@@ -776,6 +801,24 @@ function changeFraming(proposed) {
   syncLookControls();
 }
 
+function changeCharSet(proposed) {
+  if (videoBusy()) { syncLookControls(); return; }
+  try {
+    const next = normalizeCharSet(proposed);
+    if (next === charSet) return;
+    charSet = next;
+    renderEpoch++;
+    updateControls();
+    if (source?.kind === 'image') renderStill();
+    else if (source?.kind === 'camera' && source.active) submitRender();
+    syncLookControls();
+    persist();
+  } catch (error) {
+    showError(error.message);
+    syncLookControls();
+  }
+}
+
 function applyPresentation({ tint: nextTint, glow: nextGlow, crt: nextCrt }) {
   tint = nextTint;
   glow = nextGlow;
@@ -796,6 +839,14 @@ function changePresentation(proposed) {
     return;
   }
   applyPresentation({ tint: proposed.tint, glow: proposed.glow, crt: proposed.crt });
+  syncLookControls();
+  persist();
+}
+
+function changeExportFrame(proposed) {
+  const next = normalizeExportFrame(proposed, exportFrame);
+  if (next === exportFrame) return;
+  exportFrame = next;
   syncLookControls();
   persist();
 }
@@ -875,17 +926,19 @@ try {
     if (saved.tint === 'default' || /^#[0-9a-f]{6}$/i.test(saved.tint)) tint = saved.tint;
     if (typeof saved.glow === 'boolean') glow = saved.glow;
     if (typeof saved.crt === 'boolean' && !crtUnsupported) crt = saved.crt;
+    if (saved.exportFrame) exportFrame = normalizeExportFrame(saved.exportFrame);
     try {
       settings = normalizeSettings({ ...settings, ...saved.density, ...saved.tuning });
       settingsKey = JSON.stringify(settings);
     } catch { /* keep the default density */ }
+    try {
+      charSet = normalizeCharSet(saved.charSet);
+    } catch { /* keep the default character set */ }
     if (['', 'user', 'environment'].includes(saved.facing)) facingSelect.value = saved.facing;
   }
   presets = normalizePresetList(loadPresets());
   await configureAsciiText(output);
-  outputView = createOutputView(document.querySelector('.ascii-viewport'), output, byId('fit-output'), byId('detail-output'));
-  if (saved?.view === 'detail') byId('detail-output').click();
-  else if (saved?.view === 'fit') byId('fit-output').click();
+  outputView = createOutputView(document.querySelector('.ascii-viewport'), output, byId('fit-output'));
   cameraShell = createCameraShell();
   recordingView = createRecordingView({ onRetake: retakeVideo, onSave: saveVideo, onShare: shareVideo });
   recording = createAsciiRecorder({
@@ -908,7 +961,9 @@ try {
     onLookChange: changeLook,
     onFramingChange: changeFraming,
     onPresentationChange: changePresentation,
+    onExportFrameChange: changeExportFrame,
     onDensityChange: changeDensity,
+    onCharSetChange: changeCharSet,
     onSavePreset: savePreset,
     onApplyPreset: applyPreset,
     onDeletePreset: deletePreset,
@@ -948,7 +1003,7 @@ try {
       showError('Unable to save the frame');
       return;
     }
-    asciiToPng(frame).then((blob) => {
+    asciiToPng(frame, { exportFrame }).then((blob) => {
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `clack-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}.png`;
@@ -983,8 +1038,14 @@ try {
     if (cameraState === 'live') void startCamera('');
   });
   byId('fit-output').addEventListener('click', persist);
-  byId('detail-output').addEventListener('click', persist);
   byId('toggle-guides').addEventListener('click', persist);
+  document.querySelector('.ascii-viewport').addEventListener('click', () => {
+    if (videoBusy() || captureBusy || disposed || !byId('look-sheet').hidden) return;
+    const index = FRAMINGS.findIndex(({ id }) => id === framing);
+    const next = FRAMINGS[(index + 1) % FRAMINGS.length];
+    changeFraming(next.id);
+    announceCrop(next.label);
+  });
   imageInput.addEventListener('change', () => { void acceptImage(imageInput.files[0]); });
   byId('settings-form').addEventListener('submit', (event) => event.preventDefault());
   inputs.forEach((input) => {

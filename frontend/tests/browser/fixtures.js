@@ -140,9 +140,19 @@ async function currentSettings(page) {
   });
 }
 
-export async function uploadFixture(page, id) {
+export async function uploadFixture(page, id, { referenceLook = true } = {}) {
   const fixture = IMAGES.fixtures.find((entry) => entry.id === id);
   if (!fixture) throw new Error(`Unknown canonical fixture ID: ${id}`);
+  // The frozen Python references describe Original with neutral tone. The
+  // product now opens on Photo with tone adjustments, so parity uploads pin
+  // the reference recipe explicitly instead of inheriting the product default.
+  // Persistence tests opt out to keep the look they are asserting.
+  if (referenceLook && (await page.locator('#look-label').textContent()) !== 'Original') {
+    await openPanel(page, 'looks');
+    await page.locator('input[name="look"][value="original"]').check();
+    await page.locator('#close-look-sheet').click();
+    await expect(page.locator('#look-label')).toHaveText('Original');
+  }
   const before = await readCommit(page);
   const settingsKey = JSON.stringify(await currentSettings(page));
   const name = path.basename(fixture.path);
@@ -158,6 +168,12 @@ export async function uploadFixture(page, id) {
   expect(commit.sourceName).toBe(name);
   expect(commit.settingsKey).toBe(settingsKey);
   return commit;
+}
+
+export async function selectLook(page, id) {
+  await openPanel(page, 'looks');
+  await page.locator(`input[name="look"][value="${id}"]`).check();
+  await page.locator('#close-look-sheet').click();
 }
 
 export async function changeSettings(page, patch) {

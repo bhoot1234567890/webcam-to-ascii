@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  test, expect, ROOT, IMAGES, readCommit, uploadFixture, changeSettings, openApp, openPanel,
+  test, expect, ROOT, IMAGES, readCommit, uploadFixture, changeSettings, openApp, openPanel, selectLook,
 } from './fixtures.js';
 import { installVideoCamera, downloadVideo } from './video-fixtures.js';
 
@@ -195,6 +195,7 @@ test.beforeEach(async ({ page }) => {
 
 test('real camera commits, Stop ends retained tracks, and restart/settings use fresh identities', async ({ page }) => {
   await openApp(page);
+  await selectLook(page, 'original');
   const initial = await startCamera(page);
   const retained = await retainCamera(page);
   expect([retained.width, retained.height]).toEqual([320, 240]);
@@ -519,6 +520,7 @@ test('a source switch rejects an unchanged late real camera reply before the ima
 
 test('backpressure copies no dropped frames and source/settings churn retains only the latest still', async ({ page }) => {
   await openApp(page);
+  await selectLook(page, 'original');
   const camera = await startCamera(page);
   const retained = await retainCamera(page);
   const held = await holdRealReply(page);
@@ -602,6 +604,7 @@ for (const recovery of ['camera', 'image']) {
 test('five-second real camera run records warm worker latency and delivered frame rate', async ({ page, browser, browserName }, testInfo) => {
   test.setTimeout(30000);
   await openApp(page);
+  await selectLook(page, 'original');
   const initial = await startCamera(page);
   const retained = await retainCamera(page);
   await expect.poll(() => page.evaluate(() => window.__cameraQA.commits.filter((commit) => commit.kind === 'camera').length)).toBeGreaterThanOrEqual(6);
@@ -728,7 +731,7 @@ test('look and frame changes reject held replies, gate the shutter, and preserve
   await page.locator('#camera-shutter').click();
   await expectRetainedEnded(page, firstStream.index);
   await expect(page.locator('#source-label')).toHaveText('Captured frame.png');
-  await page.locator('#open-framing').click();
+  await openPanel(page, 'framing');
   await page.locator('input[name="framing"][value="wide"]').check();
   await page.locator('#tab-looks').click();
   await page.locator('input[name="look"][value="print"]').check();
@@ -751,7 +754,7 @@ test('look and frame changes reject held replies, gate the shutter, and preserve
   expect(probe.commits.some((commit) => commit.id === pendingCapture.id)).toBe(false);
   expect(probe.request.look.id).toBe('print');
 
-  await page.locator('#open-framing').click();
+  await openPanel(page, 'framing');
   await page.locator('input[name="framing"][value="full"]').check();
   await page.locator('#close-look-sheet').click();
   await page.waitForFunction(() => document.querySelector('#ascii-output').dataset.framing === 'full');
@@ -806,7 +809,7 @@ test('live ASCII recording saves a silent AVC clip with changing tinted artwork 
   await page.locator('#video-mode').click();
   await page.locator('#camera-shutter').click();
   await waitRecording(page, 2);
-  for (const selector of ['#open-looks', '#open-framing', '#flip-camera', '#camera-import', '#photo-mode', '#studio-video']) {
+  for (const selector of ['#open-looks', '#open-chars', '#flip-camera', '#camera-import', '#photo-mode', '#studio-video']) {
     await expect(page.locator(selector)).toBeDisabled();
   }
   await expect(page.locator('#camera-stop')).toBeEnabled();
@@ -1262,7 +1265,6 @@ test('the rail keeps deliberate rows and a stable topbar across camera state', a
   await expect(page.locator('#flip-camera')).toBeHidden();
   await expect(page.locator('#camera-stop')).toBeHidden();
   await expect(page.locator('#fit-output')).toBeDisabled();
-  await expect(page.locator('#detail-output')).toBeDisabled();
 
   const guidesX = (await page.locator('#toggle-guides').boundingBox()).x;
   const rows = await page.evaluate(() => ({
@@ -1292,7 +1294,6 @@ test('the rail keeps deliberate rows and a stable topbar across camera state', a
     .toBe(await page.locator('#camera-import').evaluate((button) => getComputedStyle(button).color));
   await expect(page.locator('#camera-stop')).toBeVisible();
   await expect(page.locator('#fit-output')).toBeEnabled();
-  await expect(page.locator('#detail-output')).toBeEnabled();
   expect((await page.locator('#toggle-guides').boundingBox()).x, 'starting the camera never shifts GUIDES').toBe(guidesX);
 
   const liveSeams = await page.evaluate(() => {
@@ -1359,17 +1360,4 @@ test('the readout separates settings tiles from grid telemetry', async ({ page }
   expect(separation.tileCount).toBe(4);
   expect(separation.tileHeights).toHaveLength(1);
   expect(separation.tileBorders).toEqual(['solid']);
-});
-
-test('100% view marks the art as pannable', async ({ page }) => {
-  await page.setViewportSize({ width: 356, height: 784 });
-  await openApp(page);
-  await page.locator('#camera-shutter').click();
-  await waitCameraCommit(page);
-  const viewport = page.locator('.ascii-viewport');
-  await page.locator('#detail-output').click();
-  await expect(viewport).toHaveAttribute('data-pannable', 'true');
-  expect(await viewport.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
-  await page.locator('#fit-output').click();
-  await expect(viewport).toHaveAttribute('data-pannable', 'false');
 });
